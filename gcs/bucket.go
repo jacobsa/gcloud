@@ -13,10 +13,16 @@ import (
 
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
 // authorization information.
+//
+// Each method that may block accepts a context object that is used for
+// deadlines and cancellation. Users need not package authorization information
+// into the context object (using cloud.WithContext or similar).
 type Bucket interface {
 	Name() string
 
-	// ListObjects lists objects in the bucket that meet certain criteria.
+	// List the objects in the bucket that meet the criteria defined by the
+	// query, returning a result object that contains the results and potentially
+	// a cursor for retrieving the next portion of the larger set of results.
 	ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error)
 }
 
