@@ -4,6 +4,7 @@
 package gcs
 
 import (
+	"io"
 	"net/http"
 
 	"golang.org/x/net/context"
@@ -24,6 +25,11 @@ type Bucket interface {
 	// query, returning a result object that contains the results and potentially
 	// a cursor for retrieving the next portion of the larger set of results.
 	ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error)
+
+	// Create a reader for the contents of the object with the given name. The
+	// caller must arrange for the reader to be closed when it is no longer
+	// needed.
+	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
 }
 
 type bucket struct {
@@ -39,4 +45,9 @@ func (b *bucket) Name() string {
 func (b *bucket) ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.ListObjects(authContext, b.name, query)
+}
+
+func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadCloser, error) {
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	return storage.NewReader(authContext, b.name, objectName)
 }
