@@ -33,7 +33,8 @@ type Bucket interface {
 	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
 
 	// Return an ObjectWriter that can be used to create or overwrite an object
-	// with the given attributes. attrs.Name must be specified.
+	// with the given attributes. attrs.Name must be specified. Otherwise, nil-
+	// and zero-valud attributes are ignored.
 	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
 }
 
