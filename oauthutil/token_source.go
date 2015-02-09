@@ -6,6 +6,7 @@ package oauthutil
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -35,6 +36,11 @@ func NewTerribleTokenSource(
 	config *oauth2.Config,
 	authCodeFlag *flag.Flag,
 	cacheFilename string) (oauth2.TokenSource, error) {
+	// Catch the common mistake of an unknown flag.
+	if authCodeFlag == nil {
+		return nil, errors.New("NewTerribleTokenSource passed a nil flag.")
+	}
+
 	// Expand the path to the token cache.
 	homedir, err := getHomeDir()
 	if err != nil {
