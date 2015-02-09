@@ -1,6 +1,7 @@
 // Copyright 2015 Google Inc. All Rights Reserved.
 // Author: jacobsa@google.com (Aaron Jacobs)
 
+// Utility code for working with OAuth. Subject to interface change.
 package oauthutil
 
 import (
