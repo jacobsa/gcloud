@@ -10,8 +10,12 @@ import (
 )
 
 // An interface for creating objects within a GCS bucket. The user writes the
-// object's contents via the Write method, then calls Close. If successful,
-// metadata about the object will be available via the Object method.
+// object's contents via the Write method, then calls Close. The new object is
+// not visible (and any previous version is not overwritten) until Close is
+// called.
+//
+// If Close is successful, metadata about the object will be available via the
+// Object method.
 type ObjectWriter interface {
 	io.WriteCloser
 
