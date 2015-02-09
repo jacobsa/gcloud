@@ -19,10 +19,42 @@ import (
 
 func TestIntegration(t *testing.T) { RunTests(t) }
 
-type IntegrationTest struct{}
+////////////////////////////////////////////////////////////////////////
+// Listing
+////////////////////////////////////////////////////////////////////////
 
-func init() { RegisterTestSuite(&IntegrationTest{}) }
+type ListingTest struct{}
 
-func (t *IntegrationTest) DoesFoo() {
+func init() { RegisterTestSuite(&ListingTest{}) }
+
+func (t *ListingTest) EmptyBucket() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) TrivialQuery() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) Delimeter() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) Prefix() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) DelimeterAndPrefix() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) Cursor() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) Ordering() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListingTest) Atomicity() {
 	AssertFalse(true, "TODO")
 }
