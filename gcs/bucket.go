@@ -4,6 +4,7 @@
 package gcs
 
 import (
+	"errors"
 	"io"
 	"net/http"
 
@@ -30,6 +31,10 @@ type Bucket interface {
 	// caller must arrange for the reader to be closed when it is no longer
 	// needed.
 	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
+
+	// Return an ObjectWriter that can be used to create or overwrite an object
+	// with the given name.
+	NewWriter(ctx context.Context, objectName string) (ObjectWriter, error)
 }
 
 type bucket struct {
@@ -50,4 +55,8 @@ func (b *bucket) ListObjects(ctx context.Context, query *storage.Query) (*storag
 func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadCloser, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.NewReader(authContext, b.name, objectName)
+}
+
+func (b *bucket) NewWriter(ctx context.Context, objectName string) (ObjectWriter, error) {
+	return nil, errors.New("TODO(jacobsa): Implement NewWriter.")
 }
