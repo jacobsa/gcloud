@@ -4,7 +4,6 @@
 package gcs
 
 import (
-	"errors"
 	"io"
 	"net/http"
 
@@ -59,5 +58,11 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 }
 
 func (b *bucket) NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error) {
-	return nil, errors.New("TODO(jacobsa): Implement NewWriter.")
+	w := &objectWriter{
+		wrapped: &storage.Writer{
+			ObjectAttrs: *attrs,
+		},
+	}
+
+	return w, nil
 }

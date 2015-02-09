@@ -23,3 +23,11 @@ type ObjectWriter interface {
 	// if Close() was called and was successful.
 	Object() *storage.Object
 }
+
+type objectWriter struct {
+	wrapped *storage.Writer
+}
+
+func (w *objectWriter) Write(p []byte) (n int, err error)
+func (w *objectWriter) Close() error
+func (w *objectWriter) Object() *storage.Object
