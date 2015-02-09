@@ -37,8 +37,8 @@ var fAuthCode = flag.String("auth_code", "", "Auth code from GCS console.")
 func getHttpClientOrDie() *http.Client {
 	// Set up a token source.
 	config := &oauth2.Config{
-		ClientID:     "517659276674-6am1g9cau0bc0pbre6d59d9b5168b1tr.apps.googleusercontent.com",
-		ClientSecret: "YXtgLuEVJoTlG-3D-4UoGEGq",
+		ClientID:     "517659276674-k9tr62f5rpd1k6ivvhadq0etbu4gu3t5.apps.googleusercontent.com",
+		ClientSecret: "A6Xo63GDMRHmZ2TB7CO99lLN",
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
 		Scopes:       []string{storage.DevstorageFull_controlScope},
 		Endpoint:     google.Endpoint,
