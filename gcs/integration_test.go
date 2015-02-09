@@ -4,10 +4,14 @@
 // An integration test that uses the real GCS. Run it with appropriate flags as
 // follows:
 //
-//     TODO(jacobsa): Invocation example.
+//     go test -bucket <bucket name>
 //
 // The bucket must be empty initially. The test will attempt to clean up after
 // itself, but no guarantees.
+//
+// The first time you run the test, it may die with a URL to visit to obtain an
+// authorization code after authorizing the test to access your bucket. Run it
+// again with the "-auth_code" flag afterward.
 
 package gcs_test
 
