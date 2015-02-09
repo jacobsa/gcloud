@@ -33,8 +33,8 @@ type Bucket interface {
 	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
 
 	// Return an ObjectWriter that can be used to create or overwrite an object
-	// with the given name.
-	NewWriter(ctx context.Context, objectName string) (ObjectWriter, error)
+	// with the given attributes. attrs.Name must be specified.
+	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
 }
 
 type bucket struct {
@@ -57,6 +57,6 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 	return storage.NewReader(authContext, b.name, objectName)
 }
 
-func (b *bucket) NewWriter(ctx context.Context, objectName string) (ObjectWriter, error) {
+func (b *bucket) NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error) {
 	return nil, errors.New("TODO(jacobsa): Implement NewWriter.")
 }
