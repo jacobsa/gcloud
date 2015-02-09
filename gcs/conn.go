@@ -16,7 +16,7 @@ type Conn interface {
 // Open a connection to GCS for the project with the given ID using the
 // supplied HTTP client, which is assumed to handle authorization and
 // authentication.
-func OpenConn(projID string, c *http.Client) (Conn, error) {
+func NewConn(projID string, c *http.Client) (Conn, error) {
 	return &conn{projID, c}, nil
 }
 
