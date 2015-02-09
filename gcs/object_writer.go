@@ -28,6 +28,14 @@ type objectWriter struct {
 	wrapped *storage.Writer
 }
 
-func (w *objectWriter) Write(p []byte) (n int, err error)
-func (w *objectWriter) Close() error
-func (w *objectWriter) Object() *storage.Object
+func (w *objectWriter) Write(p []byte) (int, error) {
+	return w.wrapped.Write(p)
+}
+
+func (w *objectWriter) Close() error {
+	return w.wrapped.Close()
+}
+
+func (w *objectWriter) Object() *storage.Object {
+	return w.wrapped.Object()
+}
