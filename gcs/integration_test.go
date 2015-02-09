@@ -31,7 +31,8 @@ func TestOgletest(t *testing.T) { RunTests(t) }
 // Wiring code
 ////////////////////////////////////////////////////////////////////////
 
-var fBucketName = flag.String("bucket", "", "Empty bucket to use for storage.")
+var fBucket = flag.String("bucket", "", "Empty bucket to use for storage.")
+var fAuthCode = flag.String("auth_code", "", "Auth code from GCS console.")
 
 func getHttpClientOrDie() *http.Client {
 	// Set up a token source.
@@ -68,7 +69,7 @@ func getHttpClientOrDie() *http.Client {
 }
 
 func getBucketNameOrDie() string {
-	s := *fBucketName
+	s := *fBucket
 	if s == "" {
 		log.Fatalln("You must set --bucket.")
 	}
