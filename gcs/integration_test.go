@@ -14,18 +14,40 @@ package gcs_test
 import (
 	"testing"
 
+	"github.com/jacobsa/gcloud/gcs"
 	. "github.com/jacobsa/ogletest"
 )
 
-func TestIntegration(t *testing.T) { RunTests(t) }
+func TestOgletest(t *testing.T) { RunTests(t) }
+
+////////////////////////////////////////////////////////////////////////
+// Helpers
+////////////////////////////////////////////////////////////////////////
+
+// Return a bucket based on the contents of command-line flags, exiting the
+// process if misconfigured.
+func getBucketOrDie() gcs.Bucket
+
+// Delete everything in the bucket, exiting the process on failure.
+func deleteAllObjectsOrDie(b gcs.Bucket)
 
 ////////////////////////////////////////////////////////////////////////
 // Listing
 ////////////////////////////////////////////////////////////////////////
 
-type ListingTest struct{}
+type ListingTest struct {
+	bucket gcs.Bucket
+}
 
 func init() { RegisterTestSuite(&ListingTest{}) }
+
+func (t *ListingTest) SetUp() {
+	t.bucket = getBucketOrDie()
+}
+
+func (t *ListingTest) TearDown() {
+	deleteAllObjectsOrDie(t.bucket)
+}
 
 func (t *ListingTest) EmptyBucket() {
 	AssertFalse(true, "TODO")
