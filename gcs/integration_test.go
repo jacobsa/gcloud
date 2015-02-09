@@ -96,7 +96,6 @@ func getBucketOrDie() gcs.Bucket {
 
 // Delete everything in the bucket, exiting the process on failure.
 func deleteAllObjectsOrDie(b gcs.Bucket) {
-	log.Println("ASDASDASD")
 	log.Fatalln("TODO(jacobsa): Implement deleteAllObjectsOrDie.")
 }
 
@@ -110,7 +109,7 @@ type ListingTest struct {
 
 func init() { RegisterTestSuite(&ListingTest{}) }
 
-func (t *ListingTest) SetUp() {
+func (t *ListingTest) SetUp(ti *TestInfo) {
 	t.bucket = getBucketOrDie()
 }
 
