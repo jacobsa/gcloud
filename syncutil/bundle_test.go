@@ -106,7 +106,15 @@ func (t *BundleTest) MultipleOps_UnorderedErrors() {
 }
 
 func (t *BundleTest) MultipleOps_OneError_OthersDontWait() {
-	AssertFalse(true, "TODO")
+	expected := errors.New("taco")
+
+	// Add two operations that succeed and one that fails.
+	t.bundle.Add(func(c context.Context) error { return nil })
+	t.bundle.Add(func(c context.Context) error { return expected })
+	t.bundle.Add(func(c context.Context) error { return nil })
+
+	// We should see the failure.
+	ExpectEq(expected, t.bundle.Join())
 }
 
 func (t *BundleTest) MultipleOps_OneError_OthersWaitForCancellation() {
