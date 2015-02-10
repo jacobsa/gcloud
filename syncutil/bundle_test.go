@@ -4,6 +4,7 @@
 package syncutil_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacobsa/gcloud/syncutil"
@@ -50,7 +51,12 @@ func (t *BundleTest) SingleOp_Success() {
 }
 
 func (t *BundleTest) SingleOp_Error() {
-	AssertFalse(true, "TODO")
+	expected := errors.New("taco")
+	t.bundle.Add(func(c context.Context) error {
+		return expected
+	})
+
+	ExpectEq(expected, t.bundle.Join())
 }
 
 func (t *BundleTest) SingleOp_ParentCancelled() {
