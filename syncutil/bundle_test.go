@@ -5,6 +5,7 @@ package syncutil_test
 
 import (
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/jacobsa/gcloud/syncutil"
@@ -151,7 +152,35 @@ func (t *BundleTest) MultipleOps_ParentCancelled() {
 }
 
 func (t *BundleTest) MultipleOps_PreviousError_NewOpsObserve() {
-	AssertFalse(true, "TODO")
+	var wg sync.WaitGroup
+	signalCancellation := func(c context.Context) error {
+		<-c.Done()
+		wg.Done()
+		return nil
+	}
+
+	// Start an op that will let us know when it is cancelled.
+	wg.Add(1)
+	t.bundle.Add(signalCancellation)
+
+	// Start an op that returns an error.
+	expected := errors.New("taco")
+	t.bundle.Add(func(c context.Context) error { return expected })
+
+	// Wait for the error to be observed.
+	wg.Wait()
+
+	// Further ops should be immediately cancelled.
+	wg = sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		t.bundle.Add(signalCancellation)
+	}
+
+	wg.Wait()
+
+	// Join.
+	ExpectEq(expected, t.bundle.Join())
 }
 
 func (t *BundleTest) MultipleOps_PreviousParentCancel_NewOpsObserve() {
