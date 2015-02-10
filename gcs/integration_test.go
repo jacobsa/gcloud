@@ -105,10 +105,6 @@ func getBucketOrDie() gcs.Bucket {
 // Responsibility for closing the channel is not accepted.
 func listIntoChannel(ctx context.Context, b gcs.Bucket, objectNames chan<- string) error
 
-// Delete all objects whose names arrive on the supplied channel. May return
-// early in error without draining the channel.
-func deleteFromChannel(ctx context.Context, b gcs.Bucket, objectNames <-chan string) error
-
 // Delete everything in the bucket, exiting the process on failure.
 func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
 	bundle := syncutil.NewBundle(ctx)
@@ -124,7 +120,13 @@ func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
 	const parallelism = 10
 	for i := 0; i < parallelism; i++ {
 		bundle.Add(func(ctx context.Context) error {
-			return deleteFromChannel(ctx, b, objectNames)
+			for objectName := range objectNames {
+				if err := b.DeleteObject(ctx, objectName); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		})
 	}
 
