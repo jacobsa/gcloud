@@ -234,9 +234,53 @@ func (t *BundleTest) JoinWaitsForAllOps_Success() {
 }
 
 func (t *BundleTest) JoinWaitsForAllOps_Error() {
-	AssertFalse(true, "TODO")
+	expected := errors.New("taco")
+
+	// Set up a 64-bit counter that is guaranteed to be properly aligned.
+	// Cf. "Bugs" section of http://godoc.org/sync/atomic.
+	slice := make([]uint64, 1)
+	var counter *uint64 = &slice[0]
+
+	// Start several ops that sleep awhile, increment a counter, and return an
+	// error.
+	const N = 100
+	for i := 0; i < N; i++ {
+		t.bundle.Add(func(c context.Context) error {
+			numMs := rand.Float64() * 100
+			time.Sleep(time.Duration(numMs) * time.Millisecond)
+			atomic.AddUint64(counter, 1)
+			return expected
+		})
+	}
+
+	// Wait for all of the ops. Afterward, the counter should have the expected
+	// value.
+	AssertEq(expected, t.bundle.Join())
+	ExpectEq(N, atomic.LoadUint64(counter))
 }
 
 func (t *BundleTest) JoinWaitsForAllOps_ParentCancelled() {
-	AssertFalse(true, "TODO")
+	t.cancelParent()
+
+	// Set up a 64-bit counter that is guaranteed to be properly aligned.
+	// Cf. "Bugs" section of http://godoc.org/sync/atomic.
+	slice := make([]uint64, 1)
+	var counter *uint64 = &slice[0]
+
+	// Start several ops that sleep awhile, increment a counter, and return an
+	// error.
+	const N = 100
+	for i := 0; i < N; i++ {
+		t.bundle.Add(func(c context.Context) error {
+			numMs := rand.Float64() * 100
+			time.Sleep(time.Duration(numMs) * time.Millisecond)
+			atomic.AddUint64(counter, 1)
+			return nil
+		})
+	}
+
+	// Wait for all of the ops. Afterward, the counter should have the expected
+	// value.
+	AssertEq(nil, t.bundle.Join())
+	ExpectEq(N, atomic.LoadUint64(counter))
 }
