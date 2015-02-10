@@ -133,7 +133,21 @@ func (t *BundleTest) MultipleOps_OneError_OthersWaitForCancellation() {
 }
 
 func (t *BundleTest) MultipleOps_ParentCancelled() {
-	AssertFalse(true, "TODO")
+	expected := errors.New("taco")
+
+	// Start multiple ops that wait for the context to be cancelled before
+	// returning an expected value.
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return expected })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return expected })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return expected })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return expected })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return expected })
+
+	// Cancel the parent context, then join the bundle. The ops should see the
+	// cancellation, so we shouldn't deadlock and we should get the expected
+	// value.
+	t.cancelParent()
+	ExpectEq(expected, t.bundle.Join())
 }
 
 func (t *BundleTest) MultipleOps_PreviousError_NewOpsObserve() {
