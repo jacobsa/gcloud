@@ -52,6 +52,8 @@ import (
 //       return bundle.Join()
 //    }
 //
+// Bundles must be created using NewBundle. Bundle methods must not be called
+// concurrently.
 type Bundle struct {
 	context context.Context
 	cancel  context.CancelFunc
@@ -62,7 +64,9 @@ type Bundle struct {
 	firstError error
 }
 
-// XXX: Comments
+// Add a new operation to the bundle. The operation will be invoked with a
+// context that will be cancelled if any other operation fails or has already
+// failed.
 func (b *Bundle) Add(f func(context.Context) error) {
 	b.waitGroup.Add(1)
 
@@ -83,18 +87,18 @@ func (b *Bundle) Add(f func(context.Context) error) {
 	}()
 }
 
-// XXX: Comments
+// Wait for all previously-added operations to complete. Return nil if all
+// operations succeeded. Otherwise return the first error.
+//
+// Add must not be called concurrently with or after Join.
 func (b *Bundle) Join() error {
 	b.waitGroup.Wait()
 	return b.firstError
 }
 
-// XXX: Comments for interface and impl
+// Create a bundle whose operations are fed a context inheriting from the given
+// parent context, which must be non-nil.
 func NewBundle(parent context.Context) *Bundle {
-	if parent == nil {
-		parent = context.Background()
-	}
-
 	b := &Bundle{}
 	b.context, b.cancel = context.WithCancel(parent)
 
