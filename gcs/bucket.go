@@ -35,6 +35,9 @@ type Bucket interface {
 	// with the given attributes. attrs.Name must be specified. Otherwise, nil-
 	// and zero-valud attributes are ignored.
 	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
+
+	// Delete the object with the given name.
+	DeleteObject(ctx context.Context, name string) error
 }
 
 type bucket struct {
@@ -65,4 +68,9 @@ func (b *bucket) NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (Obj
 	}
 
 	return w, nil
+}
+
+func (b *bucket) DeleteObject(ctx context.Context, name string) error {
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	return storage.DeleteObject(authContext, b.name, name)
 }
