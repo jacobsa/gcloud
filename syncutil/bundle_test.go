@@ -38,11 +38,15 @@ func (t *BundleTest) SetUp(ti *TestInfo) {
 ////////////////////////////////////////////////////////////////////////
 
 func (t *BundleTest) NoOperations() {
-	AssertFalse(true, "TODO")
+	ExpectEq(nil, t.bundle.Join())
 }
 
 func (t *BundleTest) SingleOp_Success() {
-	AssertFalse(true, "TODO")
+	t.bundle.Add(func(c context.Context) error {
+		return nil
+	})
+
+	ExpectEq(nil, t.bundle.Join())
 }
 
 func (t *BundleTest) SingleOp_Error() {
