@@ -49,7 +49,7 @@ import (
 //       }
 //
 //       // Wait for the whole pipeline to finish, and return its status.
-//       return bundle.Wait()
+//       return bundle.Join()
 //    }
 //
 type Bundle struct {
