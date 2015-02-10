@@ -23,7 +23,9 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/oauthutil"
+	"github.com/jacobsa/gcloud/syncutil"
 	. "github.com/jacobsa/ogletest"
+	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/storage/v1"
@@ -99,9 +101,37 @@ func getBucketOrDie() gcs.Bucket {
 	return conn.GetBucket(getBucketNameOrDie())
 }
 
+// List all object names in the bucket into the supplied channel, closing it
+// when finished (regardless of error status).
+func listIntoChannel(ctx context.Context, b gcs.Bucket, objectNames chan<- string) error
+
+// Delete all objects whose names arrive on the supplied channel. May return
+// early in error without draining the channel.
+func deleteFromChannel(ctx context.Context, b gcs.Bucket, objectNames <-chan string) error
+
 // Delete everything in the bucket, exiting the process on failure.
-func deleteAllObjectsOrDie(b gcs.Bucket) {
-	log.Fatalln("TODO(jacobsa): Implement deleteAllObjectsOrDie.")
+func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
+	bundle := syncutil.NewBundle(ctx)
+
+	// List all of the objects in the bucket.
+	objectNames := make(chan string, 10)
+	bundle.Add(func(ctx context.Context) error {
+		return listIntoChannel(ctx, b, objectNames)
+	})
+
+	// Delete the objects in parallel.
+	const parallelism = 10
+	for i := 0; i < parallelism; i++ {
+		bundle.Add(func(ctx context.Context) error {
+			return deleteFromChannel(ctx, b, objectNames)
+		})
+	}
+
+	// Wait.
+	err := bundle.Join()
+	if err != nil {
+		panic("deleteAllObjectsOrDie: " + err.Error())
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -119,7 +149,7 @@ func (t *ListingTest) SetUp(ti *TestInfo) {
 }
 
 func (t *ListingTest) TearDown() {
-	deleteAllObjectsOrDie(t.bucket)
+	deleteAllObjectsOrDie(context.Background(), t.bucket)
 }
 
 func (t *ListingTest) EmptyBucket() {
