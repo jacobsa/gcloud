@@ -184,7 +184,27 @@ func (t *BundleTest) MultipleOps_PreviousError_NewOpsObserve() {
 }
 
 func (t *BundleTest) MultipleOps_PreviousParentCancel_NewOpsObserve() {
-	AssertFalse(true, "TODO")
+	var wg sync.WaitGroup
+	signalCancellation := func(c context.Context) error {
+		<-c.Done()
+		wg.Done()
+		return nil
+	}
+
+	// Cancel the parent context.
+	t.cancelParent()
+
+	// Further ops should be immediately cancelled.
+	wg = sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		t.bundle.Add(signalCancellation)
+	}
+
+	wg.Wait()
+
+	// Join.
+	t.bundle.Join()
 }
 
 func (t *BundleTest) JoinWaitsForAllOps_Success() {
