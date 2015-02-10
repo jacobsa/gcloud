@@ -28,7 +28,8 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/storage/v1"
+	storagev1 "google.golang.org/api/storage/v1"
+	"google.golang.org/cloud/storage"
 )
 
 func TestOgletest(t *testing.T) { RunTests(t) }
@@ -46,7 +47,7 @@ func getHttpClientOrDie() *http.Client {
 		ClientID:     "517659276674-k9tr62f5rpd1k6ivvhadq0etbu4gu3t5.apps.googleusercontent.com",
 		ClientSecret: "A6Xo63GDMRHmZ2TB7CO99lLN",
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
-		Scopes:       []string{storage.DevstorageFull_controlScope},
+		Scopes:       []string{storagev1.DevstorageFull_controlScope},
 		Endpoint:     google.Endpoint,
 	}
 
@@ -103,7 +104,27 @@ func getBucketOrDie() gcs.Bucket {
 
 // List all object names in the bucket into the supplied channel.
 // Responsibility for closing the channel is not accepted.
-func listIntoChannel(ctx context.Context, b gcs.Bucket, objectNames chan<- string) error
+func listIntoChannel(ctx context.Context, b gcs.Bucket, objectNames chan<- string) error {
+	query := &storage.Query{}
+	for query != nil {
+		objects, err := b.ListObjects(ctx, query)
+		if err != nil {
+			return err
+		}
+
+		for _, obj := range objects.Results {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case objectNames <- obj.Name:
+			}
+		}
+
+		query = objects.Next
+	}
+
+	return nil
+}
 
 // Delete everything in the bucket, exiting the process on failure.
 func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
