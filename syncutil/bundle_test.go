@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacobsa/gcloud/syncutil"
+	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
 )
@@ -86,7 +87,22 @@ func (t *BundleTest) MultipleOps_Success() {
 }
 
 func (t *BundleTest) MultipleOps_UnorderedErrors() {
-	AssertFalse(true, "TODO")
+	// Start multiple ops, each returning a different error.
+	errs := []error{
+		errors.New("taco"),
+		errors.New("burrito"),
+		errors.New("enchilada"),
+	}
+
+	for i := 0; i < len(errs); i++ {
+		iCopy := i
+		t.bundle.Add(func(c context.Context) error {
+			return errs[iCopy]
+		})
+	}
+
+	// Joining the bundle should result in some error from the list.
+	ExpectThat(errs, Contains(t.bundle.Join()))
 }
 
 func (t *BundleTest) MultipleOps_OneError_OthersDontWait() {
