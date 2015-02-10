@@ -6,6 +6,7 @@ package syncutil_test
 import (
 	"errors"
 	"math/rand"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,7 +29,15 @@ type BundleTest struct {
 	cancelParent context.CancelFunc
 }
 
+var _ SetUpTestSuiteInterface = &BundleTest{}
+var _ SetUpInterface = &BundleTest{}
+
 func init() { RegisterTestSuite(&BundleTest{}) }
+
+func (t *BundleTest) SetUpTestSuite() {
+	// Make sure parallelism is allowed.
+	runtime.GOMAXPROCS(runtime.NumCPU())
+}
 
 func (t *BundleTest) SetUp(ti *TestInfo) {
 	// Set up the parent context.
