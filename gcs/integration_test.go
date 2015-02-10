@@ -24,6 +24,7 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/oauthutil"
 	"github.com/jacobsa/gcloud/syncutil"
+	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -163,21 +164,33 @@ func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
 ////////////////////////////////////////////////////////////////////////
 
 type ListingTest struct {
+	ctx    context.Context
 	bucket gcs.Bucket
 }
 
 func init() { RegisterTestSuite(&ListingTest{}) }
 
 func (t *ListingTest) SetUp(ti *TestInfo) {
+	t.ctx = context.Background()
 	t.bucket = getBucketOrDie()
 }
 
 func (t *ListingTest) TearDown() {
-	deleteAllObjectsOrDie(context.Background(), t.bucket)
+	deleteAllObjectsOrDie(t.ctx, t.bucket)
 }
 
+/////////////////////////
+// Test functions
+/////////////////////////
+
 func (t *ListingTest) EmptyBucket() {
-	AssertFalse(true, "TODO")
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertNe(nil, objects)
+	ExpectThat(objects.Results, ElementsAre())
+	ExpectThat(objects.Prefixes, ElementsAre())
+	ExpectEq(nil, objects.Next)
 }
 
 func (t *ListingTest) TrivialQuery() {
