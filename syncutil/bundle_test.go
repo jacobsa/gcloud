@@ -37,6 +37,46 @@ func (t *BundleTest) SetUp(ti *TestInfo) {
 // Test functions
 ////////////////////////////////////////////////////////////////////////
 
-func (t *BundleTest) DoesFoo() {
+func (t *BundleTest) NoOperations() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) SingleOp_Success() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) SingleOp_Error() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) SingleOp_ParentCancelled() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_Success() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_UnorderedErrors() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_OneError_OthersDontWait() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_OneError_OthersWaitForCancellation() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_ParentCancelled() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_PreviousError_NewOpsObserve() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) MultipleOps_PreviousParentCancel_NewOpsObserve() {
 	AssertFalse(true, "TODO")
 }
