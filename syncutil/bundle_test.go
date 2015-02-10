@@ -60,7 +60,19 @@ func (t *BundleTest) SingleOp_Error() {
 }
 
 func (t *BundleTest) SingleOp_ParentCancelled() {
-	AssertFalse(true, "TODO")
+	// Start an op that waits for the context to be cancelled before returning an
+	// expected value.
+	expected := errors.New("taco")
+	t.bundle.Add(func(c context.Context) error {
+		<-c.Done()
+		return expected
+	})
+
+	// Cancel the parent context, then join the bundle. The op should see the
+	// cancellation, so we shouldn't deadlock and we should get the expected
+	// value.
+	t.cancelParent()
+	ExpectEq(expected, t.bundle.Join())
 }
 
 func (t *BundleTest) MultipleOps_Success() {
