@@ -118,7 +118,18 @@ func (t *BundleTest) MultipleOps_OneError_OthersDontWait() {
 }
 
 func (t *BundleTest) MultipleOps_OneError_OthersWaitForCancellation() {
-	AssertFalse(true, "TODO")
+	expected := errors.New("taco")
+
+	// Add several ops that wait for cancellation then succeed, and one that
+	// returns an error.
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return nil })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return nil })
+	t.bundle.Add(func(c context.Context) error { return expected })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return nil })
+	t.bundle.Add(func(c context.Context) error { <-c.Done(); return nil })
+
+	// We should see the failure.
+	ExpectEq(expected, t.bundle.Join())
 }
 
 func (t *BundleTest) MultipleOps_ParentCancelled() {
@@ -133,6 +144,14 @@ func (t *BundleTest) MultipleOps_PreviousParentCancel_NewOpsObserve() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *BundleTest) JoinWaitsForAllOps() {
+func (t *BundleTest) JoinWaitsForAllOps_Success() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) JoinWaitsForAllOps_Error() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) JoinWaitsForAllOps_ParentCancelled() {
 	AssertFalse(true, "TODO")
 }
