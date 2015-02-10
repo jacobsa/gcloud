@@ -34,6 +34,7 @@ import (
 //       // before draining the channel.
 //       objectNames := make(chan string)
 //       bundle.Add(func(ctx context.Context) error {
+//         defer close(objectNames)
 //         return listObjects(ctx, objectNames)
 //       })
 //

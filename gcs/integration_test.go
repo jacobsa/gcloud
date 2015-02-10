@@ -101,8 +101,8 @@ func getBucketOrDie() gcs.Bucket {
 	return conn.GetBucket(getBucketNameOrDie())
 }
 
-// List all object names in the bucket into the supplied channel, closing it
-// when finished (regardless of error status).
+// List all object names in the bucket into the supplied channel.
+// Responsibility for closing the channel is not accepted.
 func listIntoChannel(ctx context.Context, b gcs.Bucket, objectNames chan<- string) error
 
 // Delete all objects whose names arrive on the supplied channel. May return
@@ -116,6 +116,7 @@ func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
 	// List all of the objects in the bucket.
 	objectNames := make(chan string, 10)
 	bundle.Add(func(ctx context.Context) error {
+		defer close(objectNames)
 		return listIntoChannel(ctx, b, objectNames)
 	})
 
