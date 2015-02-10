@@ -76,7 +76,13 @@ func (t *BundleTest) SingleOp_ParentCancelled() {
 }
 
 func (t *BundleTest) MultipleOps_Success() {
-	AssertFalse(true, "TODO")
+	for i := 0; i < 4; i++ {
+		t.bundle.Add(func(c context.Context) error {
+			return nil
+		})
+	}
+
+	ExpectEq(nil, t.bundle.Join())
 }
 
 func (t *BundleTest) MultipleOps_UnorderedErrors() {
@@ -100,5 +106,9 @@ func (t *BundleTest) MultipleOps_PreviousError_NewOpsObserve() {
 }
 
 func (t *BundleTest) MultipleOps_PreviousParentCancel_NewOpsObserve() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *BundleTest) JoinWaitsForAllOps() {
 	AssertFalse(true, "TODO")
 }
