@@ -438,7 +438,12 @@ func (t *ListingTest) DelimiterAndPrefix() {
 	// Prefixes
 	ExpectThat(
 		objects.Prefixes,
-		ElementsAre("blah!b!", "blah!b\x00!", "blah!b\x01!", "blah!b타코!"))
+		ElementsAre(
+			"blah!b\x00!",
+			"blah!b\x01!",
+			"blah!b!",
+			"blah!b타코!",
+		))
 
 	// Objects
 	AssertEq(4, len(objects.Results))
