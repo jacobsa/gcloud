@@ -63,7 +63,6 @@ func getHttpClientOrDie() *http.Client {
 
 	// Ensure that we fail early if misconfigured, by requesting an initial
 	// token.
-	log.Println("Requesting initial OAuth token.")
 	if _, err := tokenSource.Token(); err != nil {
 		log.Fatalln("Getting initial OAuth token:", err)
 	}

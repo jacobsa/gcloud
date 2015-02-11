@@ -98,7 +98,6 @@ func (ts *tokenSource) getAuthCode() string {
 
 func (ts *tokenSource) getToken() (*oauth2.Token, error) {
 	// First consult the cache.
-	log.Println("Looking up OAuth token in cache.")
 	t, err := ts.LookUp()
 	if err != nil {
 		// Log the error and ignore it.
