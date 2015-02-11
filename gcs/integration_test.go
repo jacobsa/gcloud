@@ -181,6 +181,7 @@ func (t *ListingTest) TearDown() {
 }
 
 func (t *ListingTest) createObject(name string, contents []byte) error {
+	// Create a writer.
 	attrs := &storage.ObjectAttrs{
 		Name: name,
 	}
@@ -190,8 +191,11 @@ func (t *ListingTest) createObject(name string, contents []byte) error {
 		return err
 	}
 
+	// Copy into the writer.
 	_, err = io.Copy(writer, bytes.NewReader(contents))
-	return err
+
+	// Close the writer.
+	return writer.Close()
 }
 
 /////////////////////////
