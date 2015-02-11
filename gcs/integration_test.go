@@ -455,7 +455,73 @@ func (t *ListingTest) DelimiterAndPrefix() {
 }
 
 func (t *ListingTest) Cursor() {
-	AssertFalse(true, "TODO")
+	// Create a good number of objects, containing a run of objects sharing a
+	// prefix under the delimiter "!".
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"a",
+				"b",
+				"c",
+				"c!0",
+				"c!1",
+				"c!2",
+				"c!3",
+				"c!4",
+				"d!",
+				"e",
+				"e!",
+				"f!",
+				"g!",
+				"h",
+			}))
+
+	// List repeatedly with a small value for MaxResults. Keep track of all of
+	// the objects and prefixes we find.
+	query := &storage.Query{
+		Delimiter:  "!",
+		MaxResults: 2,
+	}
+
+	var objects []string
+	var prefixes []string
+
+	for query != nil {
+		res, err := t.bucket.ListObjects(t.ctx, query)
+		AssertEq(nil, err)
+
+		for _, o := range res.Results {
+			objects = append(objects, o.Name)
+		}
+
+		for _, p := range res.Prefixes {
+			prefixes = append(prefixes, p)
+		}
+
+		query = res.Next
+	}
+
+	// Check the results.
+	ExpectThat(
+		objects,
+		ElementsAre(
+			"a",
+			"b",
+			"c",
+			"e",
+			"h"))
+
+	ExpectThat(
+		prefixes,
+		ElementsAre(
+			"c!",
+			"d!",
+			"e!",
+			"f!",
+			"g!"))
 }
 
 func (t *ListingTest) Ordering() {
