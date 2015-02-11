@@ -209,16 +209,16 @@ func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) e
 // Listing
 ////////////////////////////////////////////////////////////////////////
 
-type ListingTest struct {
+type ListTest struct {
 	ctx    context.Context
 	bucket gcs.Bucket
 }
 
-var _ SetUpInterface = &ListingTest{}
+var _ SetUpInterface = &ListTest{}
 
-func init() { RegisterTestSuite(&ListingTest{}) }
+func init() { RegisterTestSuite(&ListTest{}) }
 
-func (t *ListingTest) SetUp(ti *TestInfo) {
+func (t *ListTest) SetUp(ti *TestInfo) {
 	// Create a context and bucket.
 	t.ctx = context.Background()
 	t.bucket = getBucketOrDie()
@@ -227,7 +227,7 @@ func (t *ListingTest) SetUp(ti *TestInfo) {
 	deleteAllObjectsOrDie(t.ctx, t.bucket)
 }
 
-func (t *ListingTest) createObject(name string, contents string) error {
+func (t *ListTest) createObject(name string, contents string) error {
 	// Create a writer.
 	attrs := &storage.ObjectAttrs{
 		Name: name,
@@ -249,7 +249,7 @@ func (t *ListingTest) createObject(name string, contents string) error {
 // Test functions
 /////////////////////////
 
-func (t *ListingTest) EmptyBucket() {
+func (t *ListTest) EmptyBucket() {
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
@@ -259,7 +259,7 @@ func (t *ListingTest) EmptyBucket() {
 	ExpectEq(nil, objects.Next)
 }
 
-func (t *ListingTest) NewlyCreatedObject() {
+func (t *ListTest) NewlyCreatedObject() {
 	// Create an object.
 	AssertEq(nil, t.createObject("a", "taco"))
 
@@ -284,7 +284,7 @@ func (t *ListingTest) NewlyCreatedObject() {
 	ExpectEq(len("taco"), o.Size)
 }
 
-func (t *ListingTest) TrivialQuery() {
+func (t *ListTest) TrivialQuery() {
 	// Create few objects.
 	AssertEq(nil, t.createObject("a", "taco"))
 	AssertEq(nil, t.createObject("b", "burrito"))
@@ -317,7 +317,7 @@ func (t *ListingTest) TrivialQuery() {
 	ExpectEq(len("enchilada"), o.Size)
 }
 
-func (t *ListingTest) Delimiter() {
+func (t *ListTest) Delimiter() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -357,7 +357,7 @@ func (t *ListingTest) Delimiter() {
 	ExpectEq("e", objects.Results[2].Name)
 }
 
-func (t *ListingTest) Prefix() {
+func (t *ListTest) Prefix() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -394,7 +394,7 @@ func (t *ListingTest) Prefix() {
 	ExpectEq("b타코", objects.Results[3].Name)
 }
 
-func (t *ListingTest) DelimiterAndPrefix() {
+func (t *ListTest) DelimiterAndPrefix() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -454,7 +454,7 @@ func (t *ListingTest) DelimiterAndPrefix() {
 	ExpectEq("blah!b타코", objects.Results[3].Name)
 }
 
-func (t *ListingTest) Cursor() {
+func (t *ListTest) Cursor() {
 	// Create a good number of objects, containing a run of objects sharing a
 	// prefix under the delimiter "!".
 	AssertEq(
