@@ -229,16 +229,32 @@ func (t *ListingTest) TrivialQuery() {
 	var o *storage.Object
 	AssertThat(objects.Results, ElementsAre(Any(), Any(), Any()))
 
+	// a
 	o = objects.Results[0]
 	AssertEq("a", o.Name)
 	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq("TODO", o.ContentType)
-	ExpectEq("TODO", o.ContentLanguage)
-	ExpectEq("TODO", o.CacheControl)
-	ExpectEq("TODO", o.Owner)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
 	ExpectEq(len("taco"), o.Size)
 
-	AssertFalse(true, "TODO")
+	// b
+	o = objects.Results[1]
+	AssertEq("b", o.Name)
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectEq(len("burrito"), o.Size)
+
+	// c
+	o = objects.Results[2]
+	AssertEq("c", o.Name)
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectEq(len("enchilada"), o.Size)
 }
 
 func (t *ListingTest) Delimeter() {
