@@ -524,14 +524,6 @@ func (t *ListingTest) Cursor() {
 			"g!"))
 }
 
-func (t *ListingTest) Ordering() {
-	AssertFalse(true, "TODO")
-}
-
-func (t *ListingTest) Atomicity() {
-	AssertFalse(true, "TODO")
-}
-
 // TODO(jacobsa): CreateTest.Korean
 // TODO(jacobsa): CreateTest.CarriageReturn
 // TODO(jacobsa): CreateTest.LineFeed
