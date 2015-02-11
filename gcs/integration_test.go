@@ -335,7 +335,51 @@ func (t *ListingTest) Prefix() {
 }
 
 func (t *ListingTest) DelimiterAndPrefix() {
-	AssertFalse(true, "TODO")
+	// Create several objects.
+	AssertEq(nil, t.createObject("blag", ""))
+	AssertEq(nil, t.createObject("blag!", ""))
+	AssertEq(nil, t.createObject("blah", ""))
+	AssertEq(nil, t.createObject("blah!a", ""))
+	AssertEq(nil, t.createObject("blah!a\xff", ""))
+	AssertEq(nil, t.createObject("blah!b", ""))
+	AssertEq(nil, t.createObject("blah!b!asd", ""))
+	AssertEq(nil, t.createObject("blah!b\x00", ""))
+	AssertEq(nil, t.createObject("blah!b\x00!", ""))
+	AssertEq(nil, t.createObject("blah!b\x00!asd", ""))
+	AssertEq(nil, t.createObject("blah!b\x00!asd!sdf", ""))
+	AssertEq(nil, t.createObject("blah!b\x01", ""))
+	AssertEq(nil, t.createObject("blah!b\x01!", ""))
+	AssertEq(nil, t.createObject("blah!b\x01!asd", ""))
+	AssertEq(nil, t.createObject("blah!b\x01!asd!sdf", ""))
+	AssertEq(nil, t.createObject("blah!b타코", ""))
+	AssertEq(nil, t.createObject("blah!b타코!", ""))
+	AssertEq(nil, t.createObject("blah!b타코!asd", ""))
+	AssertEq(nil, t.createObject("blah!b타코!asd!sdf", ""))
+	AssertEq(nil, t.createObject("blah!c", ""))
+
+	// List with the prefix "blah!b" and the delimiter "!".
+	query := &storage.Query{
+		Prefix:    "blah!b",
+		Delimiter: "!",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+
+	// Prefixes
+	ExpectThat(
+		objects.Prefixes,
+		ElementsAre("blah!b!", "blah!b\x00!", "blah!b\x01!", "blah!b타코!"))
+
+	// Objects
+	AssertEq(4, len(objects.Results))
+
+	ExpectEq("blah!b", objects.Results[0].Name)
+	ExpectEq("blah!b\x00", objects.Results[1].Name)
+	ExpectEq("blah!b\x01", objects.Results[2].Name)
+	ExpectEq("blah!b타코", objects.Results[3].Name)
 }
 
 func (t *ListingTest) Cursor() {
