@@ -159,6 +159,52 @@ func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
 	}
 }
 
+func createWithContents(ctx context.Context, bucket gcs.Bucket, name string, contents string) error {
+	// Create a writer.
+	attrs := &storage.ObjectAttrs{
+		Name: name,
+	}
+
+	writer, err := bucket.NewWriter(ctx, attrs)
+	if err != nil {
+		return err
+	}
+
+	// Copy into the writer.
+	_, err = io.Copy(writer, bytes.NewReader([]byte(contents)))
+
+	// Close the writer.
+	return writer.Close()
+}
+
+func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) error {
+	bundle := syncutil.NewBundle(ctx)
+
+	// Feed object names into a channel buffer.
+	nameChan := make(chan string, len(objectNames))
+	for _, n := range objectNames {
+		nameChan <- n
+	}
+
+	close(nameChan)
+
+	// Create in parallel.
+	const parallelism = 10
+	for i := 0; i < 10; i++ {
+		bundle.Add(func(ctx context.Context) error {
+			for objectName := range nameChan {
+				if err := createWithContents(ctx, bucket, objectName, ""); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	}
+
+	return bundle.Join()
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Listing
 ////////////////////////////////////////////////////////////////////////
@@ -273,15 +319,22 @@ func (t *ListingTest) TrivialQuery() {
 
 func (t *ListingTest) Delimiter() {
 	// Create several objects.
-	AssertEq(nil, t.createObject("a", ""))
-	AssertEq(nil, t.createObject("b", ""))
-	AssertEq(nil, t.createObject("b!foo", ""))
-	AssertEq(nil, t.createObject("b!bar", ""))
-	AssertEq(nil, t.createObject("b!baz!qux", ""))
-	AssertEq(nil, t.createObject("c!", ""))
-	AssertEq(nil, t.createObject("d!taco", ""))
-	AssertEq(nil, t.createObject("d!burrito", ""))
-	AssertEq(nil, t.createObject("e", ""))
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"a",
+				"b",
+				"b!foo",
+				"b!bar",
+				"b!baz!qux",
+				"c!",
+				"d!taco",
+				"d!burrito",
+				"e",
+			}))
 
 	// List with the delimiter "!".
 	query := &storage.Query{
@@ -306,13 +359,20 @@ func (t *ListingTest) Delimiter() {
 
 func (t *ListingTest) Prefix() {
 	// Create several objects.
-	AssertEq(nil, t.createObject("a", ""))
-	AssertEq(nil, t.createObject("a\xff", ""))
-	AssertEq(nil, t.createObject("b", ""))
-	AssertEq(nil, t.createObject("b\x00", ""))
-	AssertEq(nil, t.createObject("b\x01", ""))
-	AssertEq(nil, t.createObject("b타코", ""))
-	AssertEq(nil, t.createObject("c", ""))
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"a",
+				"a\xff",
+				"b",
+				"b\x00",
+				"b\x01",
+				"b타코",
+				"c",
+			}))
 
 	// List with the prefix "b".
 	query := &storage.Query{
@@ -336,26 +396,33 @@ func (t *ListingTest) Prefix() {
 
 func (t *ListingTest) DelimiterAndPrefix() {
 	// Create several objects.
-	AssertEq(nil, t.createObject("blag", ""))
-	AssertEq(nil, t.createObject("blag!", ""))
-	AssertEq(nil, t.createObject("blah", ""))
-	AssertEq(nil, t.createObject("blah!a", ""))
-	AssertEq(nil, t.createObject("blah!a\xff", ""))
-	AssertEq(nil, t.createObject("blah!b", ""))
-	AssertEq(nil, t.createObject("blah!b!asd", ""))
-	AssertEq(nil, t.createObject("blah!b\x00", ""))
-	AssertEq(nil, t.createObject("blah!b\x00!", ""))
-	AssertEq(nil, t.createObject("blah!b\x00!asd", ""))
-	AssertEq(nil, t.createObject("blah!b\x00!asd!sdf", ""))
-	AssertEq(nil, t.createObject("blah!b\x01", ""))
-	AssertEq(nil, t.createObject("blah!b\x01!", ""))
-	AssertEq(nil, t.createObject("blah!b\x01!asd", ""))
-	AssertEq(nil, t.createObject("blah!b\x01!asd!sdf", ""))
-	AssertEq(nil, t.createObject("blah!b타코", ""))
-	AssertEq(nil, t.createObject("blah!b타코!", ""))
-	AssertEq(nil, t.createObject("blah!b타코!asd", ""))
-	AssertEq(nil, t.createObject("blah!b타코!asd!sdf", ""))
-	AssertEq(nil, t.createObject("blah!c", ""))
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"blag",
+				"blag!",
+				"blah",
+				"blah!a",
+				"blah!a\xff",
+				"blah!b",
+				"blah!b!asd",
+				"blah!b\x00",
+				"blah!b\x00!",
+				"blah!b\x00!asd",
+				"blah!b\x00!asd!sdf",
+				"blah!b\x01",
+				"blah!b\x01!",
+				"blah!b\x01!asd",
+				"blah!b\x01!asd!sdf",
+				"blah!b타코",
+				"blah!b타코!",
+				"blah!b타코!asd",
+				"blah!b타코!asd!sdf",
+				"blah!c",
+			}))
 
 	// List with the prefix "blah!b" and the delimiter "!".
 	query := &storage.Query{
