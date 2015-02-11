@@ -16,7 +16,9 @@
 package gcs_test
 
 import (
+	"bytes"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"testing"
@@ -178,6 +180,20 @@ func (t *ListingTest) TearDown() {
 	deleteAllObjectsOrDie(t.ctx, t.bucket)
 }
 
+func (t *ListingTest) createObject(name string, contents []byte) error {
+	attrs := &storage.ObjectAttrs{
+		Name: name,
+	}
+
+	writer, err := t.bucket.NewWriter(t.ctx, attrs)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(writer, bytes.NewReader(contents))
+	return err
+}
+
 /////////////////////////
 // Test functions
 /////////////////////////
@@ -193,6 +209,31 @@ func (t *ListingTest) EmptyBucket() {
 }
 
 func (t *ListingTest) TrivialQuery() {
+	// Create few objects.
+	AssertEq(nil, t.createObject("a", []byte("taco")))
+	AssertEq(nil, t.createObject("b", []byte("burrito")))
+	AssertEq(nil, t.createObject("c", []byte("enchilada")))
+
+	// List all objects in the bucket.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertNe(nil, objects)
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	var o *storage.Object
+	AssertThat(objects.Results, ElementsAre(Any(), Any(), Any()))
+
+	o = objects.Results[0]
+	AssertEq("a", o.Name)
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("TODO", o.ContentType)
+	ExpectEq("TODO", o.ContentLanguage)
+	ExpectEq("TODO", o.CacheControl)
+	ExpectEq("TODO", o.Owner)
+	ExpectEq(len("taco"), o.Size)
+
 	AssertFalse(true, "TODO")
 }
 
