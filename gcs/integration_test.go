@@ -181,7 +181,7 @@ func (t *ListingTest) SetUp(ti *TestInfo) {
 	deleteAllObjectsOrDie(t.ctx, t.bucket)
 }
 
-func (t *ListingTest) createObject(name string, contents []byte) error {
+func (t *ListingTest) createObject(name string, contents string) error {
 	// Create a writer.
 	attrs := &storage.ObjectAttrs{
 		Name: name,
@@ -193,7 +193,7 @@ func (t *ListingTest) createObject(name string, contents []byte) error {
 	}
 
 	// Copy into the writer.
-	_, err = io.Copy(writer, bytes.NewReader(contents))
+	_, err = io.Copy(writer, bytes.NewReader([]byte(contents)))
 
 	// Close the writer.
 	return writer.Close()
@@ -215,7 +215,7 @@ func (t *ListingTest) EmptyBucket() {
 
 func (t *ListingTest) NewlyCreatedObject() {
 	// Create an object.
-	AssertEq(nil, t.createObject("a", []byte("taco")))
+	AssertEq(nil, t.createObject("a", "taco"))
 
 	// List all objects in the bucket.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
@@ -240,9 +240,9 @@ func (t *ListingTest) NewlyCreatedObject() {
 
 func (t *ListingTest) TrivialQuery() {
 	// Create few objects.
-	AssertEq(nil, t.createObject("a", []byte("taco")))
-	AssertEq(nil, t.createObject("b", []byte("burrito")))
-	AssertEq(nil, t.createObject("c", []byte("enchilada")))
+	AssertEq(nil, t.createObject("a", "taco"))
+	AssertEq(nil, t.createObject("b", "burrito"))
+	AssertEq(nil, t.createObject("c", "enchilada"))
 
 	// List all objects in the bucket.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
@@ -271,15 +271,44 @@ func (t *ListingTest) TrivialQuery() {
 	ExpectEq(len("enchilada"), o.Size)
 }
 
-func (t *ListingTest) Delimeter() {
-	AssertFalse(true, "TODO")
+func (t *ListingTest) Delimiter() {
+	// Create several objects.
+	AssertEq(nil, t.createObject("a", ""))
+	AssertEq(nil, t.createObject("b", ""))
+	AssertEq(nil, t.createObject("b!foo", ""))
+	AssertEq(nil, t.createObject("b!bar", ""))
+	AssertEq(nil, t.createObject("b!baz!qux", ""))
+	AssertEq(nil, t.createObject("c!", ""))
+	AssertEq(nil, t.createObject("d!taco", ""))
+	AssertEq(nil, t.createObject("d!burrito", ""))
+	AssertEq(nil, t.createObject("e", ""))
+
+	// List with the delimiter "!".
+	query := &storage.Query{
+		Delimiter: "!",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+
+	// Prefixes
+	ExpectThat(objects.Prefixes, ElementsAre("b!", "c!", "d!"))
+
+	// Objects
+	AssertEq(3, len(objects.Results))
+
+	ExpectEq("a", objects.Results[0].Name)
+	ExpectEq("b", objects.Results[1].Name)
+	ExpectEq("e", objects.Results[2].Name)
 }
 
 func (t *ListingTest) Prefix() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *ListingTest) DelimeterAndPrefix() {
+func (t *ListingTest) DelimiterAndPrefix() {
 	AssertFalse(true, "TODO")
 }
 
