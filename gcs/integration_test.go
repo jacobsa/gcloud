@@ -206,19 +206,17 @@ func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) e
 }
 
 ////////////////////////////////////////////////////////////////////////
-// Listing
+// Common
 ////////////////////////////////////////////////////////////////////////
 
-type ListTest struct {
+type BucketTest struct {
 	ctx    context.Context
 	bucket gcs.Bucket
 }
 
-var _ SetUpInterface = &ListTest{}
+var _ SetUpInterface = &BucketTest{}
 
-func init() { RegisterTestSuite(&ListTest{}) }
-
-func (t *ListTest) SetUp(ti *TestInfo) {
+func (t *BucketTest) SetUp(ti *TestInfo) {
 	// Create a context and bucket.
 	t.ctx = context.Background()
 	t.bucket = getBucketOrDie()
@@ -227,7 +225,7 @@ func (t *ListTest) SetUp(ti *TestInfo) {
 	deleteAllObjectsOrDie(t.ctx, t.bucket)
 }
 
-func (t *ListTest) createObject(name string, contents string) error {
+func (t *BucketTest) createObject(name string, contents string) error {
 	// Create a writer.
 	attrs := &storage.ObjectAttrs{
 		Name: name,
@@ -245,9 +243,17 @@ func (t *ListTest) createObject(name string, contents string) error {
 	return writer.Close()
 }
 
-/////////////////////////
-// Test functions
-/////////////////////////
+////////////////////////////////////////////////////////////////////////
+// Listing
+////////////////////////////////////////////////////////////////////////
+
+type ListTest struct {
+	BucketTest
+}
+
+var _ SetUpInterface = &ListTest{}
+
+func init() { RegisterTestSuite(&ListTest{}) }
 
 func (t *ListTest) EmptyBucket() {
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
