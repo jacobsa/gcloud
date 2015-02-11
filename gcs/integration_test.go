@@ -244,14 +244,98 @@ func (t *BucketTest) createObject(name string, contents string) error {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// Listing
+// Create
+////////////////////////////////////////////////////////////////////////
+
+type CreateTest struct {
+	BucketTest
+}
+
+func init() { RegisterTestSuite(&CreateTest{}) }
+
+func (t *CreateTest) EmptyObject() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) NonEmptyObject() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) Overwrite() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) ObjectAttributes() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) WriteThenAbandon() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) ExoticName() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) CarriageReturnInName() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) LineFeedInName() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) FormFeedInName() {
+	AssertFalse(true, "TODO")
+}
+
+////////////////////////////////////////////////////////////////////////
+// Read
+////////////////////////////////////////////////////////////////////////
+
+type ReadTest struct {
+	BucketTest
+}
+
+func init() { RegisterTestSuite(&ReadTest{}) }
+
+func (t *ReadTest) NonExistentObject() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ReadTest) EmptyObject() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ReadTest) NonEmptyObject() {
+	AssertFalse(true, "TODO")
+}
+
+////////////////////////////////////////////////////////////////////////
+// Delete
+////////////////////////////////////////////////////////////////////////
+
+type DeleteTest struct {
+	BucketTest
+}
+
+func init() { RegisterTestSuite(&DeleteTest{}) }
+
+func (t *DeleteTest) NonExistentObject() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *DeleteTest) Successful() {
+	AssertFalse(true, "TODO")
+}
+
+////////////////////////////////////////////////////////////////////////
+// List
 ////////////////////////////////////////////////////////////////////////
 
 type ListTest struct {
 	BucketTest
 }
-
-var _ SetUpInterface = &ListTest{}
 
 func init() { RegisterTestSuite(&ListTest{}) }
 
@@ -529,9 +613,3 @@ func (t *ListTest) Cursor() {
 			"f!",
 			"g!"))
 }
-
-// TODO(jacobsa): CreateTest.ListBeforeClosing
-// TODO(jacobsa): CreateTest.Korean
-// TODO(jacobsa): CreateTest.CarriageReturn
-// TODO(jacobsa): CreateTest.LineFeed
-// TODO(jacobsa): CreateTest.FormFeed
