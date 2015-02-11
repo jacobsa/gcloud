@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"flag"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"testing"
@@ -243,6 +244,27 @@ func (t *BucketTest) createObject(name string, contents string) error {
 	return writer.Close()
 }
 
+func (t *BucketTest) readObject(objectName string) (contents string, err error) {
+	// Open a reader.
+	reader, err := t.bucket.NewReader(t.ctx, objectName)
+	if err != nil {
+		return
+	}
+
+	defer reader.Close()
+
+	// Read the contents of the object.
+	slice, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return
+	}
+
+	// Transform to a string.
+	contents = string(slice)
+
+	return
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Create
 ////////////////////////////////////////////////////////////////////////
@@ -290,7 +312,27 @@ func (t *CreateTest) NonEmptyObject() {
 }
 
 func (t *CreateTest) Overwrite() {
-	AssertFalse(true, "TODO")
+	// Create two versions of an object in sequence.
+	AssertEq(nil, t.createObject("foo", "taco"))
+	AssertEq(nil, t.createObject("foo", "burrito"))
+
+	// The second version should show up in a listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	AssertEq("foo", o.Name)
+	ExpectEq(len("burrito"), o.Size)
+
+	// The second version should be what we get when we read the object.
+	contents, err := t.readObject("foo")
+	AssertEq(nil, err)
+	ExpectEq("burrito", contents)
 }
 
 func (t *CreateTest) ObjectAttributes() {
