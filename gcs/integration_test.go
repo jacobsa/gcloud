@@ -310,8 +310,8 @@ func (t *ListingTest) Prefix() {
 	AssertEq(nil, t.createObject("a\xff", ""))
 	AssertEq(nil, t.createObject("b", ""))
 	AssertEq(nil, t.createObject("b\x00", ""))
-	AssertEq(nil, t.createObject("ba", ""))
-	AssertEq(nil, t.createObject("b\xff", ""))
+	AssertEq(nil, t.createObject("b\x01", ""))
+	AssertEq(nil, t.createObject("b타코", ""))
 	AssertEq(nil, t.createObject("c", ""))
 
 	// List with the prefix "b".
@@ -330,8 +330,8 @@ func (t *ListingTest) Prefix() {
 
 	ExpectEq("b", objects.Results[0].Name)
 	ExpectEq("b\x00", objects.Results[1].Name)
-	ExpectEq("ba", objects.Results[2].Name)
-	ExpectEq("b\xff", objects.Results[3].Name)
+	ExpectEq("b\x01", objects.Results[2].Name)
+	ExpectEq("b타코", objects.Results[3].Name)
 }
 
 func (t *ListingTest) DelimiterAndPrefix() {
