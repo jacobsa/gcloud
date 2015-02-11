@@ -361,7 +361,7 @@ func (t *CreateTest) ObjectAttributes_Default() {
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq("TODO", o.MD5)
 	ExpectEq(17, o.CRC32C)
-	ExpectThat(o.MediaLink, MatchesRegexp("storage/download.*foo"))
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectEq(nil, o.Metadata)
 	ExpectEq(17, o.Generation)     // TODO
 	ExpectEq(17, o.MetaGeneration) // TODO
