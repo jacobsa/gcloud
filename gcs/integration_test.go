@@ -6,8 +6,7 @@
 //
 //     go test -bucket <bucket name>
 //
-// The bucket must be empty initially. The test will attempt to clean up after
-// itself, but no guarantees.
+// The bucket's contents are not preserved.
 //
 // The first time you run the test, it may die with a URL to visit to obtain an
 // authorization code after authorizing the test to access your bucket. Run it
@@ -169,14 +168,16 @@ type ListingTest struct {
 	bucket gcs.Bucket
 }
 
+var _ SetUpInterface = &ListingTest{}
+
 func init() { RegisterTestSuite(&ListingTest{}) }
 
 func (t *ListingTest) SetUp(ti *TestInfo) {
+	// Create a context and bucket.
 	t.ctx = context.Background()
 	t.bucket = getBucketOrDie()
-}
 
-func (t *ListingTest) TearDown() {
+	// Ensure that the bucket is clean.
 	deleteAllObjectsOrDie(t.ctx, t.bucket)
 }
 
