@@ -22,6 +22,7 @@ import (
 	"log"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/oauthutil"
@@ -335,7 +336,41 @@ func (t *CreateTest) Overwrite() {
 	ExpectEq("burrito", contents)
 }
 
-func (t *CreateTest) ObjectAttributes() {
+func (t *CreateTest) ObjectAttributes_Default() {
+	// Create an object with default attributes.
+	AssertEq(nil, t.createObject("foo", "taco"))
+
+	// Check what shows up in the listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.ACL, ElementsAre())
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("taco"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq("TODO", o.MD5)
+	ExpectEq(17, o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("storage/download.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectEq(17, o.Generation)     // TODO
+	ExpectEq(17, o.MetaGeneration) // TODO
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
+	ExpectThat(o.Updated, DeepEquals(time.Now())) // TODO
+}
+
+func (t *CreateTest) ObjectAttributes_Explicit() {
 	AssertFalse(true, "TODO")
 }
 
