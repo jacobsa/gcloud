@@ -212,6 +212,31 @@ func (t *ListingTest) EmptyBucket() {
 	ExpectEq(nil, objects.Next)
 }
 
+func (t *ListingTest) NewlyCreatedObject() {
+	// Create an object.
+	AssertEq(nil, t.createObject("a", []byte("taco")))
+
+	// List all objects in the bucket.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertNe(nil, objects)
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	var o *storage.Object
+	AssertEq(1, len(objects.Results))
+
+	// a
+	o = objects.Results[0]
+	AssertEq("a", o.Name)
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectEq(len("taco"), o.Size)
+}
+
 func (t *ListingTest) TrivialQuery() {
 	// Create few objects.
 	AssertEq(nil, t.createObject("a", []byte("taco")))
@@ -227,33 +252,21 @@ func (t *ListingTest) TrivialQuery() {
 	AssertEq(nil, objects.Next)
 
 	var o *storage.Object
-	AssertThat(objects.Results, ElementsAre(Any(), Any(), Any()))
+	AssertEq(3, len(objects.Results))
 
 	// a
 	o = objects.Results[0]
 	AssertEq("a", o.Name)
-	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq("application/octet-stream", o.ContentType)
-	ExpectEq("", o.ContentLanguage)
-	ExpectEq("", o.CacheControl)
 	ExpectEq(len("taco"), o.Size)
 
 	// b
 	o = objects.Results[1]
 	AssertEq("b", o.Name)
-	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq("application/octet-stream", o.ContentType)
-	ExpectEq("", o.ContentLanguage)
-	ExpectEq("", o.CacheControl)
 	ExpectEq(len("burrito"), o.Size)
 
 	// c
 	o = objects.Results[2]
 	AssertEq("c", o.Name)
-	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq("application/octet-stream", o.ContentType)
-	ExpectEq("", o.ContentLanguage)
-	ExpectEq("", o.CacheControl)
 	ExpectEq(len("enchilada"), o.Size)
 }
 
