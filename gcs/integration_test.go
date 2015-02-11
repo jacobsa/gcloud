@@ -305,7 +305,33 @@ func (t *ListingTest) Delimiter() {
 }
 
 func (t *ListingTest) Prefix() {
-	AssertFalse(true, "TODO")
+	// Create several objects.
+	AssertEq(nil, t.createObject("a", ""))
+	AssertEq(nil, t.createObject("a\xff", ""))
+	AssertEq(nil, t.createObject("b", ""))
+	AssertEq(nil, t.createObject("b\x00", ""))
+	AssertEq(nil, t.createObject("ba", ""))
+	AssertEq(nil, t.createObject("b\xff", ""))
+	AssertEq(nil, t.createObject("c", ""))
+
+	// List with the prefix "b".
+	query := &storage.Query{
+		Prefix: "b",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+	AssertThat(objects.Prefixes, ElementsAre())
+
+	// Objects
+	AssertEq(4, len(objects.Results))
+
+	ExpectEq("b", objects.Results[0].Name)
+	ExpectEq("b\x00", objects.Results[0].Name)
+	ExpectEq("ba", objects.Results[1].Name)
+	ExpectEq("b\xff", objects.Results[1].Name)
 }
 
 func (t *ListingTest) DelimiterAndPrefix() {
