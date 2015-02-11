@@ -272,7 +272,21 @@ func (t *CreateTest) EmptyObject() {
 }
 
 func (t *CreateTest) NonEmptyObject() {
-	AssertFalse(true, "TODO")
+	// Create the object.
+	AssertEq(nil, t.createObject("foo", "taco"))
+
+	// Ensure it shows up in a listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	AssertEq("foo", o.Name)
+	ExpectEq(len("taco"), o.Size)
 }
 
 func (t *CreateTest) Overwrite() {
