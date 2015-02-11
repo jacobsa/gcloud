@@ -329,9 +329,9 @@ func (t *ListingTest) Prefix() {
 	AssertEq(4, len(objects.Results))
 
 	ExpectEq("b", objects.Results[0].Name)
-	ExpectEq("b\x00", objects.Results[0].Name)
-	ExpectEq("ba", objects.Results[1].Name)
-	ExpectEq("b\xff", objects.Results[1].Name)
+	ExpectEq("b\x00", objects.Results[1].Name)
+	ExpectEq("ba", objects.Results[2].Name)
+	ExpectEq("b\xff", objects.Results[3].Name)
 }
 
 func (t *ListingTest) DelimiterAndPrefix() {
