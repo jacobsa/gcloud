@@ -649,7 +649,56 @@ func (t *listTest) Delimiter_SingleRune() {
 }
 
 func (t *listTest) Delimiter_MultiRune() {
-	AssertTrue(false, "TODO")
+	// Create several objects.
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"!",
+				"!!",
+				"!!!",
+				"!!!!",
+				"!!!!!!!!!",
+				"a",
+				"b",
+				"b!",
+				"b!foo",
+				"b!!",
+				"b!!!",
+				"b!!foo",
+				"b!!!foo",
+				"b!!bar",
+				"b!!baz!!qux",
+				"c!!",
+				"d!!taco",
+				"d!!burrito",
+				"e",
+			}))
+
+	// List with the delimiter "!!".
+	query := &storage.Query{
+		Delimiter: "!!",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+
+	// Prefixes
+	ExpectThat(objects.Prefixes, ElementsAre("!!", "b!!", "c!!", "d!!"))
+
+	// Objects
+	AssertEq(6, len(objects.Results))
+
+	ExpectEq("!", objects.Results[0].Name)
+	ExpectEq("a", objects.Results[1].Name)
+	ExpectEq("b", objects.Results[2].Name)
+	ExpectEq("b!", objects.Results[3].Name)
+	ExpectEq("b!foo", objects.Results[4].Name)
+	ExpectEq("e", objects.Results[5].Name)
 }
 
 func (t *listTest) Prefix() {
