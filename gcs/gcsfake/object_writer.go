@@ -29,7 +29,6 @@ func (w *objectWriter) Write(p []byte) (int, error)
 
 func (w *objectWriter) Close() error
 
-// TODO(jacobsa): We need integration test coverage for this.
 func (w *objectWriter) Object() *storage.Object
 
 func newObjectWriter(bucket *bucket, attrs *storage.ObjectAttrs) gcs.ObjectWriter
