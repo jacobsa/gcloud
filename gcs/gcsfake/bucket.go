@@ -165,7 +165,7 @@ func (b *bucket) ListObjects(
 				prefix := name[:i]
 
 				// Don't save duplicates.
-				if len(listing.Prefixes) > 0 && listing.Prefixes[len(listing.Prefixes)-1] != prefix {
+				if len(listing.Prefixes) == 0 || listing.Prefixes[len(listing.Prefixes)-1] != prefix {
 					listing.Prefixes = append(listing.Prefixes, prefix)
 				}
 
