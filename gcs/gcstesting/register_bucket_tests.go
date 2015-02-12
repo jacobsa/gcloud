@@ -5,6 +5,19 @@ package gcstesting
 
 import "github.com/jacobsa/gcloud/gcs"
 
+// An interface that all bucket tests must implement.
+type bucketSetter interface {
+	SetBucket(b gcs.Bucket)
+}
+
 // Given a function that returns an initialized, empty bucket, register test
 // suites that exercise the buckets returned by the function with ogletest.
-func RegisterBucketTests(func() gcs.Bucket)
+func RegisterBucketTests(func() gcs.Bucket) {
+	// A list of empty instances of the test suites we want to register.
+	suitePrototypes := []bucketSetter{
+		&createTest{},
+		&readTest{},
+		&deleteTest{},
+		&listTest{},
+	}
+}

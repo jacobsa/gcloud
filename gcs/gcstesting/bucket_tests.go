@@ -95,6 +95,7 @@ type bucketTest struct {
 	bucket    gcs.Bucket
 }
 
+var _ bucketSetter = &bucketTest{}
 var _ SetUpInterface = &bucketTest{}
 
 func (t *bucketTest) SetUp(ti *TestInfo) {
