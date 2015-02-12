@@ -409,20 +409,20 @@ func (t *createTest) IllegalNames() {
 // Read
 ////////////////////////////////////////////////////////////////////////
 
-type ReadTest struct {
+type readTest struct {
 	bucketTest
 }
 
-func init() { RegisterTestSuite(&ReadTest{}) }
+func init() { RegisterTestSuite(&readTest{}) }
 
-func (t *ReadTest) NonExistentObject() {
+func (t *readTest) NonExistentObject() {
 	_, err := t.bucket.NewReader(t.ctx, "foobar")
 
 	AssertNe(nil, err)
 	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
 }
 
-func (t *ReadTest) EmptyObject() {
+func (t *readTest) EmptyObject() {
 	// Create
 	AssertEq(nil, t.createObject("foo", ""))
 
@@ -438,7 +438,7 @@ func (t *ReadTest) EmptyObject() {
 	AssertEq(nil, r.Close())
 }
 
-func (t *ReadTest) NonEmptyObject() {
+func (t *readTest) NonEmptyObject() {
 	// Create
 	AssertEq(nil, t.createObject("foo", "taco"))
 
@@ -458,20 +458,20 @@ func (t *ReadTest) NonEmptyObject() {
 // Delete
 ////////////////////////////////////////////////////////////////////////
 
-type DeleteTest struct {
+type deleteTest struct {
 	bucketTest
 }
 
-func init() { RegisterTestSuite(&DeleteTest{}) }
+func init() { RegisterTestSuite(&deleteTest{}) }
 
-func (t *DeleteTest) NonExistentObject() {
+func (t *deleteTest) NonExistentObject() {
 	err := t.bucket.DeleteObject(t.ctx, "foobar")
 
 	AssertNe(nil, err)
 	ExpectThat(err, Error(HasSubstr("Not Found")))
 }
 
-func (t *DeleteTest) Successful() {
+func (t *deleteTest) Successful() {
 	// Create an object.
 	AssertEq(nil, t.createObject("a", "taco"))
 
