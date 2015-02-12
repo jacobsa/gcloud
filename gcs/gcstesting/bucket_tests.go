@@ -389,6 +389,9 @@ func (t *createTest) IllegalNames() {
 		"",
 		strings.Repeat("a", maxLegalLength+1),
 
+		// Not valid UTF-8
+		"foo\xff",
+
 		// Carriage return and line feed
 		"foo\u000abar",
 		"foo\u000dbar",
