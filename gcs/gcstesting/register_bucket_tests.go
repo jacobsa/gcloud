@@ -18,25 +18,38 @@ type bucketTestSetUpInterface interface {
 }
 
 func getSuiteName(suiteType reflect.Type) string {
-	return strings.Title(suiteType.Elem().Name())
+	return strings.Title(suiteType.Name())
 }
 
-func getTestMethods(suiteType reflect.Type) []reflect.Method {
-	return srcutil.GetMethodsInSourceOrder(suiteType)
+func isExported(name string) bool {
+	return len(name) > 0 && name[0] >= 'A' && name[0] <= 'Z'
+}
+
+func getTestMethods(suitePointerType reflect.Type) []reflect.Method {
+	var exportedMethods []reflect.Method
+	for _, m := range srcutil.GetMethodsInSourceOrder(suitePointerType) {
+		if isExported(m.Name) {
+			exportedMethods = append(exportedMethods, m)
+		}
+	}
+
+	return exportedMethods
 }
 
 func registerTestSuite(
 	makeBucket func() gcs.Bucket,
 	prototype bucketTestSetUpInterface) {
-	suiteType := reflect.TypeOf(prototype)
+	suitePointerType := reflect.TypeOf(prototype)
+	suiteType := suitePointerType.Elem()
 
 	// We don't need anything fancy at the suite level.
 	var ts ogletest.TestSuite
 	ts.Name = getSuiteName(suiteType)
 
 	// For each method, we create a test function.
-	for _, method := range getTestMethods(suiteType) {
+	for _, method := range getTestMethods(suitePointerType) {
 		var tf ogletest.TestFunction
+		tf.Name = method.Name
 
 		// Create an instance to be shared among SetUp and the test function itself.
 		var instance reflect.Value = reflect.New(suiteType)
