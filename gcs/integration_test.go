@@ -984,7 +984,8 @@ func (t *ListTest) Cursor() {
 			"b",
 			"c",
 			"e",
-			"h"))
+			"h",
+		))
 
 	ExpectThat(
 		prefixes,
@@ -993,5 +994,6 @@ func (t *ListTest) Cursor() {
 			"d!",
 			"e!",
 			"f!",
-			"g!"))
+			"g!",
+		))
 }
