@@ -7,16 +7,18 @@ import (
 	"errors"
 	"io"
 	"sort"
-	"sync"
 
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcloud/syncutil"
 	"golang.org/x/net/context"
 	"google.golang.org/cloud/storage"
 )
 
 // Create an in-memory bucket with the given name and empty contents.
 func NewFakeBucket(name string) gcs.Bucket {
-	return &bucket{name: name}
+	b := &bucket{name: name}
+	b.mu = syncutil.NewInvariantMutex(func() { b.checkInvariants() })
+	return b
 }
 
 type object struct {
@@ -57,13 +59,15 @@ func (s objectSlice) find(name string) int {
 
 type bucket struct {
 	name string
-	mu   sync.RWMutex
+	mu   syncutil.InvariantMutex
 
 	// The set of extant objects.
 	//
 	// INVARIANT: Strictly increasing.
 	objects objectSlice // GUARDED_BY(mu)
 }
+
+func (b *bucket) checkInvariants()
 
 func (b *bucket) Name() string {
 	return b.name
