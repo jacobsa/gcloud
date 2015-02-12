@@ -379,7 +379,7 @@ func (t *CreateTest) ObjectAttributes_Explicit() {
 	attrs := &storage.ObjectAttrs{
 		Name:            "foo",
 		ContentType:     "image/png",
-		ContentLanguage: "zh-TW",
+		ContentLanguage: "fr",
 		ContentEncoding: "gzip",
 		CacheControl:    "public",
 		Metadata: map[string]string{
@@ -403,7 +403,7 @@ func (t *CreateTest) ObjectAttributes_Explicit() {
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("image/png", o.ContentType)
-	ExpectEq("zh-TW", o.ContentLanguage)
+	ExpectEq("fr", o.ContentLanguage)
 	ExpectEq("public", o.CacheControl)
 	ExpectThat(o.ACL, ElementsAre())
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
