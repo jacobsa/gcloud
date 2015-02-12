@@ -6,6 +6,7 @@ package gcsfake
 import (
 	"errors"
 	"io"
+	"sort"
 	"sync"
 
 	"github.com/jacobsa/gcloud/gcs"
@@ -19,12 +20,19 @@ func NewFakeBucket(name string) gcs.Bucket {
 }
 
 type object struct {
-	// The attributes with which this object was created. These never change.
-	attrs *storage.ObjectAttrs
+	// A storage.Object representing metadata for this object. Never changes.
+	metadata *storage.Object
 
 	// The contents of the object. These never change.
 	contents []byte
 }
+
+// A slice of objects compared by name.
+type objectSlice []object
+
+func (s objectSlice) Len() int
+func (s objectSlice) Less(i, j int) bool
+func (s objectSlice) Swap(i, j int)
 
 type bucket struct {
 	name string
@@ -32,8 +40,8 @@ type bucket struct {
 
 	// The set of extant objects.
 	//
-	// INVARIANT: Strictly increasing by object.attrs.Name.
-	objects []object // GUARDED_BY(mu)
+	// INVARIANT: Strictly increasing.
+	objects objectSlice // GUARDED_BY(mu)
 }
 
 func (b *bucket) Name() string {
@@ -64,7 +72,25 @@ func (b *bucket) DeleteObject(
 	return errors.New("TODO: Implement DeleteObject.")
 }
 
-func (b *bucket) addObject(attrs *storage.ObjectAttrs, contents []byte) *storage.Object {
-	panic("TODO")
-	return nil
+// Create an object struct for the given attributes and contents.
+//
+// EXCLUSIVE_LOCKS_REQUIRED(b.mu)
+func (b *bucket) mintObject(
+	attrs *storage.ObjectAttrs,
+	contents []byte) object
+
+func (b *bucket) addObject(
+	attrs *storage.ObjectAttrs,
+	contents []byte) *storage.Object {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Create an object record from the given attributes.
+	var o object = b.mintObject(attrs, contents)
+
+	// Add it to our list of object.
+	b.objects = append(b.objects, o)
+	sort.Sort(b.objects)
+
+	return o.metadata
 }
