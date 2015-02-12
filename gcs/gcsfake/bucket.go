@@ -34,6 +34,16 @@ func (s objectSlice) Len() int           { return len(s) }
 func (s objectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
 func (s objectSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
+// Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
+// there is no such i.
+func (s objectSlice) lowerBound(name string) int {
+	pred := func(i int) bool {
+		return s[i].metadata.Name >= name
+	}
+
+	return sort.Search(len(s), pred)
+}
+
 type bucket struct {
 	name string
 	mu   sync.RWMutex
