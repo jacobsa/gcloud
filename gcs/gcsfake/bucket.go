@@ -185,7 +185,7 @@ func (b *bucket) ListObjects(
 			}
 		}
 
-		// TODO(jacobsa): Handle prefixes.
+		// Otherwise, save as an object result.
 		listing.Results = append(listing.Results, o.metadata)
 	}
 
