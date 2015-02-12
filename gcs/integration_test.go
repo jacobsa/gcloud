@@ -535,7 +535,25 @@ func (t *CreateTest) WriteThenAbandon() {
 }
 
 func (t *CreateTest) LongName() {
-	AssertFalse(true, "TODO")
+	// Cf. https://cloud.google.com/storage/docs/bucket-naming
+	const maxLegalLength = 1024
+
+	// Create an object with a long name.
+	name := strings.Repeat("a", maxLegalLength)
+	AssertEq(nil, t.createObject(name, ""))
+
+	// Check what shows up in the listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq(name, o.Name)
 }
 
 func (t *CreateTest) EmptyName() {
