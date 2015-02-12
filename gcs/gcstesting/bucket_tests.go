@@ -703,6 +703,7 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 				"blah!a",
 				"blah!a\x7f",
 				"blah!b",
+				"blah!b!",
 				"blah!b!asd",
 				"blah!b\x00",
 				"blah!b\x00!",
