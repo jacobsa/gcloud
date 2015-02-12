@@ -77,7 +77,19 @@ func (b *bucket) DeleteObject(
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
 	attrs *storage.ObjectAttrs,
-	contents []byte) object
+	contents []byte) (o object) {
+	// Set up metadata.
+	// TODO(jacobsa): Other fields.
+	o.metadata = &storage.Object{
+		Bucket: b.Name(),
+		Name:   attrs.Name,
+	}
+
+	// Set up contents.
+	o.contents = contents
+
+	return
+}
 
 func (b *bucket) addObject(
 	attrs *storage.ObjectAttrs,
