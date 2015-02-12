@@ -17,6 +17,7 @@ package gcs_test
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"hash/crc32"
@@ -522,106 +523,98 @@ func (t *CreateTest) WriteThenAbandon() {
 	ExpectThat(objects.Results, ElementsAre())
 }
 
-func (t *CreateTest) LongName() {
+func (t *CreateTest) InterestingNames() {
+	// Naming requirements:
 	// Cf. https://cloud.google.com/storage/docs/bucket-naming
 	const maxLegalLength = 1024
 
-	// Create an object with a long name.
-	name := strings.Repeat("a", maxLegalLength)
-	AssertEq(nil, t.createObject(name, ""))
+	names := []string{
+		// Non-Roman scripts
+		"타코",
+		"世界",
 
-	// Check what shows up in the listing.
+		// Longest legal name
+		strings.Repeat("a", maxLegalLength),
+
+		// Line terminators besides CR and LF
+		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
+		"foo\u000bbar",
+		"foo\u000cbar",
+		"foo\u0085bar",
+		"foo\u2028bar",
+		"foo\u2029bar",
+	}
+
+	// Make sure we can create each.
+	for _, name := range names {
+		nameDump := hex.Dump([]byte(name))
+
+		err := t.createObject(name, "")
+		AssertEq(nil, err, nameDump)
+	}
+
+	// Grab a listing and extract the names.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
 	AssertThat(objects.Prefixes, ElementsAre())
 	AssertEq(nil, objects.Next)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	// Make sure all and only the expected names exist.
+	listingNames := make(map[string]struct{})
+	for _, o := range objects.Results {
+		listingNames[o.Name] = struct{}{}
+	}
 
-	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq(name, o.Name)
+	expectedNames := make(map[string]struct{})
+	for _, n := range names {
+		expectedNames[n] = struct{}{}
+	}
+
+	for n, _ := range expectedNames {
+		nameDump := hex.Dump([]byte(n))
+		_, nameFound := listingNames[n]
+		AssertTrue(nameFound, nameDump)
+	}
+
+	for n, _ := range listingNames {
+		nameDump := hex.Dump([]byte(n))
+		_, nameFound := expectedNames[n]
+		AssertTrue(nameFound, nameDump)
+	}
 }
 
-func (t *CreateTest) EmptyName() {
-	// Creating an object with an empty name should fail.
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	err := t.createObject("", "")
-
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Required")))
-}
-
-func (t *CreateTest) ExceedinglyLongName() {
+func (t *CreateTest) IllegalNames() {
+	// Naming requirements:
 	// Cf. https://cloud.google.com/storage/docs/bucket-naming
 	const maxLegalLength = 1024
 
-	// Create an object with a name that is longer than legal.
-	name := strings.Repeat("a", maxLegalLength+1)
+	names := []string{
+		// Empty and too long
+		"",
+		strings.Repeat("a", maxLegalLength+1),
 
-	err := t.createObject(name, "")
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Invalid")))
-}
+		// Carriage return and line feed
+		"foo\u000abar",
+		"foo\u000dbar",
+	}
 
-func (t *CreateTest) ExoticName() {
-	// Create.
-	name := "I like to eat 타코s."
-	AssertEq(nil, t.createObject(name, ""))
+	// Make sure we cannot create any of the names above.
+	for _, name := range names {
+		nameDump := hex.Dump([]byte(name))
 
-	// List.
+		err := t.createObject(name, "")
+		AssertNe(nil, err, nameDump)
+		ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
+	}
+
+	// No objects should have been created.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
 	AssertThat(objects.Prefixes, ElementsAre())
 	AssertEq(nil, objects.Next)
-
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
-
-	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq(name, o.Name)
-}
-
-func (t *CreateTest) CarriageReturnInName() {
-	// This should fail.
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	name := "foo\u000Dbar"
-	err := t.createObject(name, "")
-
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Invalid")))
-}
-
-func (t *CreateTest) LineFeedInName() {
-	// This should fail.
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	name := "foo\u000Abar"
-	err := t.createObject(name, "")
-
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Invalid")))
-}
-
-func (t *CreateTest) FormFeedInName() {
-	// This should succeed.
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	name := "foo\u000Cbar"
-	AssertEq(nil, t.createObject(name, ""))
-
-	// List.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
-	AssertEq(nil, err)
-
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
-
-	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq(name, o.Name)
+	ExpectThat(objects.Results, ElementsAre())
 }
 
 ////////////////////////////////////////////////////////////////////////
