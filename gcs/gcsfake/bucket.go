@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"unicode/utf8"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
@@ -147,6 +148,22 @@ func (b *bucket) NewReader(
 func (b *bucket) NewWriter(
 	ctx context.Context,
 	attrs *storage.ObjectAttrs) (gcs.ObjectWriter, error) {
+	// Check that the object name is legal.
+	name := attrs.Name
+	if len(name) == 0 || len(name) > 1024 {
+		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
+	}
+
+	if !utf8.ValidString(name) {
+		return nil, errors.New("Invalid object name: not valid UTF-8")
+	}
+
+	for _, r := range name {
+		if r == 0x0a || r == 0x0d {
+			return nil, errors.New("Invalid object name: must not contain CR or LF")
+		}
+	}
+
 	return newObjectWriter(b, attrs), nil
 }
 

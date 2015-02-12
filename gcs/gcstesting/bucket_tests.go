@@ -434,7 +434,7 @@ func (t *createTest) IllegalNames() {
 		AssertNe(nil, err, "Name:\n%s", nameDump)
 
 		if name == "" {
-			ExpectThat(err, Error(HasSubstr("Required")), nameDump)
+			ExpectThat(err, Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))), nameDump)
 		} else {
 			ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
 		}
