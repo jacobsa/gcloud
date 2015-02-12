@@ -43,7 +43,7 @@ func (w *objectWriter) Close() error {
 	contents := w.buf.Bytes()
 	w.buf = nil
 
-	// TODO(jacobsa): Initialize w.object.
+	// Commit the contents to the bucket, initializing w.object.
 	w.bucket.addObject(w.object)
 
 	return nil
