@@ -4,13 +4,16 @@
 // An integration test that uses the real GCS. Run it with appropriate flags as
 // follows:
 //
-//     go test -bucket <bucket name>
+//     go test -v -tags integration . -bucket <bucket name>
 //
 // The bucket's contents are not preserved.
 //
 // The first time you run the test, it may die with a URL to visit to obtain an
 // authorization code after authorizing the test to access your bucket. Run it
 // again with the "-auth_code" flag afterward.
+
+// Restrict this (slow) test to builds that specify the tag 'integration'.
+// +build integration
 
 package gcs_test
 
