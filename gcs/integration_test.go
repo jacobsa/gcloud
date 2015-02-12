@@ -16,6 +16,7 @@ package gcs_test
 
 import (
 	"bytes"
+	"crypto/md5"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -207,6 +208,12 @@ func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) e
 	return bundle.Join()
 }
 
+// Convert from [16]byte to the slice type used by storage.Object.
+func md5Sum(s string) []byte {
+	array := md5.Sum([]byte(s))
+	return array[:]
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -359,7 +366,7 @@ func (t *CreateTest) ObjectAttributes_Default() {
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("", o.ContentEncoding)
-	ExpectEq("TODO", o.MD5)
+	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
 	ExpectEq(17, o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectEq(nil, o.Metadata)
