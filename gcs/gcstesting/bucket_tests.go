@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"io/ioutil"
@@ -333,12 +334,40 @@ func (t *createTest) InterestingNames() {
 
 		// Line terminators besides CR and LF
 		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
-		"foo\u000bbar",
-		"foo\u000cbar",
-		"foo\u0085bar",
-		"foo\u2028bar",
-		"foo\u2029bar",
+		"foo \u000b bar",
+		"foo \u000c bar",
+		"foo \u0085 bar",
+		"foo \u2028 bar",
+		"foo \u2029 bar",
+
+		// Null byte.
+		"foo \u0000 bar",
+
+		// Non-control characters that are discouraged, but not forbidden,
+		// according to the documentation.
+		"foo # bar",
+		"foo []*? bar",
 	}
+
+	var runes []rune
+
+	// C0 control characters not forbidden by the docs.
+	runes = nil
+	for r := rune(0x01); r <= rune(0x1f); r++ {
+		if r != '\u000a' && r != '\u000d' {
+			runes = append(runes, r)
+		}
+	}
+
+	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
+
+	// C1 control characters, plus DEL.
+	runes = nil
+	for r := rune(0x7f); r <= rune(0x9f); r++ {
+		runes = append(runes, r)
+	}
+
+	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
 
 	// Make sure we can create each.
 	for _, name := range names {
