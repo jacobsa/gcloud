@@ -139,8 +139,6 @@ type createTest struct {
 	bucketTest
 }
 
-func init() { RegisterTestSuite(&createTest{}) }
-
 func (t *createTest) EmptyObject() {
 	// Create the object.
 	AssertEq(nil, t.createObject("foo", ""))
@@ -411,8 +409,6 @@ type readTest struct {
 	bucketTest
 }
 
-func init() { RegisterTestSuite(&readTest{}) }
-
 func (t *readTest) NonExistentObject() {
 	_, err := t.bucket.NewReader(t.ctx, "foobar")
 
@@ -460,8 +456,6 @@ type deleteTest struct {
 	bucketTest
 }
 
-func init() { RegisterTestSuite(&deleteTest{}) }
-
 func (t *deleteTest) NonExistentObject() {
 	err := t.bucket.DeleteObject(t.ctx, "foobar")
 
@@ -499,8 +493,6 @@ func (t *deleteTest) Successful() {
 type listTest struct {
 	bucketTest
 }
-
-func init() { RegisterTestSuite(&listTest{}) }
 
 func (t *listTest) EmptyBucket() {
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
