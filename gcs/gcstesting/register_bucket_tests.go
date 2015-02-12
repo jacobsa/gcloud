@@ -10,14 +10,23 @@ type bucketTestSetUpInterface interface {
 	SetUpBucketTest(b gcs.Bucket)
 }
 
+func registerTestSuite(
+	makeBucket func() gcs.Bucket,
+	prototype bucketTestSetUpInterface)
+
 // Given a function that returns an initialized, empty bucket, register test
 // suites that exercise the buckets returned by the function with ogletest.
-func RegisterBucketTests(func() gcs.Bucket) {
+func RegisterBucketTests(makeBucket func() gcs.Bucket) {
 	// A list of empty instances of the test suites we want to register.
 	suitePrototypes := []bucketTestSetUpInterface{
 		&createTest{},
 		&readTest{},
 		&deleteTest{},
 		&listTest{},
+	}
+
+	// Register each.
+	for _, suitePrototype := range suitePrototypes {
+		registerTestSuite(makeBucket, suitePrototype)
 	}
 }
