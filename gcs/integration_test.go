@@ -607,11 +607,33 @@ func (t *CreateTest) CarriageReturnInName() {
 }
 
 func (t *CreateTest) LineFeedInName() {
-	AssertFalse(true, "TODO")
+	// This should fail.
+	// Cf. https://cloud.google.com/storage/docs/bucket-naming
+	name := "foo\u000Abar"
+	err := t.createObject(name, "")
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("Invalid")))
 }
 
 func (t *CreateTest) FormFeedInName() {
-	AssertFalse(true, "TODO")
+	// This should succeed.
+	// Cf. https://cloud.google.com/storage/docs/bucket-naming
+	name := "foo\u000Cbar"
+	AssertEq(nil, t.createObject(name, ""))
+
+	// List.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq(name, o.Name)
 }
 
 ////////////////////////////////////////////////////////////////////////
