@@ -412,7 +412,7 @@ func (t *CreateTest) ObjectAttributes_Explicit() {
 	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
-	ExpectEq(nil, o.Metadata)
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
 	ExpectLt(0, o.Generation)
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
