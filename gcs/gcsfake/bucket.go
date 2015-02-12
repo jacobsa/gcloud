@@ -234,7 +234,7 @@ func (b *bucket) NewReader(
 
 	index := b.objects.find(objectName)
 	if index == len(b.objects) {
-		return nil, errors.New("Object not found.")
+		return nil, errors.New("object doesn't exist.")
 	}
 
 	return ioutil.NopCloser(strings.NewReader(b.objects[index].contents)), nil
@@ -272,7 +272,7 @@ func (b *bucket) DeleteObject(
 	// Do we possess the object with the given name?
 	index := b.objects.find(name)
 	if index == len(b.objects) {
-		return errors.New("Object not found.")
+		return errors.New("Object Not Found.")
 	}
 
 	// Remove the object.
