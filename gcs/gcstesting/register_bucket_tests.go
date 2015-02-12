@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/ogletest"
+	"github.com/jacobsa/ogletest/srcutil"
 )
 
 // An interface that all bucket tests must implement.
@@ -16,11 +17,13 @@ type bucketTestSetUpInterface interface {
 	SetUpBucketTest(b gcs.Bucket)
 }
 
-func getSuiteName(prototype interface{}) string {
-	return strings.Title(reflect.TypeOf(prototype).Name())
+func getSuiteName(suiteType reflect.Type) string {
+	return strings.Title(reflect.TypeOf(suiteType).Name())
 }
 
-func getTestMethods(suitePrototype interface{}) []reflect.Method
+func getTestMethods(suiteType reflect.Type) []reflect.Method {
+	return srcutil.GetMethodsInSourceOrder(suiteType)
+}
 
 func registerTestSuite(
 	makeBucket func() gcs.Bucket,
@@ -29,10 +32,10 @@ func registerTestSuite(
 
 	// We don't need anything fancy at the suite level.
 	var ts ogletest.TestSuite
-	ts.Name = getSuiteName(prototype)
+	ts.Name = getSuiteName(suiteType)
 
 	// For each method, we create a test function.
-	for _, method := range getTestMethods(prototype) {
+	for _, method := range getTestMethods(suiteType) {
 		var tf ogletest.TestFunction
 
 		// Create an instance to be shared among SetUp and the test function itself.
