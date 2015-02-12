@@ -557,11 +557,24 @@ func (t *CreateTest) LongName() {
 }
 
 func (t *CreateTest) EmptyName() {
-	AssertFalse(true, "TODO")
+	// Creating an object with an empty name should fail.
+	// Cf. https://cloud.google.com/storage/docs/bucket-naming
+	err := t.createObject("", "")
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("Required")))
 }
 
 func (t *CreateTest) ExceedinglyLongName() {
-	AssertFalse(true, "TODO")
+	// Cf. https://cloud.google.com/storage/docs/bucket-naming
+	const maxLegalLength = 1024
+
+	// Create an object with a name that is longer than legal.
+	name := strings.Repeat("a", maxLegalLength+1)
+
+	err := t.createObject(name, "")
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("Invalid")))
 }
 
 func (t *CreateTest) ExoticName() {
