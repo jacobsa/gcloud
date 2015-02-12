@@ -615,6 +615,7 @@ func (t *listTest) Delimiter_SingleRune() {
 			t.ctx,
 			t.bucket,
 			[]string{
+				"!",
 				"a",
 				"b",
 				"b!foo",
@@ -637,7 +638,7 @@ func (t *listTest) Delimiter_SingleRune() {
 	AssertEq(nil, objects.Next)
 
 	// Prefixes
-	ExpectThat(objects.Prefixes, ElementsAre("b!", "c!", "d!"))
+	ExpectThat(objects.Prefixes, ElementsAre("!", "b!", "c!", "d!"))
 
 	// Objects
 	AssertEq(3, len(objects.Results))
