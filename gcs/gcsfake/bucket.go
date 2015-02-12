@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -224,10 +225,19 @@ func (b *bucket) ListObjects(
 	return
 }
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) NewReader(
 	ctx context.Context,
 	objectName string) (io.ReadCloser, error) {
-	return nil, errors.New("TODO: Implement NewReader.")
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	index := b.objects.find(objectName)
+	if index == len(b.objects) {
+		return nil, errors.New("Object not found.")
+	}
+
+	return ioutil.NopCloser(strings.NewReader(b.objects[index].contents)), nil
 }
 
 func (b *bucket) NewWriter(
