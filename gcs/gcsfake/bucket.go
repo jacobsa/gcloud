@@ -76,6 +76,9 @@ func (b *bucket) ListObjects(
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
+	// Set up the result object.
+	listing = new(storage.Objects)
+
 	// Handle nil queries.
 	if query == nil {
 		query = &storage.Query{}
