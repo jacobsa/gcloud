@@ -252,22 +252,10 @@ func readAllAndClose(rc io.ReadCloser) string {
 	return string(contents)
 }
 
-type bufferReadCloser struct {
-	buf *bytes.Buffer
-}
-
-func (b *bufferReadCloser) Read(p []byte) (int, error) {
-	return b.buf.Read(p)
-}
-
-func (b *bufferReadCloser) Close() error {
-	return nil
-}
-
 // Read everything from *rc, then replace it with a copy.
 func snarfBody(rc *io.ReadCloser) string {
 	contents := readAllAndClose(*rc)
-	*rc = &bufferReadCloser{bytes.NewBufferString(contents)}
+	*rc = ioutil.NopCloser(bytes.NewBufferString(contents))
 	return contents
 }
 
