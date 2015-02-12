@@ -31,7 +31,13 @@ func (w *objectWriter) Write(p []byte) (int, error) {
 
 func (w *objectWriter) Close() error
 
-func (w *objectWriter) Object() *storage.Object
+func (w *objectWriter) Object() *storage.Object {
+	if w.object == nil {
+		panic("Call to Object() before successful Close().")
+	}
+
+	return w.object
+}
 
 func newObjectWriter(bucket *bucket, attrs *storage.ObjectAttrs) gcs.ObjectWriter {
 	return &objectWriter{
