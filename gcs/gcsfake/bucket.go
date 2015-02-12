@@ -165,7 +165,7 @@ func (b *bucket) ListObjects(
 			// Search only in the part after the prefix.
 			nameMinusQueryPrefix := name[len(query.Prefix):]
 
-			delimiterIndex := strings.IndexAny(nameMinusQueryPrefix, query.Delimiter)
+			delimiterIndex := strings.Index(nameMinusQueryPrefix, query.Delimiter)
 			if delimiterIndex >= 0 {
 				resultPrefixLimit := delimiterIndex
 
