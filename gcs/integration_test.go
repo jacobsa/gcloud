@@ -658,7 +658,19 @@ func (t *ReadTest) EmptyObject() {
 }
 
 func (t *ReadTest) NonEmptyObject() {
-	AssertFalse(true, "TODO")
+	// Create
+	AssertEq(nil, t.createObject("foo", "taco"))
+
+	// Read
+	r, err := t.bucket.NewReader(t.ctx, "foo")
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
+
+	// Close
+	AssertEq(nil, r.Close())
 }
 
 ////////////////////////////////////////////////////////////////////////
