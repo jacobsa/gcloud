@@ -47,7 +47,7 @@ func (i *InvariantMutex) checkIfEnabled() {
 
 // Create a reader/writer mutex which, when the flag -syncutil.check_invariants
 // is set, will call the supplied function at moments when invariants protected
-// by the mutex should hold (e.g. just after acquiring the lock. The function
+// by the mutex should hold (e.g. just after acquiring the lock). The function
 // should crash if an invariant is violated. It should not have side effects,
 // as there are no guarantees that it will run.
 func NewInvariantMutex(check func()) InvariantMutex {
