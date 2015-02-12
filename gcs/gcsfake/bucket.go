@@ -59,6 +59,38 @@ func (s objectSlice) find(name string) int {
 	return len(s)
 }
 
+// Return the smallest string that is lexicographically larger than prefix and
+// does not have prefix as a prefix. For the sole case where this is not
+// possible (all strings consisting solely of 0xff bytes, including the empty
+// string), return the empty string.
+func prefixSuccessor(prefix string) string {
+	// Attempt to increment the last byte. If that is a 0xff byte, erase it and
+	// recurse. If we hit an empty string, then we know our task is impossible.
+	limit := []byte(prefix)
+	for len(limit) > 0 {
+		b := limit[len(limit)-1]
+		if b != 0xff {
+			limit[len(limit)-1]++
+			break
+		}
+
+		limit = limit[:len(limit)-1]
+	}
+
+	return string(limit)
+}
+
+// Return the smallest i such that prefix < s[i].metadata.Name and
+// !strings.HasPrefix(s[i].metadata.Name, prefix).
+func (s objectSlice) prefixUpperBound(prefix string) int {
+	successor := prefixSuccessor(prefix)
+	if successor == "" {
+		return len(successor)
+	}
+
+	return s.lowerBound(successor)
+}
+
 type bucket struct {
 	name string
 	mu   syncutil.InvariantMutex
@@ -118,7 +150,8 @@ func (b *bucket) ListObjects(
 
 	// Find the range of indexes within the array to scan.
 	indexStart := b.objects.lowerBound(nameStart)
-	indexLimit := minInt(len(b.objects), indexStart+maxResults)
+	prefixLimit := b.objects.prefixUpperBound(query.Prefix)
+	indexLimit := minInt(indexStart+maxResults, prefixLimit)
 
 	// Scan the array.
 	for i := indexStart; i < indexLimit; i++ {
@@ -130,7 +163,7 @@ func (b *bucket) ListObjects(
 
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
 	// results.
-	if indexLimit < len(b.objects) {
+	if indexLimit < prefixLimit {
 		listing.Next = &storage.Query{}
 		*listing.Next = *query
 		listing.Next.Cursor = b.objects[indexLimit].metadata.Name
