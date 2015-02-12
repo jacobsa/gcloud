@@ -85,7 +85,10 @@ func (b *bucket) ListObjects(
 	}
 
 	// Handle defaults.
-	maxResults := maxInt(1, query.MaxResults)
+	maxResults := query.MaxResults
+	if maxResults == 0 {
+		maxResults = 1000
+	}
 
 	// Find where in the space of object names to start.
 	nameStart := query.Prefix
