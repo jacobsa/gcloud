@@ -605,7 +605,12 @@ func (t *CreateTest) IllegalNames() {
 
 		err := t.createObject(name, "")
 		AssertNe(nil, err, nameDump)
-		ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
+
+		if name == "" {
+			ExpectThat(err, Error(HasSubstr("Required")), nameDump)
+		} else {
+			ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
+		}
 	}
 
 	// No objects should have been created.
