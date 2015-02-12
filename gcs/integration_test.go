@@ -597,7 +597,13 @@ func (t *CreateTest) ExoticName() {
 }
 
 func (t *CreateTest) CarriageReturnInName() {
-	AssertFalse(true, "TODO")
+	// This should fail.
+	// Cf. https://cloud.google.com/storage/docs/bucket-naming
+	name := "foo\u000Dbar"
+	err := t.createObject(name, "")
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("Invalid")))
 }
 
 func (t *CreateTest) LineFeedInName() {
