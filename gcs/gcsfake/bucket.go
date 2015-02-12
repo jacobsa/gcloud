@@ -161,13 +161,24 @@ func (b *bucket) ListObjects(
 
 		// Search for a delimiter if necessary.
 		if query.Delimiter != "" {
-			if i := strings.IndexAny(name, query.Delimiter); i >= 0 {
-				prefix := name[:i+len(query.Delimiter)]
+			// Search only in the part after the prefix.
+			nameMinusQueryPrefix := name[len(query.Prefix):]
 
-				// Don't save duplicates.
+			delimiterIndex := strings.IndexAny(nameMinusQueryPrefix, query.Delimiter)
+			if delimiterIndex >= 0 {
+				resultPrefixLimit := delimiterIndex
+
+				// Transform to an index within name.
+				resultPrefixLimit += len(query.Prefix)
+
+				// Include the delimiter in the result.
+				resultPrefixLimit += len(query.Delimiter)
+
+				// Save the result, but only if it's not a duplicate.
+				resultPrefix := name[:resultPrefixLimit]
 				if len(listing.Prefixes) == 0 ||
-					listing.Prefixes[len(listing.Prefixes)-1] != prefix {
-					listing.Prefixes = append(listing.Prefixes, prefix)
+					listing.Prefixes[len(listing.Prefixes)-1] != resultPrefix {
+					listing.Prefixes = append(listing.Prefixes, resultPrefix)
 				}
 
 				continue
