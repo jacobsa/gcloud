@@ -22,7 +22,7 @@ type objectWriter struct {
 	object *storage.Object
 
 	// The buffer to which we are forwarding writes.
-	buf bytes.Buffer
+	buf *bytes.Buffer
 }
 
 func (w *objectWriter) Write(p []byte) (int, error)
@@ -31,4 +31,10 @@ func (w *objectWriter) Close() error
 
 func (w *objectWriter) Object() *storage.Object
 
-func newObjectWriter(bucket *bucket, attrs *storage.ObjectAttrs) gcs.ObjectWriter
+func newObjectWriter(bucket *bucket, attrs *storage.ObjectAttrs) gcs.ObjectWriter {
+	return &objectWriter{
+		bucket: bucket,
+		attrs:  attrs,
+		buf:    new(bytes.Buffer),
+	}
+}
