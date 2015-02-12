@@ -44,6 +44,17 @@ func (s objectSlice) lowerBound(name string) int {
 	return sort.Search(len(s), pred)
 }
 
+// Return the smallest i such that s[i].metadata.Name == name, or len(s) if
+// there is no such i.
+func (s objectSlice) find(name string) int {
+	lb := s.lowerBound(name)
+	if lb < len(s) && s[lb].metadata.Name == name {
+		return lb
+	}
+
+	return len(s)
+}
+
 type bucket struct {
 	name string
 	mu   sync.RWMutex
@@ -76,10 +87,23 @@ func (b *bucket) NewWriter(
 	return newObjectWriter(b, attrs), nil
 }
 
+// LOCKS_EXCLUDED(mu)
 func (b *bucket) DeleteObject(
 	ctx context.Context,
 	name string) error {
-	return errors.New("TODO: Implement DeleteObject.")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Do we possess the object with the given name?
+	index := b.objects.find(name)
+	if index == len(b.objects) {
+		return errors.New("Object not found.")
+	}
+
+	// Remove the object.
+	b.objects = append(b.objects[:index], b.objects[index+1:]...)
+
+	return nil
 }
 
 // Create an object struct for the given attributes and contents.
