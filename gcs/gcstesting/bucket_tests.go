@@ -32,18 +32,24 @@ func createObject(
 	ctx context.Context,
 	bucket gcs.Bucket,
 	attrs *storage.ObjectAttrs,
-	contents string) error {
+	contents string) (o *storage.Object, err error) {
 	// Create a writer.
 	writer, err := bucket.NewWriter(ctx, attrs)
 	if err != nil {
-		return err
+		return
 	}
 
 	// Copy into the writer.
-	_, err = io.Copy(writer, bytes.NewReader([]byte(contents)))
+	if _, err = io.Copy(writer, bytes.NewReader([]byte(contents))); err != nil {
+		return
+	}
 
 	// Close the writer.
-	return writer.Close()
+	if err = writer.Close(); err != nil {
+		return
+	}
+
+	return writer.Object(), nil
 }
 
 func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) error {
@@ -63,7 +69,7 @@ func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) e
 		bundle.Add(func(ctx context.Context) error {
 			for objectName := range nameChan {
 				attrs := &storage.ObjectAttrs{Name: objectName}
-				if err := createObject(ctx, bucket, attrs, ""); err != nil {
+				if _, err := createObject(ctx, bucket, attrs, ""); err != nil {
 					return err
 				}
 			}
@@ -103,11 +109,13 @@ func (t *bucketTest) setUpBucketTest(b gcs.Bucket) {
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
-	return createObject(
+	_, err := createObject(
 		t.ctx,
 		t.bucket,
 		&storage.ObjectAttrs{Name: name},
 		contents)
+
+	return err
 }
 
 func (t *bucketTest) readObject(objectName string) (contents string, err error) {
@@ -200,19 +208,15 @@ func (t *createTest) Overwrite() {
 }
 
 func (t *createTest) ObjectAttributes_Default() {
-	// Create an object with default attributes.
-	AssertEq(nil, t.createObject("foo", "taco"))
+	// Create an object with default attributes aside from the name.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
 
-	// Check what shows up in the listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	o, err := createObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
-
+	// Check the Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("application/octet-stream", o.ContentType)
@@ -231,6 +235,16 @@ func (t *createTest) ObjectAttributes_Default() {
 	ExpectEq("STANDARD", o.StorageClass)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
 	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
+
+	// Make sure it matches what is in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 func (t *createTest) ObjectAttributes_Explicit() {
@@ -247,18 +261,10 @@ func (t *createTest) ObjectAttributes_Explicit() {
 		},
 	}
 
-	AssertEq(nil, createObject(t.ctx, t.bucket, attrs, "taco"))
-
-	// Check what shows up in the listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	o, err := createObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
-
+	// Check the Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("image/png", o.ContentType)
@@ -277,6 +283,16 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectEq("STANDARD", o.StorageClass)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
 	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
+
+	// Make sure it matches what is in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 func (t *createTest) WriteThenAbandon() {
