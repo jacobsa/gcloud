@@ -97,7 +97,7 @@ type bucketTest struct {
 
 var _ bucketTestSetUpInterface = &bucketTest{}
 
-func (t *bucketTest) SetUpBucketTest(b gcs.Bucket) {
+func (t *bucketTest) setUpBucketTest(b gcs.Bucket) {
 	t.bucket = b
 	t.ctx = context.Background()
 }

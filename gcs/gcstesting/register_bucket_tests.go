@@ -14,7 +14,7 @@ import (
 
 // An interface that all bucket tests must implement.
 type bucketTestSetUpInterface interface {
-	SetUpBucketTest(b gcs.Bucket)
+	setUpBucketTest(b gcs.Bucket)
 }
 
 func getSuiteName(suiteType reflect.Type) string {
@@ -58,7 +58,7 @@ func registerTestSuite(
 		// remembering that the suite implements bucketTestSetUpInterface.
 		tf.SetUp = func(*ogletest.TestInfo) {
 			bucket := makeBucket()
-			instance.Interface().(bucketTestSetUpInterface).SetUpBucketTest(bucket)
+			instance.Interface().(bucketTestSetUpInterface).setUpBucketTest(bucket)
 		}
 
 		// The test function itself should simply invoke the method.
