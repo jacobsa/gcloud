@@ -86,7 +86,7 @@ func prefixSuccessor(prefix string) string {
 func (s objectSlice) prefixUpperBound(prefix string) int {
 	successor := prefixSuccessor(prefix)
 	if successor == "" {
-		return len(successor)
+		return len(s)
 	}
 
 	return s.lowerBound(successor)
