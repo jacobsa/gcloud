@@ -571,9 +571,6 @@ func (t *listTest) NewlyCreatedObject() {
 	o = objects.Results[0]
 	AssertEq("a", o.Name)
 	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq("application/octet-stream", o.ContentType)
-	ExpectEq("", o.ContentLanguage)
-	ExpectEq("", o.CacheControl)
 	ExpectEq(len("taco"), o.Size)
 }
 
