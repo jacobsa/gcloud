@@ -29,7 +29,7 @@ type object struct {
 	metadata *storage.Object
 
 	// The contents of the object. These never change.
-	contents []byte
+	contents string
 }
 
 // A slice of objects compared by name.
@@ -276,7 +276,7 @@ func (b *bucket) DeleteObject(
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
 	attrs *storage.ObjectAttrs,
-	contents []byte) (o object) {
+	contents string) (o object) {
 	// Set up metadata.
 	// TODO(jacobsa): Other fields.
 	o.metadata = &storage.Object{
@@ -299,7 +299,7 @@ func (b *bucket) mintObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) addObject(
 	attrs *storage.ObjectAttrs,
-	contents []byte) *storage.Object {
+	contents string) *storage.Object {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

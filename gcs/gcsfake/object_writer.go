@@ -40,7 +40,7 @@ func (w *objectWriter) Close() error {
 		panic("Extra call to Close.")
 	}
 
-	contents := w.buf.Bytes()
+	contents := w.buf.String()
 	w.buf = nil
 
 	// Commit the contents to the bucket, initializing w.object.
