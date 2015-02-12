@@ -511,7 +511,26 @@ func (t *CreateTest) ObjectAttributes_Explicit() {
 }
 
 func (t *CreateTest) WriteThenAbandon() {
-	AssertFalse(true, "TODO")
+	// Set up a writer for an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	writer, err := t.bucket.NewWriter(t.ctx, attrs)
+	AssertEq(nil, err)
+
+	// Write a bunch of data, but don't yet close.
+	_, err = io.Copy(writer, bytes.NewBuffer(make([]byte, 1<<20)))
+	AssertEq(nil, err)
+
+	// The object should not show up in a listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	ExpectThat(objects.Results, ElementsAre())
 }
 
 func (t *CreateTest) LongName() {
