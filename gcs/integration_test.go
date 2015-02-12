@@ -164,12 +164,12 @@ func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
 	}
 }
 
-func createWithContents(ctx context.Context, bucket gcs.Bucket, name string, contents string) error {
+func createObject(
+	ctx context.Context,
+	bucket gcs.Bucket,
+	attrs *storage.ObjectAttrs,
+	contents string) error {
 	// Create a writer.
-	attrs := &storage.ObjectAttrs{
-		Name: name,
-	}
-
 	writer, err := bucket.NewWriter(ctx, attrs)
 	if err != nil {
 		return err
@@ -198,7 +198,8 @@ func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) e
 	for i := 0; i < 10; i++ {
 		bundle.Add(func(ctx context.Context) error {
 			for objectName := range nameChan {
-				if err := createWithContents(ctx, bucket, objectName, ""); err != nil {
+				attrs := &storage.ObjectAttrs{Name: objectName}
+				if err := createObject(ctx, bucket, attrs, ""); err != nil {
 					return err
 				}
 			}
@@ -241,21 +242,11 @@ func (t *BucketTest) SetUp(ti *TestInfo) {
 }
 
 func (t *BucketTest) createObject(name string, contents string) error {
-	// Create a writer.
-	attrs := &storage.ObjectAttrs{
-		Name: name,
-	}
-
-	writer, err := t.bucket.NewWriter(t.ctx, attrs)
-	if err != nil {
-		return err
-	}
-
-	// Copy into the writer.
-	_, err = io.Copy(writer, bytes.NewReader([]byte(contents)))
-
-	// Close the writer.
-	return writer.Close()
+	return createObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: name},
+		contents)
 }
 
 func (t *BucketTest) readObject(objectName string) (contents string, err error) {
@@ -384,7 +375,49 @@ func (t *CreateTest) ObjectAttributes_Default() {
 }
 
 func (t *CreateTest) ObjectAttributes_Explicit() {
-	AssertFalse(true, "TODO")
+	// Create an object with explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentLanguage: "zh-TW",
+		ContentEncoding: "gzip",
+		CacheControl:    "public",
+		Metadata: map[string]string{
+			"foo": "bar",
+			"baz": "qux",
+		},
+	}
+
+	AssertEq(nil, createObject(t.ctx, t.bucket, attrs, "taco"))
+
+	// Check what shows up in the listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("foo", o.Name)
+	ExpectEq("image/png", o.ContentType)
+	ExpectEq("zh-TW", o.ContentLanguage)
+	ExpectEq("public", o.CacheControl)
+	ExpectThat(o.ACL, ElementsAre())
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("taco"), o.Size)
+	ExpectEq("gzip", o.ContentEncoding)
+	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
+	ExpectEq(computeCrc32C("taco"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(0, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
+	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
 }
 
 func (t *CreateTest) WriteThenAbandon() {
