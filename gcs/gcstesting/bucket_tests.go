@@ -607,7 +607,7 @@ func (t *listTest) TrivialQuery() {
 	ExpectEq(len("enchilada"), o.Size)
 }
 
-func (t *listTest) Delimiter() {
+func (t *listTest) Delimiter_SingleRun() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -647,6 +647,10 @@ func (t *listTest) Delimiter() {
 	ExpectEq("e", objects.Results[2].Name)
 }
 
+func (t *listTest) Delimiter_MultiRune() {
+	AssertTrue(false, "TODO")
+}
+
 func (t *listTest) Prefix() {
 	// Create several objects.
 	AssertEq(
@@ -684,7 +688,7 @@ func (t *listTest) Prefix() {
 	ExpectEq("b타코", objects.Results[3].Name)
 }
 
-func (t *listTest) DelimiterAndPrefix() {
+func (t *listTest) PrefixAndDelimiter_SingleRune() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -742,6 +746,10 @@ func (t *listTest) DelimiterAndPrefix() {
 	ExpectEq("blah!b\x00", objects.Results[1].Name)
 	ExpectEq("blah!b\x01", objects.Results[2].Name)
 	ExpectEq("blah!b타코", objects.Results[3].Name)
+}
+
+func (t *listTest) PrefixAndDelimiter_MultiRune() {
+	AssertTrue(false, "TODO")
 }
 
 func (t *listTest) Cursor() {
