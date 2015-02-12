@@ -69,10 +69,48 @@ func (b *bucket) Name() string {
 	return b.name
 }
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) ListObjects(
 	ctx context.Context,
-	query *storage.Query) (*storage.Objects, error) {
-	return nil, errors.New("TODO: Implement ListObjects.")
+	query *storage.Query) (listing *storage.Objects, err error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	// Handle nil queries.
+	if query == nil {
+		query = &storage.Query{}
+	}
+
+	// Handle defaults.
+	maxResults := maxInt(1, query.MaxResults)
+
+	// Find where in the space of object names to start.
+	nameStart := query.Prefix
+	if query.Cursor != "" && query.Cursor > nameStart {
+		nameStart = query.Cursor
+	}
+
+	// Find the range of indexes within the array to scan.
+	indexStart := b.objects.lowerBound(nameStart)
+	indexLimit := minInt(len(b.objects), indexStart+maxResults)
+
+	// Scan the array.
+	for i := indexStart; i < indexLimit; i++ {
+		var o object = b.objects[i]
+
+		// TODO(jacobsa): Handle prefixes.
+		listing.Results = append(listing.Results, o.metadata)
+	}
+
+	// Set up a cursor for where to start the next scan if we didn't exhaust the
+	// results.
+	if indexLimit < len(b.objects) {
+		listing.Next = &storage.Query{}
+		*listing.Next = *query
+		listing.Next.Cursor = b.objects[indexLimit].metadata.Name
+	}
+
+	return
 }
 
 func (b *bucket) NewReader(
@@ -87,7 +125,7 @@ func (b *bucket) NewWriter(
 	return newObjectWriter(b, attrs), nil
 }
 
-// LOCKS_EXCLUDED(mu)
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) DeleteObject(
 	ctx context.Context,
 	name string) error {
@@ -128,7 +166,7 @@ func (b *bucket) mintObject(
 // Add a record for an object with the given attributes and contents, then
 // return the minted metadata.
 //
-// LOCKS_EXCLUDED(mu)
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) addObject(
 	attrs *storage.ObjectAttrs,
 	contents []byte) *storage.Object {
@@ -143,4 +181,20 @@ func (b *bucket) addObject(
 	sort.Sort(b.objects)
 
 	return o.metadata
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
 }
