@@ -25,6 +25,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -520,7 +521,7 @@ func (t *CreateTest) WriteThenAbandon() {
 	AssertEq(nil, err)
 
 	// Write a bunch of data, but don't yet close.
-	_, err = io.Copy(writer, bytes.NewBuffer(make([]byte, 1<<20)))
+	_, err = io.Copy(writer, strings.NewReader(strings.Repeat("foo", 1<<19)))
 	AssertEq(nil, err)
 
 	// The object should not show up in a listing.
