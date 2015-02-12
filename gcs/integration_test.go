@@ -689,7 +689,26 @@ func (t *DeleteTest) NonExistentObject() {
 }
 
 func (t *DeleteTest) Successful() {
-	AssertFalse(true, "TODO")
+	// Create an object.
+	AssertEq(nil, t.createObject("a", "taco"))
+
+	// Delete it.
+	AssertEq(nil, t.bucket.DeleteObject(t.ctx, "a"))
+
+	// It shouldn't show up in a listing.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertNe(nil, objects)
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+	ExpectThat(objects.Results, ElementsAre())
+
+	// It shouldn't be readable.
+	_, err = t.bucket.NewReader(t.ctx, "a")
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
 }
 
 ////////////////////////////////////////////////////////////////////////
