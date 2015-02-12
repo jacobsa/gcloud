@@ -76,12 +76,13 @@ func getHttpClientOrDie() *http.Client {
 	}
 
 	// Create the HTTP transport.
-	var transport http.RoundTripper = &oauth2.Transport{
+	transport := &oauth2.Transport{
 		Source: tokenSource,
+		Base:   http.DefaultTransport,
 	}
 
 	if *fDebugHttp {
-		transport = &debuggingTransport{wrapped: transport}
+		transport.Base = &debuggingTransport{wrapped: transport.Base}
 	}
 
 	return &http.Client{Transport: transport}
