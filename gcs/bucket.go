@@ -4,8 +4,10 @@
 package gcs
 
 import (
+	"errors"
 	"io"
 	"net/http"
+	"unicode/utf8"
 
 	"golang.org/x/net/context"
 	"google.golang.org/cloud"
@@ -34,6 +36,17 @@ type Bucket interface {
 	// Return an ObjectWriter that can be used to create or overwrite an object
 	// with the given attributes. attrs.Name must be specified. Otherwise, nil-
 	// and zero-valud attributes are ignored.
+	//
+	// Object names must:
+	//
+	// *  be non-empty.
+	// *  be no longer than 1024 bytes.
+	// *  be valid UTF-8.
+	// *  not contain the code point U+000A (line feed).
+	// *  not contain the code point U+000D (carriage return).
+	//
+	// See here for authoritative documentation:
+	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
 	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
 
 	// Delete the object with the given name.
@@ -60,8 +73,17 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 	return storage.NewReader(authContext, b.name, objectName)
 }
 
-func (b *bucket) NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error) {
+func (b *bucket) NewWriter(
+	ctx context.Context,
+	attrs *storage.ObjectAttrs) (ObjectWriter, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
+
+	// As of 2015-02, the wrapped storage package doesn't check this for us,
+	// causing silently transformed names:
+	//     https://github.com/GoogleCloudPlatform/gcloud-golang/issues/111
+	if !utf8.ValidString(attrs.Name) {
+		return nil, errors.New("Invalid object name: not valid UTF-8")
+	}
 
 	// Create and initialize the wrapped writer.
 	wrapped := storage.NewWriter(authContext, b.name, attrs.Name)
