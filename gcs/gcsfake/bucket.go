@@ -204,9 +204,14 @@ func (b *bucket) addObject(
 	// Create an object record from the given attributes.
 	var o object = b.mintObject(attrs, contents)
 
-	// Add it to our list of object.
-	b.objects = append(b.objects, o)
-	sort.Sort(b.objects)
+	// Replace an entry in or add an entry to our list of objects.
+	existingIndex := b.objects.find(attrs.Name)
+	if existingIndex < len(b.objects) {
+		b.objects[existingIndex] = o
+	} else {
+		b.objects = append(b.objects, o)
+		sort.Sort(b.objects)
+	}
 
 	return o.metadata
 }
