@@ -95,13 +95,11 @@ type bucketTest struct {
 	bucket    gcs.Bucket
 }
 
-var _ bucketSetter = &bucketTest{}
-var _ SetUpInterface = &bucketTest{}
+var _ bucketTestSetUpInterface = &bucketTest{}
 
-func (t *bucketTest) SetUp(ti *TestInfo) {
-	// Create a context and bucket.
+func (t *bucketTest) SetUpBucketTest(b gcs.Bucket) {
+	t.bucket = b
 	t.ctx = context.Background()
-	t.bucket = t.getBucket()
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
