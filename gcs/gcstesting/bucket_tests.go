@@ -89,21 +89,21 @@ func computeCrc32C(s string) uint32 {
 // Common
 ////////////////////////////////////////////////////////////////////////
 
-type BucketTest struct {
+type bucketTest struct {
 	getBucket func() gcs.Bucket
 	ctx       context.Context
 	bucket    gcs.Bucket
 }
 
-var _ SetUpInterface = &BucketTest{}
+var _ SetUpInterface = &bucketTest{}
 
-func (t *BucketTest) SetUp(ti *TestInfo) {
+func (t *bucketTest) SetUp(ti *TestInfo) {
 	// Create a context and bucket.
 	t.ctx = context.Background()
 	t.bucket = t.getBucket()
 }
 
-func (t *BucketTest) createObject(name string, contents string) error {
+func (t *bucketTest) createObject(name string, contents string) error {
 	return createObject(
 		t.ctx,
 		t.bucket,
@@ -111,7 +111,7 @@ func (t *BucketTest) createObject(name string, contents string) error {
 		contents)
 }
 
-func (t *BucketTest) readObject(objectName string) (contents string, err error) {
+func (t *bucketTest) readObject(objectName string) (contents string, err error) {
 	// Open a reader.
 	reader, err := t.bucket.NewReader(t.ctx, objectName)
 	if err != nil {
@@ -136,13 +136,13 @@ func (t *BucketTest) readObject(objectName string) (contents string, err error) 
 // Create
 ////////////////////////////////////////////////////////////////////////
 
-type CreateTest struct {
-	BucketTest
+type createTest struct {
+	bucketTest
 }
 
-func init() { RegisterTestSuite(&CreateTest{}) }
+func init() { RegisterTestSuite(&createTest{}) }
 
-func (t *CreateTest) EmptyObject() {
+func (t *createTest) EmptyObject() {
 	// Create the object.
 	AssertEq(nil, t.createObject("foo", ""))
 
@@ -160,7 +160,7 @@ func (t *CreateTest) EmptyObject() {
 	ExpectEq(0, o.Size)
 }
 
-func (t *CreateTest) NonEmptyObject() {
+func (t *createTest) NonEmptyObject() {
 	// Create the object.
 	AssertEq(nil, t.createObject("foo", "taco"))
 
@@ -178,7 +178,7 @@ func (t *CreateTest) NonEmptyObject() {
 	ExpectEq(len("taco"), o.Size)
 }
 
-func (t *CreateTest) Overwrite() {
+func (t *createTest) Overwrite() {
 	// Create two versions of an object in sequence.
 	AssertEq(nil, t.createObject("foo", "taco"))
 	AssertEq(nil, t.createObject("foo", "burrito"))
@@ -202,7 +202,7 @@ func (t *CreateTest) Overwrite() {
 	ExpectEq("burrito", contents)
 }
 
-func (t *CreateTest) ObjectAttributes_Default() {
+func (t *createTest) ObjectAttributes_Default() {
 	// Create an object with default attributes.
 	AssertEq(nil, t.createObject("foo", "taco"))
 
@@ -236,7 +236,7 @@ func (t *CreateTest) ObjectAttributes_Default() {
 	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
 }
 
-func (t *CreateTest) ObjectAttributes_Explicit() {
+func (t *createTest) ObjectAttributes_Explicit() {
 	// Create an object with explicit attributes set.
 	attrs := &storage.ObjectAttrs{
 		Name:            "foo",
@@ -282,7 +282,7 @@ func (t *CreateTest) ObjectAttributes_Explicit() {
 	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
 }
 
-func (t *CreateTest) WriteThenAbandon() {
+func (t *createTest) WriteThenAbandon() {
 	// Set up a writer for an object.
 	attrs := &storage.ObjectAttrs{
 		Name: "foo",
@@ -305,7 +305,7 @@ func (t *CreateTest) WriteThenAbandon() {
 	ExpectThat(objects.Results, ElementsAre())
 }
 
-func (t *CreateTest) InterestingNames() {
+func (t *createTest) InterestingNames() {
 	// Naming requirements:
 	// Cf. https://cloud.google.com/storage/docs/bucket-naming
 	const maxLegalLength = 1024
@@ -366,7 +366,7 @@ func (t *CreateTest) InterestingNames() {
 	}
 }
 
-func (t *CreateTest) IllegalNames() {
+func (t *createTest) IllegalNames() {
 	// Naming requirements:
 	// Cf. https://cloud.google.com/storage/docs/bucket-naming
 	const maxLegalLength = 1024
@@ -409,7 +409,7 @@ func (t *CreateTest) IllegalNames() {
 ////////////////////////////////////////////////////////////////////////
 
 type ReadTest struct {
-	BucketTest
+	bucketTest
 }
 
 func init() { RegisterTestSuite(&ReadTest{}) }
@@ -458,7 +458,7 @@ func (t *ReadTest) NonEmptyObject() {
 ////////////////////////////////////////////////////////////////////////
 
 type DeleteTest struct {
-	BucketTest
+	bucketTest
 }
 
 func init() { RegisterTestSuite(&DeleteTest{}) }
@@ -497,13 +497,13 @@ func (t *DeleteTest) Successful() {
 // List
 ////////////////////////////////////////////////////////////////////////
 
-type ListTest struct {
-	BucketTest
+type listTest struct {
+	bucketTest
 }
 
-func init() { RegisterTestSuite(&ListTest{}) }
+func init() { RegisterTestSuite(&listTest{}) }
 
-func (t *ListTest) EmptyBucket() {
+func (t *listTest) EmptyBucket() {
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
@@ -513,7 +513,7 @@ func (t *ListTest) EmptyBucket() {
 	ExpectEq(nil, objects.Next)
 }
 
-func (t *ListTest) NewlyCreatedObject() {
+func (t *listTest) NewlyCreatedObject() {
 	// Create an object.
 	AssertEq(nil, t.createObject("a", "taco"))
 
@@ -538,7 +538,7 @@ func (t *ListTest) NewlyCreatedObject() {
 	ExpectEq(len("taco"), o.Size)
 }
 
-func (t *ListTest) TrivialQuery() {
+func (t *listTest) TrivialQuery() {
 	// Create few objects.
 	AssertEq(nil, t.createObject("a", "taco"))
 	AssertEq(nil, t.createObject("b", "burrito"))
@@ -571,7 +571,7 @@ func (t *ListTest) TrivialQuery() {
 	ExpectEq(len("enchilada"), o.Size)
 }
 
-func (t *ListTest) Delimiter() {
+func (t *listTest) Delimiter() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -611,7 +611,7 @@ func (t *ListTest) Delimiter() {
 	ExpectEq("e", objects.Results[2].Name)
 }
 
-func (t *ListTest) Prefix() {
+func (t *listTest) Prefix() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -648,7 +648,7 @@ func (t *ListTest) Prefix() {
 	ExpectEq("b타코", objects.Results[3].Name)
 }
 
-func (t *ListTest) DelimiterAndPrefix() {
+func (t *listTest) DelimiterAndPrefix() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -708,7 +708,7 @@ func (t *ListTest) DelimiterAndPrefix() {
 	ExpectEq("blah!b타코", objects.Results[3].Name)
 }
 
-func (t *ListTest) Cursor() {
+func (t *listTest) Cursor() {
 	// Create a good number of objects, containing a run of objects sharing a
 	// prefix under the delimiter "!".
 	AssertEq(
