@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/jacobsa/gcloud/gcs"
@@ -156,6 +157,21 @@ func (b *bucket) ListObjects(
 	// Scan the array.
 	for i := indexStart; i < indexLimit; i++ {
 		var o object = b.objects[i]
+		name := o.metadata.Name
+
+		// Search for a delimiter if necessary.
+		if query.Delimiter != "" {
+			if i := strings.IndexAny(name, query.Delimiter); i >= 0 {
+				prefix := name[:i]
+
+				// Don't save duplicates.
+				if len(listing.Prefixes) > 0 && listing.Prefixes[len(listing.Prefixes)-1] != prefix {
+					listing.Prefixes = append(listing.Prefixes, prefix)
+				}
+
+				continue
+			}
+		}
 
 		// TODO(jacobsa): Handle prefixes.
 		listing.Results = append(listing.Results, o.metadata)
