@@ -159,8 +159,11 @@ func (b *bucket) mintObject(
 	// Set up metadata.
 	// TODO(jacobsa): Other fields.
 	o.metadata = &storage.Object{
-		Bucket: b.Name(),
-		Name:   attrs.Name,
+		Bucket:   b.Name(),
+		Name:     attrs.Name,
+		Owner:    "user-fake",
+		Size:     int64(len(contents)),
+		Metadata: attrs.Metadata,
 	}
 
 	// Set up contents.
