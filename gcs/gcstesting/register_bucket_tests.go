@@ -5,6 +5,7 @@ package gcstesting
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/ogletest"
@@ -15,7 +16,9 @@ type bucketTestSetUpInterface interface {
 	SetUpBucketTest(b gcs.Bucket)
 }
 
-func getSuiteName(prototype interface{}) string
+func getSuiteName(prototype interface{}) string {
+	return strings.Title(reflect.TypeOf(prototype).Name())
+}
 
 func getTestMethods(suitePrototype interface{}) []reflect.Method
 
