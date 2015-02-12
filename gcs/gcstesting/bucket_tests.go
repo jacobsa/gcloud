@@ -399,7 +399,7 @@ func (t *createTest) IllegalNames() {
 		nameDump := hex.Dump([]byte(name))
 
 		err := t.createObject(name, "")
-		AssertNe(nil, err, nameDump)
+		AssertNe(nil, err, "Name:\n%s", nameDump)
 
 		if name == "" {
 			ExpectThat(err, Error(HasSubstr("Required")), nameDump)
