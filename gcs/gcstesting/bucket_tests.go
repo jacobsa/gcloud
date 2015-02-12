@@ -659,7 +659,7 @@ func (t *listTest) Prefix() {
 			t.bucket,
 			[]string{
 				"a",
-				"a\xff",
+				"a\x7f",
 				"b",
 				"b\x00",
 				"b\x01",
@@ -699,7 +699,7 @@ func (t *listTest) DelimiterAndPrefix() {
 				"blag!",
 				"blah",
 				"blah!a",
-				"blah!a\xff",
+				"blah!a\x7f",
 				"blah!b",
 				"blah!b!asd",
 				"blah!b\x00",
