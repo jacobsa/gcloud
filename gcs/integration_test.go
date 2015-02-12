@@ -514,6 +514,18 @@ func (t *CreateTest) WriteThenAbandon() {
 	AssertFalse(true, "TODO")
 }
 
+func (t *CreateTest) LongName() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) EmptyName() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateTest) ExceedinglyLongName() {
+	AssertFalse(true, "TODO")
+}
+
 func (t *CreateTest) ExoticName() {
 	AssertFalse(true, "TODO")
 }
