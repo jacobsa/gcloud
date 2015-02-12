@@ -682,7 +682,10 @@ type DeleteTest struct {
 func init() { RegisterTestSuite(&DeleteTest{}) }
 
 func (t *DeleteTest) NonExistentObject() {
-	AssertFalse(true, "TODO")
+	err := t.bucket.DeleteObject(t.ctx, "foobar")
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("Not Found")))
 }
 
 func (t *DeleteTest) Successful() {
