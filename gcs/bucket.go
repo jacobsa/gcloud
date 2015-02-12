@@ -62,7 +62,10 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 
 func (b *bucket) NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
+
+	// Create and initialize the wrapped writer.
 	wrapped := storage.NewWriter(authContext, b.name, attrs.Name)
+	wrapped.ObjectAttrs = *attrs
 
 	w := &objectWriter{
 		wrapped: wrapped,
