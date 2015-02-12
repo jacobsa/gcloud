@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jacobsa/gcloud/gcs"
@@ -318,12 +319,14 @@ func (b *bucket) mintObject(
 		CacheControl:    attrs.CacheControl,
 		Owner:           "user-fake",
 		Size:            int64(len(contents)),
+		ContentEncoding: attrs.ContentEncoding,
 		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),
 		MediaLink:       "http://localhost/download/storage/fake/" + attrs.Name,
 		Metadata:        attrs.Metadata,
 		Generation:      b.prevGeneration,
 		MetaGeneration:  1,
 		StorageClass:    "STANDARD",
+		Updated:         time.Now(),
 	}
 
 	// Match GCS's behavior for default ContentType.
