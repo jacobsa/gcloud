@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcloud/gcs/gcsfake"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/ogletest"
 )
@@ -15,6 +16,6 @@ func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 
 func init() {
 	gcstesting.RegisterBucketTests(func() gcs.Bucket {
-		return gcstest.NewFakeBucket("some_bucket")
+		return gcsfake.NewFakeBucket("some_bucket")
 	})
 }
