@@ -97,9 +97,8 @@ func computeCrc32C(s string) uint32 {
 ////////////////////////////////////////////////////////////////////////
 
 type bucketTest struct {
-	getBucket func() gcs.Bucket
-	ctx       context.Context
-	bucket    gcs.Bucket
+	ctx    context.Context
+	bucket gcs.Bucket
 }
 
 var _ bucketTestSetUpInterface = &bucketTest{}
