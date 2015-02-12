@@ -101,6 +101,10 @@ func (b *bucket) mintObject(
 	return
 }
 
+// Add a record for an object with the given attributes and contents, then
+// return the minted metadata.
+//
+// LOCKS_EXCLUDED(mu)
 func (b *bucket) addObject(
 	attrs *storage.ObjectAttrs,
 	contents []byte) *storage.Object {
