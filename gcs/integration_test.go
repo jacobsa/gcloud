@@ -18,9 +18,11 @@ import (
 	"bytes"
 	"crypto/md5"
 	"flag"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -214,6 +216,10 @@ func md5Sum(s string) []byte {
 	return array[:]
 }
 
+func computeCrc32C(s string) uint32 {
+	return crc32.Checksum([]byte(s), crc32.MakeTable(crc32.Castagnoli))
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -367,14 +373,14 @@ func (t *CreateTest) ObjectAttributes_Default() {
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
-	ExpectEq(17, o.CRC32C)
+	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectEq(nil, o.Metadata)
-	ExpectEq(17, o.Generation)     // TODO
-	ExpectEq(17, o.MetaGeneration) // TODO
+	ExpectLt(0, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
-	ExpectThat(o.Updated, DeepEquals(time.Now())) // TODO
+	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
 }
 
 func (t *CreateTest) ObjectAttributes_Explicit() {
