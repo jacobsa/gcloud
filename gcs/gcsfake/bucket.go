@@ -6,6 +6,7 @@ package gcsfake
 import (
 	"errors"
 	"io"
+	"sync"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
@@ -17,8 +18,22 @@ func NewFakeBucket(name string) gcs.Bucket {
 	return &bucket{name: name}
 }
 
+type object struct {
+	// The attributes with which this object was created. These never change.
+	attrs *storage.ObjectAttrs
+
+	// The contents of the object. These never change.
+	contents []byte
+}
+
 type bucket struct {
 	name string
+	mu   sync.RWMutex
+
+	// The set of extant objects.
+	//
+	// INVARIANT: Strictly increasing by object.attrs.Name.
+	objects []object // GUARDED_BY(mu)
 }
 
 func (b *bucket) Name() string {
