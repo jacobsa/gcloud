@@ -647,11 +647,26 @@ type ReadTest struct {
 func init() { RegisterTestSuite(&ReadTest{}) }
 
 func (t *ReadTest) NonExistentObject() {
-	AssertFalse(true, "TODO")
+	_, err := t.bucket.NewReader(t.ctx, "foobar")
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
 }
 
 func (t *ReadTest) EmptyObject() {
-	AssertFalse(true, "TODO")
+	// Create
+	AssertEq(nil, t.createObject("foo", ""))
+
+	// Read
+	r, err := t.bucket.NewReader(t.ctx, "foo")
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("", string(contents))
+
+	// Close
+	AssertEq(nil, r.Close())
 }
 
 func (t *ReadTest) NonEmptyObject() {
