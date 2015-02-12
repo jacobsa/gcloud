@@ -30,9 +30,9 @@ type object struct {
 // A slice of objects compared by name.
 type objectSlice []object
 
-func (s objectSlice) Len() int
-func (s objectSlice) Less(i, j int) bool
-func (s objectSlice) Swap(i, j int)
+func (s objectSlice) Len() int           { return len(s) }
+func (s objectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
+func (s objectSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 type bucket struct {
 	name string
