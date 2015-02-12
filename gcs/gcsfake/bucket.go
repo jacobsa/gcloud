@@ -155,6 +155,7 @@ func (b *bucket) ListObjects(
 	indexLimit := minInt(indexStart+maxResults, prefixLimit)
 
 	// Scan the array.
+	var lastResultWasPrefix bool
 	for i := indexStart; i < indexLimit; i++ {
 		var o object = b.objects[i]
 		name := o.metadata.Name
@@ -181,9 +182,12 @@ func (b *bucket) ListObjects(
 					listing.Prefixes = append(listing.Prefixes, resultPrefix)
 				}
 
+				lastResultWasPrefix = true
 				continue
 			}
 		}
+
+		lastResultWasPrefix = false
 
 		// Otherwise, save as an object result.
 		listing.Results = append(listing.Results, o.metadata)
@@ -194,7 +198,27 @@ func (b *bucket) ListObjects(
 	if indexLimit < prefixLimit {
 		listing.Next = &storage.Query{}
 		*listing.Next = *query
-		listing.Next.Cursor = b.objects[indexLimit].metadata.Name
+
+		// Ion is if the final object we visited was returned as an element in
+		// listing.Prefixes, we want to skip all other objects that would result in
+		// the same so we don't return duplicate elements in listing.Prefixes
+		// accross requests.
+		if lastResultWasPrefix {
+			lastResultPrefix := listing.Prefixes[len(listing.Prefixes)-1]
+			listing.Next.Cursor = prefixSuccessor(lastResultPrefix)
+
+			// Check an assumption: prefixSuccessor cannot result in the empty string
+			// above because object names must be non-empty UTF-8 strings, and there
+			// is no valid non-empty UTF-8 string that consists of entirely 0xff
+			// bytes.
+			if listing.Next.Cursor == "" {
+				err = errors.New("Unexpected empty string from prefixSuccessor")
+				return
+			}
+		} else {
+			// Otherwise, we'll start scanning at the next object.
+			listing.Next.Cursor = b.objects[indexLimit].metadata.Name
+		}
 	}
 
 	return
