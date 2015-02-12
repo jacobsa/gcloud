@@ -5,6 +5,7 @@ package gcsfake
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sort"
 
@@ -67,7 +68,21 @@ type bucket struct {
 	objects objectSlice // GUARDED_BY(mu)
 }
 
-func (b *bucket) checkInvariants()
+// SHARED_LOCKS_REQUIRED(b.mu)
+func (b *bucket) checkInvariants() {
+	// Make sure 'objects' is strictly increasing.
+	for i := 1; i < len(b.objects); i++ {
+		objA := b.objects[i-1]
+		objB := b.objects[i]
+		if !(objA.metadata.Name < objB.metadata.Name) {
+			panic(
+				fmt.Sprintf(
+					"Object names are not strictly increasing: %v vs. %v",
+					objA.metadata.Name,
+					objB.metadata.Name))
+		}
+	}
+}
 
 func (b *bucket) Name() string {
 	return b.name
