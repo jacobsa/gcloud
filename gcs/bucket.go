@@ -35,9 +35,13 @@ type Bucket interface {
 	// with the given attributes. attrs.Name must be specified. Otherwise, nil-
 	// and zero-valud attributes are ignored.
 	//
-	// Object names must be valid non-empty UTF-8 no more than 1024 bytes in
-	// length, not containing the code points U+000A (line feed) or U+000D
-	// (carriage return).
+	// Object names must:
+	//
+	// *  be non-empty.
+	// *  be no longer than 1024 bytes.
+	// *  be valid UTF-8.
+	// *  not contain the code point U+000A (line feed).
+	// *  not contain the code point U+000D (carriage return).
 	//
 	// See here for authoritative documentation:
 	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
