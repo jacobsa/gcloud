@@ -18,7 +18,7 @@ type bucketTestSetUpInterface interface {
 }
 
 func getSuiteName(suiteType reflect.Type) string {
-	return strings.Title(reflect.TypeOf(suiteType).Name())
+	return strings.Title(suiteType.Elem().Name())
 }
 
 func getTestMethods(suiteType reflect.Type) []reflect.Method {
