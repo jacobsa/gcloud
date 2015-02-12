@@ -431,10 +431,10 @@ func (t *createTest) IllegalNames() {
 		nameDump := hex.Dump([]byte(name))
 
 		err := t.createObject(name, "")
-		AssertNe(nil, err, nameDump)
+		AssertNe(nil, err, "Name:\n%s", nameDump)
 
 		if name == "" {
-			ExpectThat(err, Error(HasSubstr("Required")), nameDump)
+			ExpectThat(err, Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))), nameDump)
 		} else {
 			ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
 		}
@@ -571,9 +571,6 @@ func (t *listTest) NewlyCreatedObject() {
 	o = objects.Results[0]
 	AssertEq("a", o.Name)
 	ExpectEq(t.bucket.Name(), o.Bucket)
-	ExpectEq("application/octet-stream", o.ContentType)
-	ExpectEq("", o.ContentLanguage)
-	ExpectEq("", o.CacheControl)
 	ExpectEq(len("taco"), o.Size)
 }
 
@@ -610,7 +607,7 @@ func (t *listTest) TrivialQuery() {
 	ExpectEq(len("enchilada"), o.Size)
 }
 
-func (t *listTest) Delimiter() {
+func (t *listTest) Delimiter_SingleRune() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -618,6 +615,7 @@ func (t *listTest) Delimiter() {
 			t.ctx,
 			t.bucket,
 			[]string{
+				"!",
 				"a",
 				"b",
 				"b!foo",
@@ -640,7 +638,7 @@ func (t *listTest) Delimiter() {
 	AssertEq(nil, objects.Next)
 
 	// Prefixes
-	ExpectThat(objects.Prefixes, ElementsAre("b!", "c!", "d!"))
+	ExpectThat(objects.Prefixes, ElementsAre("!", "b!", "c!", "d!"))
 
 	// Objects
 	AssertEq(3, len(objects.Results))
@@ -648,6 +646,59 @@ func (t *listTest) Delimiter() {
 	ExpectEq("a", objects.Results[0].Name)
 	ExpectEq("b", objects.Results[1].Name)
 	ExpectEq("e", objects.Results[2].Name)
+}
+
+func (t *listTest) Delimiter_MultiRune() {
+	// Create several objects.
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"!",
+				"!!",
+				"!!!",
+				"!!!!",
+				"!!!!!!!!!",
+				"a",
+				"b",
+				"b!",
+				"b!foo",
+				"b!!",
+				"b!!!",
+				"b!!foo",
+				"b!!!foo",
+				"b!!bar",
+				"b!!baz!!qux",
+				"c!!",
+				"d!!taco",
+				"d!!burrito",
+				"e",
+			}))
+
+	// List with the delimiter "!!".
+	query := &storage.Query{
+		Delimiter: "!!",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+
+	// Prefixes
+	ExpectThat(objects.Prefixes, ElementsAre("!!", "b!!", "c!!", "d!!"))
+
+	// Objects
+	AssertEq(6, len(objects.Results))
+
+	ExpectEq("!", objects.Results[0].Name)
+	ExpectEq("a", objects.Results[1].Name)
+	ExpectEq("b", objects.Results[2].Name)
+	ExpectEq("b!", objects.Results[3].Name)
+	ExpectEq("b!foo", objects.Results[4].Name)
+	ExpectEq("e", objects.Results[5].Name)
 }
 
 func (t *listTest) Prefix() {
@@ -687,7 +738,7 @@ func (t *listTest) Prefix() {
 	ExpectEq("b타코", objects.Results[3].Name)
 }
 
-func (t *listTest) DelimiterAndPrefix() {
+func (t *listTest) PrefixAndDelimiter_SingleRune() {
 	// Create several objects.
 	AssertEq(
 		nil,
@@ -701,6 +752,7 @@ func (t *listTest) DelimiterAndPrefix() {
 				"blah!a",
 				"blah!a\x7f",
 				"blah!b",
+				"blah!b!",
 				"blah!b!asd",
 				"blah!b\x00",
 				"blah!b\x00!",
@@ -747,7 +799,76 @@ func (t *listTest) DelimiterAndPrefix() {
 	ExpectEq("blah!b타코", objects.Results[3].Name)
 }
 
-func (t *listTest) Cursor() {
+func (t *listTest) PrefixAndDelimiter_MultiRune() {
+	// Create several objects.
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"blag",
+				"blag!!",
+				"blah",
+				"blah!!a",
+				"blah!!a\x7f",
+				"blah!!b",
+				"blah!!b!",
+				"blah!!b!!",
+				"blah!!b!!asd",
+				"blah!!b\x00",
+				"blah!!b\x00!",
+				"blah!!b\x00!!",
+				"blah!!b\x00!!asd",
+				"blah!!b\x00!!asd!sdf",
+				"blah!!b\x01",
+				"blah!!b\x01!",
+				"blah!!b\x01!!",
+				"blah!!b\x01!!asd",
+				"blah!!b\x01!!asd!sdf",
+				"blah!!b타코",
+				"blah!!b타코!",
+				"blah!!b타코!!",
+				"blah!!b타코!!asd",
+				"blah!!b타코!!asd!sdf",
+				"blah!!c",
+			}))
+
+	// List with the prefix "blah!b" and the delimiter "!".
+	query := &storage.Query{
+		Prefix:    "blah!!b",
+		Delimiter: "!!",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+
+	// Prefixes
+	ExpectThat(
+		objects.Prefixes,
+		ElementsAre(
+			"blah!!b\x00!!",
+			"blah!!b\x01!!",
+			"blah!!b!!",
+			"blah!!b타코!!",
+		))
+
+	// Objects
+	AssertEq(8, len(objects.Results))
+
+	ExpectEq("blah!!b", objects.Results[0].Name)
+	ExpectEq("blah!!b\x00", objects.Results[1].Name)
+	ExpectEq("blah!!b\x00!", objects.Results[2].Name)
+	ExpectEq("blah!!b\x01", objects.Results[3].Name)
+	ExpectEq("blah!!b\x01!", objects.Results[4].Name)
+	ExpectEq("blah!!b!", objects.Results[5].Name)
+	ExpectEq("blah!!b타코", objects.Results[6].Name)
+	ExpectEq("blah!!b타코!", objects.Results[7].Name)
+}
+
+func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 	// Create a good number of objects, containing a run of objects sharing a
 	// prefix under the delimiter "!".
 	AssertEq(
@@ -816,5 +937,69 @@ func (t *listTest) Cursor() {
 			"e!",
 			"f!",
 			"g!",
+		))
+}
+
+func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
+	// Create a good number of objects, containing runs of objects sharing a
+	// prefix under the delimiter "!" at the end of the bucket.
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"a",
+				"b",
+				"c",
+				"c!",
+				"c!0",
+				"c!1",
+				"c!2",
+				"d!",
+				"d!0",
+				"d!1",
+				"d!2",
+			}))
+
+	// List repeatedly with a small value for MaxResults. Keep track of all of
+	// the objects and prefixes we find.
+	query := &storage.Query{
+		Delimiter:  "!",
+		MaxResults: 2,
+	}
+
+	var objects []string
+	var prefixes []string
+
+	for query != nil {
+		res, err := t.bucket.ListObjects(t.ctx, query)
+		AssertEq(nil, err)
+
+		for _, o := range res.Results {
+			objects = append(objects, o.Name)
+		}
+
+		for _, p := range res.Prefixes {
+			prefixes = append(prefixes, p)
+		}
+
+		query = res.Next
+	}
+
+	// Check the results.
+	ExpectThat(
+		objects,
+		ElementsAre(
+			"a",
+			"b",
+			"c",
+		))
+
+	ExpectThat(
+		prefixes,
+		ElementsAre(
+			"c!",
+			"d!",
 		))
 }
