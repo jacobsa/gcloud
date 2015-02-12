@@ -25,7 +25,9 @@ type objectWriter struct {
 	buf *bytes.Buffer
 }
 
-func (w *objectWriter) Write(p []byte) (int, error)
+func (w *objectWriter) Write(p []byte) (int, error) {
+	return w.buf.Write(p)
+}
 
 func (w *objectWriter) Close() error
 
