@@ -607,7 +607,7 @@ func (t *listTest) TrivialQuery() {
 	ExpectEq(len("enchilada"), o.Size)
 }
 
-func (t *listTest) Delimiter_SingleRun() {
+func (t *listTest) Delimiter_SingleRune() {
 	// Create several objects.
 	AssertEq(
 		nil,
