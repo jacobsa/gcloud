@@ -55,7 +55,7 @@ func (b *bucket) NewReader(
 func (b *bucket) NewWriter(
 	ctx context.Context,
 	attrs *storage.ObjectAttrs) (gcs.ObjectWriter, error) {
-	return nil, errors.New("TODO: Implement NewWriter.")
+	return newObjectWriter(b, attrs), nil
 }
 
 func (b *bucket) DeleteObject(
