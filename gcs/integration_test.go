@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"flag"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"io/ioutil"
@@ -47,6 +48,7 @@ func TestOgletest(t *testing.T) { RunTests(t) }
 
 var fBucket = flag.String("bucket", "", "Empty bucket to use for storage.")
 var fAuthCode = flag.String("auth_code", "", "Auth code from GCS console.")
+var fDebugHttp = flag.Bool("debug_http", false, "Dump information about HTTP requests.")
 
 func getHttpClientOrDie() *http.Client {
 	// Set up a token source.
@@ -74,8 +76,12 @@ func getHttpClientOrDie() *http.Client {
 	}
 
 	// Create the HTTP transport.
-	transport := &oauth2.Transport{
+	var transport http.RoundTripper = &oauth2.Transport{
 		Source: tokenSource,
+	}
+
+	if *fDebugHttp {
+		transport = &debuggingTransport{wrapped: transport}
 	}
 
 	return &http.Client{Transport: transport}
@@ -107,6 +113,10 @@ func getBucketOrDie() gcs.Bucket {
 	// Open the bucket.
 	return conn.GetBucket(getBucketNameOrDie())
 }
+
+////////////////////////////////////////////////////////////////////////
+// Helpers
+////////////////////////////////////////////////////////////////////////
 
 // List all object names in the bucket into the supplied channel.
 // Responsibility for closing the channel is not accepted.
@@ -219,6 +229,85 @@ func md5Sum(s string) []byte {
 
 func computeCrc32C(s string) uint32 {
 	return crc32.Checksum([]byte(s), crc32.MakeTable(crc32.Castagnoli))
+}
+
+////////////////////////////////////////////////////////////////////////
+// HTTP debugging
+////////////////////////////////////////////////////////////////////////
+
+func readAllAndClose(rc io.ReadCloser) string {
+	// Read.
+	contents, err := ioutil.ReadAll(rc)
+	if err != nil {
+		panic(err)
+	}
+
+	// Close.
+	if err := rc.Close(); err != nil {
+		panic(err)
+	}
+
+	return string(contents)
+}
+
+type bufferReadCloser struct {
+	buf *bytes.Buffer
+}
+
+func (b *bufferReadCloser) Read(p []byte) (int, error) {
+	return b.buf.Read(p)
+}
+
+func (b *bufferReadCloser) Close() error {
+	return nil
+}
+
+// Read everything from *rc, then replace it with a copy.
+func snarfBody(rc *io.ReadCloser) string {
+	contents := readAllAndClose(*rc)
+	*rc = &bufferReadCloser{bytes.NewBufferString(contents)}
+	return contents
+}
+
+type debuggingTransport struct {
+	wrapped http.RoundTripper
+}
+
+func (t *debuggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Print information about the request.
+	fmt.Println("========== REQUEST ===========")
+	fmt.Println(req.Method, req.URL, req.Proto)
+	for k, vs := range req.Header {
+		for _, v := range vs {
+			fmt.Printf("%s: %s\n", k, v)
+		}
+	}
+
+	if req.Body != nil {
+		fmt.Printf("\n%s\n", snarfBody(&req.Body))
+	}
+
+	// Execute the request.
+	res, err := t.wrapped.RoundTrip(req)
+	if err != nil {
+		return res, err
+	}
+
+	// Print the response.
+	fmt.Println("========== RESPONSE ==========")
+	fmt.Println(res.Proto, res.Status)
+	for k, vs := range res.Header {
+		for _, v := range vs {
+			fmt.Printf("%s: %s\n", k, v)
+		}
+	}
+
+	if res.Body != nil {
+		fmt.Printf("\n%s\n", snarfBody(&res.Body))
+	}
+	fmt.Println("==============================")
+
+	return res, err
 }
 
 ////////////////////////////////////////////////////////////////////////
