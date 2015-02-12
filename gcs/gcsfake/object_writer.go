@@ -21,15 +21,33 @@ type objectWriter struct {
 	// written.
 	object *storage.Object
 
-	// The buffer to which we are forwarding writes.
+	// The buffer to which we are forwarding writes. Nil after Close has been
+	// called.
 	buf *bytes.Buffer
 }
 
 func (w *objectWriter) Write(p []byte) (int, error) {
+	if w.buf == nil {
+		panic("Call to Write after call to Close.")
+	}
+
 	return w.buf.Write(p)
 }
 
-func (w *objectWriter) Close() error
+func (w *objectWriter) Close() error {
+	// Consume the buffer.
+	if w.buf == nil {
+		panic("Extra call to Close.")
+	}
+
+	contents := w.buf.Bytes()
+	w.buf = nil
+
+	// TODO(jacobsa): Initialize w.object.
+	w.bucket.addObject(w.object)
+
+	return nil
+}
 
 func (w *objectWriter) Object() *storage.Object {
 	if w.object == nil {
