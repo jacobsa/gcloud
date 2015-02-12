@@ -578,7 +578,22 @@ func (t *CreateTest) ExceedinglyLongName() {
 }
 
 func (t *CreateTest) ExoticName() {
-	AssertFalse(true, "TODO")
+	// Create.
+	name := "I like to eat 타코s."
+	AssertEq(nil, t.createObject(name, ""))
+
+	// List.
+	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(objects.Prefixes, ElementsAre())
+	AssertEq(nil, objects.Next)
+
+	AssertEq(1, len(objects.Results))
+	o := objects.Results[0]
+
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq(name, o.Name)
 }
 
 func (t *CreateTest) CarriageReturnInName() {
