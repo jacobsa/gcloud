@@ -800,7 +800,72 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 }
 
 func (t *listTest) PrefixAndDelimiter_MultiRune() {
-	AssertTrue(false, "TODO")
+	// Create several objects.
+	AssertEq(
+		nil,
+		createEmpty(
+			t.ctx,
+			t.bucket,
+			[]string{
+				"blag",
+				"blag!!",
+				"blah",
+				"blah!!a",
+				"blah!!a\x7f",
+				"blah!!b",
+				"blah!!b!",
+				"blah!!b!!",
+				"blah!!b!!asd",
+				"blah!!b\x00",
+				"blah!!b\x00!",
+				"blah!!b\x00!!",
+				"blah!!b\x00!!asd",
+				"blah!!b\x00!!asd!sdf",
+				"blah!!b\x01",
+				"blah!!b\x01!",
+				"blah!!b\x01!!",
+				"blah!!b\x01!!asd",
+				"blah!!b\x01!!asd!sdf",
+				"blah!!b타코",
+				"blah!!b타코!",
+				"blah!!b타코!!",
+				"blah!!b타코!!asd",
+				"blah!!b타코!!asd!sdf",
+				"blah!!c",
+			}))
+
+	// List with the prefix "blah!b" and the delimiter "!".
+	query := &storage.Query{
+		Prefix:    "blah!!b",
+		Delimiter: "!!",
+	}
+
+	objects, err := t.bucket.ListObjects(t.ctx, query)
+	AssertEq(nil, err)
+	AssertNe(nil, objects)
+	AssertEq(nil, objects.Next)
+
+	// Prefixes
+	ExpectThat(
+		objects.Prefixes,
+		ElementsAre(
+			"blah!!b\x00!!",
+			"blah!!b\x01!!",
+			"blah!!b!!",
+			"blah!!b타코!!",
+		))
+
+	// Objects
+	AssertEq(8, len(objects.Results))
+
+	ExpectEq("blah!!b", objects.Results[0].Name)
+	ExpectEq("blah!!b\x00", objects.Results[1].Name)
+	ExpectEq("blah!!b\x00!", objects.Results[2].Name)
+	ExpectEq("blah!!b\x01", objects.Results[3].Name)
+	ExpectEq("blah!!b\x01!", objects.Results[4].Name)
+	ExpectEq("blah!!b!", objects.Results[5].Name)
+	ExpectEq("blah!!b타코", objects.Results[6].Name)
+	ExpectEq("blah!!b타코!", objects.Results[7].Name)
 }
 
 func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
