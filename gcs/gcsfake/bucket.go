@@ -4,8 +4,10 @@
 package gcsfake
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -17,6 +19,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/cloud/storage"
 )
+
+var crc32Table = crc32.MakeTable(crc32.Castagnoli)
 
 // Create an in-memory bucket with the given name and empty contents.
 func NewFakeBucket(name string) gcs.Bucket {
@@ -101,6 +105,12 @@ type bucket struct {
 	//
 	// INVARIANT: Strictly increasing.
 	objects objectSlice // GUARDED_BY(mu)
+
+	// The most recent generation number that was minted. The next object will
+	// receive generation prevGeneration + 1.
+	//
+	// INVARIANT: This is an upper bound for generation numbers in objectSlice.
+	prevGeneration int64 // GUARDED_BY(mu)
 }
 
 // SHARED_LOCKS_REQUIRED(b.mu)
@@ -115,6 +125,17 @@ func (b *bucket) checkInvariants() {
 					"Object names are not strictly increasing: %v vs. %v",
 					objA.metadata.Name,
 					objB.metadata.Name))
+		}
+	}
+
+	// Make sure prevGeneration is an upper bound for object generation numbers.
+	for _, o := range b.objects {
+		if !(o.metadata.Generation <= b.prevGeneration) {
+			panic(
+				fmt.Sprintf(
+					"Object generation %v exceeds %v",
+					o.metadata.Generation,
+					b.prevGeneration))
 		}
 	}
 }
@@ -287,15 +308,32 @@ func (b *bucket) DeleteObject(
 func (b *bucket) mintObject(
 	attrs *storage.ObjectAttrs,
 	contents string) (o object) {
-	// Set up metadata.
-	// TODO(jacobsa): Other fields.
+	// Set up basic metadata.
+	b.prevGeneration++
 	o.metadata = &storage.Object{
-		Bucket:   b.Name(),
-		Name:     attrs.Name,
-		Owner:    "user-fake",
-		Size:     int64(len(contents)),
-		Metadata: attrs.Metadata,
+		Bucket:          b.Name(),
+		Name:            attrs.Name,
+		ContentType:     attrs.ContentType,
+		ContentLanguage: attrs.ContentLanguage,
+		CacheControl:    attrs.CacheControl,
+		Owner:           "user-fake",
+		Size:            int64(len(contents)),
+		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),
+		MediaLink:       "http://localhost/download/storage/fake/" + attrs.Name,
+		Metadata:        attrs.Metadata,
+		Generation:      b.prevGeneration,
+		MetaGeneration:  1,
+		StorageClass:    "STANDARD",
 	}
+
+	// Match GCS's behavior for default ContentType.
+	if o.metadata.ContentType == "" {
+		o.metadata.ContentType = "application/octet-stream"
+	}
+
+	// Fill in the MD5 field.
+	md5Array := md5.Sum([]byte(contents))
+	o.metadata.MD5 = md5Array[:]
 
 	// Set up contents.
 	o.contents = contents
