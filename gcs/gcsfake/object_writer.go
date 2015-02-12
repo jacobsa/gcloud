@@ -44,7 +44,7 @@ func (w *objectWriter) Close() error {
 	w.buf = nil
 
 	// Commit the contents to the bucket, initializing w.object.
-	w.bucket.addObject(w.object)
+	w.object = w.bucket.addObject(w.attrs, contents)
 
 	return nil
 }

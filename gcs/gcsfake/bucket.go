@@ -63,3 +63,8 @@ func (b *bucket) DeleteObject(
 	name string) error {
 	return errors.New("TODO: Implement DeleteObject.")
 }
+
+func (b *bucket) addObject(attrs *storage.ObjectAttrs, contents []byte) *storage.Object {
+	panic("TODO")
+	return nil
+}

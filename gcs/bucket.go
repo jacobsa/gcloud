@@ -78,5 +78,3 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) error {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.DeleteObject(authContext, b.name, name)
 }
-
-func (b *bucket) addObject(attrs *storage.ObjectAttrs, contents []byte) *storage.Object
