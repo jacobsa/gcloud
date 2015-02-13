@@ -187,9 +187,11 @@ func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 func init() {
 	gcstesting.RegisterBucketTests(func() gcs.Bucket {
 		bucket := getBucketOrDie()
+
 		if err := gcsutil.DeleteAllObjects(context.Background(), bucket); err != nil {
 			panic("DeleteAllObjects: " + err.Error())
 		}
+
 		return bucket
 	})
 }
