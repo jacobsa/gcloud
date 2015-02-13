@@ -18,7 +18,6 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
-	"github.com/jacobsa/gcloud/syncutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
@@ -29,33 +28,12 @@ import (
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) error {
-	bundle := syncutil.NewBundle(ctx)
-
-	// Feed object names into a channel buffer.
-	nameChan := make(chan string, len(objectNames))
-	for _, n := range objectNames {
-		nameChan <- n
-	}
-
-	close(nameChan)
-
-	// Create in parallel.
-	const parallelism = 10
-	for i := 0; i < 10; i++ {
-		bundle.Add(func(ctx context.Context) error {
-			for objectName := range nameChan {
-				attrs := &storage.ObjectAttrs{Name: objectName}
-				if _, err := gcsutil.CreateObject(ctx, bucket, attrs, ""); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-	}
-
-	return bundle.Join()
+func createEmpty(
+	ctx context.Context,
+	bucket gcs.Bucket,
+	objectNames []string) error {
+	_, err := gcsutil.CreateEmptyObjects(ctx, bucket, objectNames)
+	return err
 }
 
 // Convert from [16]byte to the slice type used by storage.Object.
