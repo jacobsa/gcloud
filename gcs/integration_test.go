@@ -29,14 +29,13 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
+	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/gcloud/oauthutil"
-	"github.com/jacobsa/gcloud/syncutil"
 	"github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	storagev1 "google.golang.org/api/storage/v1"
-	"google.golang.org/cloud/storage"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -110,66 +109,6 @@ func getBucketOrDie() gcs.Bucket {
 
 	// Open the bucket.
 	return conn.GetBucket(getBucketNameOrDie())
-}
-
-////////////////////////////////////////////////////////////////////////
-// Helpers
-////////////////////////////////////////////////////////////////////////
-
-// List all object names in the bucket into the supplied channel.
-// Responsibility for closing the channel is not accepted.
-func listIntoChannel(ctx context.Context, b gcs.Bucket, objectNames chan<- string) error {
-	query := &storage.Query{}
-	for query != nil {
-		objects, err := b.ListObjects(ctx, query)
-		if err != nil {
-			return err
-		}
-
-		for _, obj := range objects.Results {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case objectNames <- obj.Name:
-			}
-		}
-
-		query = objects.Next
-	}
-
-	return nil
-}
-
-// Delete everything in the bucket, exiting the process on failure.
-func deleteAllObjectsOrDie(ctx context.Context, b gcs.Bucket) {
-	bundle := syncutil.NewBundle(ctx)
-
-	// List all of the objects in the bucket.
-	objectNames := make(chan string, 10)
-	bundle.Add(func(ctx context.Context) error {
-		defer close(objectNames)
-		return listIntoChannel(ctx, b, objectNames)
-	})
-
-	// Delete the objects in parallel.
-	const parallelism = 10
-	for i := 0; i < parallelism; i++ {
-		bundle.Add(func(ctx context.Context) error {
-			for objectName := range objectNames {
-				if err := b.DeleteObject(ctx, objectName); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-	}
-
-	// Wait.
-	err := bundle.Join()
-	if err != nil {
-		panic("deleteAllObjectsOrDie: " + err.Error())
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -248,7 +187,9 @@ func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 func init() {
 	gcstesting.RegisterBucketTests(func() gcs.Bucket {
 		bucket := getBucketOrDie()
-		deleteAllObjectsOrDie(context.Background(), bucket)
+		if err := gcsutil.DeleteAllObjects(context.Background(), bucket); err != nil {
+			panic("DeleteAllObjects: " + err.Error())
+		}
 		return bucket
 	})
 }
