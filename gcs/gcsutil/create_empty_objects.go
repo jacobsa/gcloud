@@ -18,7 +18,7 @@ func CreateEmptyObjects(
 	infoStructs := make([]*ObjectInfo, len(names))
 	for i, name := range names {
 		infoStructs[i] = &ObjectInfo{
-			attrs: storage.ObjectAttrs{
+			Attrs: storage.ObjectAttrs{
 				Name: name,
 			},
 		}

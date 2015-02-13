@@ -11,8 +11,8 @@ import (
 )
 
 type ObjectInfo struct {
-	attrs    storage.ObjectAttrs
-	contents string
+	Attrs    storage.ObjectAttrs
+	Contents string
 }
 
 // Create multiple objects with some parallelism, returning corresponding
@@ -44,7 +44,7 @@ func CreateObjects(
 	for i := 0; i < 10; i++ {
 		bundle.Add(func(ctx context.Context) error {
 			for r := range recordChan {
-				o, err := CreateObject(ctx, bucket, &r.objectInfo.attrs, r.objectInfo.contents)
+				o, err := CreateObject(ctx, bucket, &r.objectInfo.Attrs, r.objectInfo.Contents)
 				if err != nil {
 					return err
 				}
