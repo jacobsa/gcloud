@@ -6,7 +6,6 @@
 package gcstesting
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/gcloud/syncutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
@@ -28,30 +28,6 @@ import (
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-
-func createObject(
-	ctx context.Context,
-	bucket gcs.Bucket,
-	attrs *storage.ObjectAttrs,
-	contents string) (o *storage.Object, err error) {
-	// Create a writer.
-	writer, err := bucket.NewWriter(ctx, attrs)
-	if err != nil {
-		return
-	}
-
-	// Copy into the writer.
-	if _, err = io.Copy(writer, bytes.NewReader([]byte(contents))); err != nil {
-		return
-	}
-
-	// Close the writer.
-	if err = writer.Close(); err != nil {
-		return
-	}
-
-	return writer.Object(), nil
-}
 
 func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) error {
 	bundle := syncutil.NewBundle(ctx)
@@ -70,7 +46,7 @@ func createEmpty(ctx context.Context, bucket gcs.Bucket, objectNames []string) e
 		bundle.Add(func(ctx context.Context) error {
 			for objectName := range nameChan {
 				attrs := &storage.ObjectAttrs{Name: objectName}
-				if _, err := createObject(ctx, bucket, attrs, ""); err != nil {
+				if _, err := gcsutil.CreateObject(ctx, bucket, attrs, ""); err != nil {
 					return err
 				}
 			}
@@ -109,7 +85,7 @@ func (t *bucketTest) setUpBucketTest(b gcs.Bucket) {
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
-	_, err := createObject(
+	_, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
 		&storage.ObjectAttrs{Name: name},
@@ -213,7 +189,7 @@ func (t *createTest) ObjectAttributes_Default() {
 		Name: "foo",
 	}
 
-	o, err := createObject(t.ctx, t.bucket, attrs, "taco")
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
 	// Check the Object struct.
@@ -261,7 +237,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 		},
 	}
 
-	o, err := createObject(t.ctx, t.bucket, attrs, "taco")
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
 	// Check the Object struct.
