@@ -10,7 +10,7 @@
 //
 // The first time you run the test, it may die with a URL to visit to obtain an
 // authorization code after authorizing the test to access your bucket. Run it
-// again with the "-auth_code" flag afterward.
+// again with the "-oauthutil.auth_code" flag afterward.
 
 // Restrict this (slow) test to builds that specify the tag 'integration'.
 // +build integration
@@ -18,11 +18,7 @@
 package gcs_test
 
 import (
-	"bytes"
 	"flag"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"testing"
@@ -43,8 +39,6 @@ import (
 ////////////////////////////////////////////////////////////////////////
 
 var fBucket = flag.String("bucket", "", "Empty bucket to use for storage.")
-var fAuthCode = flag.String("auth_code", "", "Auth code from GCS console.")
-var fDebugHttp = flag.Bool("debug_http", false, "Dump information about HTTP requests.")
 
 func getHttpClientOrDie() *http.Client {
 	// Set up a token source.
@@ -56,32 +50,13 @@ func getHttpClientOrDie() *http.Client {
 		Endpoint:     google.Endpoint,
 	}
 
-	tokenSource, err := oauthutil.NewTerribleTokenSource(
-		config,
-		flag.Lookup("auth_code"),
-		".gcs_integration_test.token_cache.json")
-
+	const cacheFileName = ".gcs_integration_test.token_cache.json"
+	httpClient, err := oauthutil.NewTerribleHttpClient(config, cacheFileName)
 	if err != nil {
-		log.Fatalln("oauthutil.NewTerribleTokenSource:", err)
+		panic("NewTerribleHttpClient: " + err.Error())
 	}
 
-	// Ensure that we fail early if misconfigured, by requesting an initial
-	// token.
-	if _, err := tokenSource.Token(); err != nil {
-		log.Fatalln("Getting initial OAuth token:", err)
-	}
-
-	// Create the HTTP transport.
-	transport := &oauth2.Transport{
-		Source: tokenSource,
-		Base:   http.DefaultTransport,
-	}
-
-	if *fDebugHttp {
-		transport.Base = &debuggingTransport{wrapped: transport.Base}
-	}
-
-	return &http.Client{Transport: transport}
+	return httpClient
 }
 
 func getBucketNameOrDie() string {
@@ -109,73 +84,6 @@ func getBucketOrDie() gcs.Bucket {
 
 	// Open the bucket.
 	return conn.GetBucket(getBucketNameOrDie())
-}
-
-////////////////////////////////////////////////////////////////////////
-// HTTP debugging
-////////////////////////////////////////////////////////////////////////
-
-func readAllAndClose(rc io.ReadCloser) string {
-	// Read.
-	contents, err := ioutil.ReadAll(rc)
-	if err != nil {
-		panic(err)
-	}
-
-	// Close.
-	if err := rc.Close(); err != nil {
-		panic(err)
-	}
-
-	return string(contents)
-}
-
-// Read everything from *rc, then replace it with a copy.
-func snarfBody(rc *io.ReadCloser) string {
-	contents := readAllAndClose(*rc)
-	*rc = ioutil.NopCloser(bytes.NewBufferString(contents))
-	return contents
-}
-
-type debuggingTransport struct {
-	wrapped http.RoundTripper
-}
-
-func (t *debuggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Print information about the request.
-	fmt.Println("========== REQUEST ===========")
-	fmt.Println(req.Method, req.URL, req.Proto)
-	for k, vs := range req.Header {
-		for _, v := range vs {
-			fmt.Printf("%s: %s\n", k, v)
-		}
-	}
-
-	if req.Body != nil {
-		fmt.Printf("\n%s\n", snarfBody(&req.Body))
-	}
-
-	// Execute the request.
-	res, err := t.wrapped.RoundTrip(req)
-	if err != nil {
-		return res, err
-	}
-
-	// Print the response.
-	fmt.Println("========== RESPONSE ==========")
-	fmt.Println(res.Proto, res.Status)
-	for k, vs := range res.Header {
-		for _, v := range vs {
-			fmt.Printf("%s: %s\n", k, v)
-		}
-	}
-
-	if res.Body != nil {
-		fmt.Printf("\n%s\n", snarfBody(&res.Body))
-	}
-	fmt.Println("==============================")
-
-	return res, err
 }
 
 ////////////////////////////////////////////////////////////////////////
