@@ -4,8 +4,8 @@
 package gcsutil
 
 import (
-	"bytes"
 	"io"
+	"strings"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
@@ -26,7 +26,7 @@ func CreateObject(
 	}
 
 	// Copy into the writer.
-	if _, err = io.Copy(writer, bytes.NewReader([]byte(contents))); err != nil {
+	if _, err = io.Copy(writer, strings.NewReader(contents)); err != nil {
 		return
 	}
 
