@@ -53,7 +53,7 @@ func getHttpClientOrDie() *http.Client {
 		ClientID:     "517659276674-k9tr62f5rpd1k6ivvhadq0etbu4gu3t5.apps.googleusercontent.com",
 		ClientSecret: "A6Xo63GDMRHmZ2TB7CO99lLN",
 		RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
-		Scopes:       []string{storagev1.DevstorageFull_controlScope},
+		Scopes:       []string{storagev1.DevstorageRead_writeScope},
 		Endpoint:     google.Endpoint,
 	}
 
