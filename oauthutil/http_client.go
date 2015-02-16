@@ -58,47 +58,6 @@ func NewJWTHttpClient(jsonPath string, scopes []string) (*http.Client, error) {
 	return &http.Client{Transport: transport}, nil
 }
 
-// Set up an authenticated HTTP client that retrieves tokens according to the
-// supplied config, caching them in the user's home directory with the given
-// file name.
-//
-// If a token cannot be obtained because there is no cache entry or no refresh
-// token within the cache entry, the program will be halted and a message
-// printed for the user with instructions on how to obtain an authorization
-// code and feed it to the program via a flag.
-func NewTerribleHttpClient(
-	config *oauth2.Config,
-	cacheFileName string) (*http.Client, error) {
-	// Create a token source.
-	tokenSource, err := NewTerribleTokenSource(
-		config,
-		flag.Lookup(authCodeFlagName),
-		cacheFileName)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure that we fail early if misconfigured, by requesting an initial
-	// token.
-	if _, err := tokenSource.Token(); err != nil {
-		return nil, fmt.Errorf("Getting initial OAuth token: %v", err)
-	}
-
-	// Create the HTTP transport.
-	transport := &oauth2.Transport{
-		Source: tokenSource,
-		Base:   http.DefaultTransport,
-	}
-
-	// Enable debugging if requested.
-	if *fDebugHttp {
-		transport.Base = &debuggingTransport{wrapped: transport.Base}
-	}
-
-	return &http.Client{Transport: transport}, nil
-}
-
 ////////////////////////////////////////////////////////////////////////
 // HTTP debugging
 ////////////////////////////////////////////////////////////////////////
