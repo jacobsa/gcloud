@@ -15,13 +15,6 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-const authCodeFlagName = "oauthutil.auth_code"
-
-var fAuthCode = flag.String(
-	authCodeFlagName,
-	"",
-	"Auth code from Google developer console.")
-
 var fDebugHttp = flag.Bool(
 	"oauthutil.debug_http",
 	false,
