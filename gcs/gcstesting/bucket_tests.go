@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -300,6 +301,18 @@ func (t *createTest) InterestingNames() {
 		// according to the documentation.
 		"foo # bar",
 		"foo []*? bar",
+
+		// Angstrom symbol singleton and normalized forms.
+		// Cf. http://unicode.org/reports/tr15/
+		"foo \u212b bar",
+		"foo \u0041\u030a bar",
+		"foo \u00c5 bar",
+
+		// Hangul separating jamo
+		// Cf. http://www.unicode.org/versions/Unicode7.0.0/ch18.pdf (Table 18-10)
+		"foo \u3131\u314f bar",
+		"foo \u1100\u1161 bar",
+		"foo \uac00 bar",
 	}
 
 	var runes []rune
@@ -337,28 +350,20 @@ func (t *createTest) InterestingNames() {
 	AssertThat(objects.Prefixes, ElementsAre())
 	AssertEq(nil, objects.Next)
 
-	// Make sure all and only the expected names exist.
-	listingNames := make(map[string]struct{})
+	var listingNames sort.StringSlice
 	for _, o := range objects.Results {
-		listingNames[o.Name] = struct{}{}
+		listingNames = append(listingNames, o.Name)
 	}
 
-	expectedNames := make(map[string]struct{})
-	for _, n := range names {
-		expectedNames[n] = struct{}{}
-	}
+	// The names should have come back sorted by their UTF-8 encodings.
+	AssertTrue(sort.IsSorted(listingNames), "Names: %v", listingNames)
 
-	for n, _ := range expectedNames {
-		nameDump := hex.Dump([]byte(n))
-		_, nameFound := listingNames[n]
-		AssertTrue(nameFound, nameDump)
-	}
+	// Make sure all and only the expected names exist.
+	expectedNames := make(sort.StringSlice, len(names))
+	copy(expectedNames, names)
+	sort.Sort(expectedNames)
 
-	for n, _ := range listingNames {
-		nameDump := hex.Dump([]byte(n))
-		_, nameFound := expectedNames[n]
-		AssertTrue(nameFound, nameDump)
-	}
+	ExpectThat(listingNames, DeepEquals(expectedNames))
 }
 
 func (t *createTest) IllegalNames() {
