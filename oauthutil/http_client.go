@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 const authCodeFlagName = "oauthutil.auth_code"
@@ -25,6 +26,37 @@ var fDebugHttp = flag.Bool(
 	"oauthutil.debug_http",
 	false,
 	"Dump information about HTTP requests.")
+
+// Set up an authenticated HTTP client that fetches tokens using the OAuth 2.0
+// JSON Web Token flow ("two-legged OAuth 2.0"). The path must point at a
+// readable JSON key file for a service account downloaded from the Google
+// Developers Console.
+func NewJWTHttpClient(jsonPath string, scopes []string) (*http.Client, error) {
+	// Attempt to read the JSON file.
+	contents, err := ioutil.ReadFile(jsonPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a config struct based on its contents.
+	jwtConfig, err := google.JWTConfigFromJSON(contents, scopes...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the HTTP transport.
+	transport := &oauth2.Transport{
+		Source: jwtConfig.TokenSource(oauth2.NoContext),
+		Base:   http.DefaultTransport,
+	}
+
+	// Enable debugging if requested.
+	if *fDebugHttp {
+		transport.Base = &debuggingTransport{wrapped: transport.Base}
+	}
+
+	return &http.Client{Transport: transport}, nil
+}
 
 // Set up an authenticated HTTP client that retrieves tokens according to the
 // supplied config, caching them in the user's home directory with the given
