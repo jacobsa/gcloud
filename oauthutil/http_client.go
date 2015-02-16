@@ -12,50 +12,34 @@ import (
 	"net/http"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
-
-const authCodeFlagName = "oauthutil.auth_code"
-
-var fAuthCode = flag.String(
-	authCodeFlagName,
-	"",
-	"Auth code from Google developer console.")
 
 var fDebugHttp = flag.Bool(
 	"oauthutil.debug_http",
 	false,
 	"Dump information about HTTP requests.")
 
-// Set up an authenticated HTTP client that retrieves tokens according to the
-// supplied config, caching them in the user's home directory with the given
-// file name.
-//
-// If a token cannot be obtained because there is no cache entry or no refresh
-// token within the cache entry, the program will be halted and a message
-// printed for the user with instructions on how to obtain an authorization
-// code and feed it to the program via a flag.
-func NewTerribleHttpClient(
-	config *oauth2.Config,
-	cacheFileName string) (*http.Client, error) {
-	// Create a token source.
-	tokenSource, err := NewTerribleTokenSource(
-		config,
-		flag.Lookup(authCodeFlagName),
-		cacheFileName)
-
+// Set up an authenticated HTTP client that fetches tokens using the OAuth 2.0
+// JSON Web Token flow ("two-legged OAuth 2.0"). The path must point at a
+// readable JSON key file for a service account downloaded from the Google
+// Developers Console.
+func NewJWTHttpClient(jsonPath string, scopes []string) (*http.Client, error) {
+	// Attempt to read the JSON file.
+	contents, err := ioutil.ReadFile(jsonPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure that we fail early if misconfigured, by requesting an initial
-	// token.
-	if _, err := tokenSource.Token(); err != nil {
-		return nil, fmt.Errorf("Getting initial OAuth token: %v", err)
+	// Create a config struct based on its contents.
+	jwtConfig, err := google.JWTConfigFromJSON(contents, scopes...)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create the HTTP transport.
 	transport := &oauth2.Transport{
-		Source: tokenSource,
+		Source: jwtConfig.TokenSource(oauth2.NoContext),
 		Base:   http.DefaultTransport,
 	}
 
