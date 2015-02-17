@@ -44,7 +44,7 @@ func getHttpClientOrDie() *http.Client {
 		panic("You must set --key_file.")
 	}
 
-	const scope = storagev1.DevstorageRead_writeScope
+	const scope = storagev1.DevstorageFull_controlScope
 	httpClient, err := oauthutil.NewJWTHttpClient(*fKeyFile, []string{scope})
 	if err != nil {
 		panic("oauthutil.NewJWTHttpClient: " + err.Error())
