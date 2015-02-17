@@ -49,6 +49,12 @@ type Bucket interface {
 	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
 	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
 
+	// TODO(jacobsa): Comments.
+	UpdateObject(
+		ctx context.Context,
+		name string,
+		newAttrs *storage.ObjectAttrs) (*storage.Object, error)
+
 	// Delete the object with the given name.
 	DeleteObject(ctx context.Context, name string) error
 }
