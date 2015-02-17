@@ -82,6 +82,7 @@ func RegisterBucketTests(makeBucket func() gcs.Bucket) {
 	suitePrototypes := []bucketTestSetUpInterface{
 		&createTest{},
 		&readTest{},
+		&updateTest{},
 		&deleteTest{},
 		&listTest{},
 	}
