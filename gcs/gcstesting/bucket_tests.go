@@ -490,7 +490,7 @@ func (t *updateTest) Successful() {
 		ContentEncoding: "gzip",
 		Metadata: map[string]string{
 			"foo": "taco",
-			"bar": nil,
+			"bar": "",
 			"qux": "burrito",
 		},
 	}
