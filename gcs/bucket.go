@@ -49,7 +49,8 @@ type Bucket interface {
 	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
 	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
 
-	// TODO(jacobsa): Comments.
+	// Update the object specified by newAttrs.Name, patching using the non-zero
+	// fields of newAttrs.
 	UpdateObject(
 		ctx context.Context,
 		newAttrs *storage.ObjectAttrs) (*storage.Object, error)
