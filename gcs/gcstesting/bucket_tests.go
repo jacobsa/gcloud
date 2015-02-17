@@ -463,7 +463,49 @@ type updateTest struct {
 }
 
 func (t *updateTest) Rename() {
-	AssertTrue(false, "TODO")
+	// Create an object with some explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:        "foo",
+		ContentType: "image/png",
+		Metadata: map[string]string{
+			"foo": "bar",
+			"baz": "qux",
+		},
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Rename it.
+	newAttrs := &storage.ObjectAttrs{
+		Name: "bar",
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, "foo", newAttrs)
+	AssertEq(nil, err)
+
+	// Check the returned Object struct.
+	ExpectEq(t.bucket.Name(), o.Bucket)
+	ExpectEq("foo", o.Name)
+	ExpectEq("image/png", o.ContentType)
+	ExpectEq(len("taco"), o.Size)
+	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
+	ExpectEq(computeCrc32C("taco"), o.CRC32C)
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectLt(0, o.Generation)
+	ExpectEq(2, o.MetaGeneration)
+	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
+	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
+
+	// Make sure it matches what is in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 ////////////////////////////////////////////////////////////////////////
