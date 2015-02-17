@@ -482,15 +482,13 @@ func (t *updateTest) Successful() {
 	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	// Add some fields, modify some fields, and delete some fields.
+	// Add some fields and modify some fields.
 	newAttrs := &storage.ObjectAttrs{
 		Name:            "foo",
-		ContentType:     "",
 		ContentLanguage: "de",
 		ContentEncoding: "gzip",
 		Metadata: map[string]string{
 			"foo": "taco",
-			"bar": "",
 			"qux": "burrito",
 		},
 	}
@@ -501,7 +499,7 @@ func (t *updateTest) Successful() {
 	// Check the returned Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("image/png", o.ContentType)
 	ExpectEq("de", o.ContentLanguage)
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("gzip", o.ContentEncoding)
@@ -516,9 +514,16 @@ func (t *updateTest) Successful() {
 		o.Metadata,
 		DeepEquals(map[string]string{
 			"foo": "taco",
+			"bar": "1",
 			"baz": "2",
 			"qux": "burrito",
 		}))
+
+	// Strip ACLs, which are returned by the underlying "cloud/storage" package
+	// for calls to UpdateAttr but not calls to ListObjects.
+	//
+	// TODO(jacobsa): Send a changelist to fix this.
+	o.ACL = nil
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
