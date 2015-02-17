@@ -462,40 +462,63 @@ type updateTest struct {
 	bucketTest
 }
 
-func (t *updateTest) Rename() {
+func (t *updateTest) NonExistentObject() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *updateTest) Successful() {
 	// Create an object with some explicit attributes set.
 	attrs := &storage.ObjectAttrs{
-		Name:        "foo",
-		ContentType: "image/png",
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentLanguage: "fr",
 		Metadata: map[string]string{
-			"foo": "bar",
-			"baz": "qux",
+			"foo": "0",
+			"bar": "1",
+			"baz": "2",
 		},
 	}
 
 	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	// Rename it.
+	// Add some fields, modify some fields, and delete some fields.
 	newAttrs := &storage.ObjectAttrs{
-		Name: "bar",
+		Name:            "foo",
+		ContentType:     "",
+		ContentLanguage: "de",
+		ContentEncoding: "gzip",
+		Metadata: map[string]string{
+			"foo": "taco",
+			"bar": nil,
+			"qux": "burrito",
+		},
 	}
 
-	o, err := t.bucket.UpdateObject(t.ctx, "foo", newAttrs)
+	o, err := t.bucket.UpdateObject(t.ctx, newAttrs)
 	AssertEq(nil, err)
 
 	// Check the returned Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
-	ExpectEq("image/png", o.ContentType)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("de", o.ContentLanguage)
 	ExpectEq(len("taco"), o.Size)
+	ExpectEq("gzip", o.ContentEncoding)
 	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
 	ExpectLt(0, o.Generation)
 	ExpectEq(2, o.MetaGeneration)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
 	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
+
+	ExpectThat(
+		o.Metadata,
+		DeepEquals(map[string]string{
+			"foo": "taco",
+			"baz": "2",
+			"qux": "burrito",
+		}))
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
