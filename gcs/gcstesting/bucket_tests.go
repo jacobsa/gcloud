@@ -523,7 +523,7 @@ func (t *updateTest) Successful() {
 	// for calls to UpdateAttr but not calls to ListObjects.
 	//
 	// TODO(jacobsa): Send a changelist to fix this.
-	o.ACL = nil
+	o.ACL = []storage.ACLRule{}
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
