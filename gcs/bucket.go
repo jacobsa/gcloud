@@ -102,6 +102,14 @@ func (b *bucket) NewWriter(
 	return w, nil
 }
 
+func (b *bucket) UpdateObject(
+	ctx context.Context,
+	name string,
+	newAttrs *storage.ObjectAttrs) (*storage.Object, error) {
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	return storage.UpdateAttrs(authContext, b.Name(), name, *newAttrs)
+}
+
 func (b *bucket) DeleteObject(ctx context.Context, name string) error {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.DeleteObject(authContext, b.name, name)
