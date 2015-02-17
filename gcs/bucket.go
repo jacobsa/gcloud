@@ -52,7 +52,6 @@ type Bucket interface {
 	// TODO(jacobsa): Comments.
 	UpdateObject(
 		ctx context.Context,
-		name string,
 		newAttrs *storage.ObjectAttrs) (*storage.Object, error)
 
 	// Delete the object with the given name.
@@ -104,10 +103,9 @@ func (b *bucket) NewWriter(
 
 func (b *bucket) UpdateObject(
 	ctx context.Context,
-	name string,
 	newAttrs *storage.ObjectAttrs) (*storage.Object, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.UpdateAttrs(authContext, b.Name(), name, *newAttrs)
+	return storage.UpdateAttrs(authContext, b.Name(), newAttrs.Name, *newAttrs)
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) error {
