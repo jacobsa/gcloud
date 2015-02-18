@@ -275,13 +275,6 @@ func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// TODO(jacobsa): Refactor so that this is done once by NewConn.
-	rawService, err := storagev1.New(b.client)
-	if err != nil {
-		err = fmt.Errorf("storagev1.New: %v", err)
-		return
-	}
-
 	// As of 2015-02, the wrapped storage package doesn't check this for us,
 	// causing silently transformed names:
 	//     https://github.com/GoogleCloudPlatform/gcloud-golang/issues/111
@@ -309,7 +302,7 @@ func (b *bucket) CreateObject(
 	}
 
 	// Configure a 'call' object.
-	call := rawService.Objects.Insert(b.Name(), inputObj)
+	call := b.rawService.Objects.Insert(b.Name(), inputObj)
 	call.Media(media)
 	call.Projection("full")
 
@@ -342,4 +335,17 @@ func (b *bucket) UpdateObject(
 func (b *bucket) DeleteObject(ctx context.Context, name string) error {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.DeleteObject(authContext, b.name, name)
+}
+
+func newBucket(
+	projID string,
+	client *http.Client,
+	rawService *storagev1.Service,
+	name string) Bucket {
+	return &bucket{
+		projID:     projID,
+		client:     client,
+		rawService: rawService,
+		name:       name,
+	}
 }
