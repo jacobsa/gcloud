@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 	"unicode/utf8"
 
 	"golang.org/x/net/context"
@@ -101,6 +102,8 @@ func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
 
 func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule
 
+func fromRfc3339(s string) (t time.Time, err error)
+
 func fromRawObject(
 	bucketName string,
 	in *storagev1.Object) (out *storage.Object, err error) {
@@ -119,13 +122,21 @@ func fromRawObject(
 		Generation:      in.Generation,
 		MetaGeneration:  in.Metageneration,
 		StorageClass:    in.StorageClass,
-		Deleted:         in.TimeDeleted,
-		Updated:         in.Updated,
 	}
 
 	// Handle special cases.
 	if in.Owner != nil {
 		out.Owner = in.Owner.Entity
+	}
+
+	if out.Deleted, err = fromRfc3339(in.TimeDeleted); err != nil {
+		err = fmt.Errorf("Decoding TimeDeleted field: %v", err)
+		return
+	}
+
+	if out.Updated, err = fromRfc3339(in.Updated); err != nil {
+		err = fmt.Errorf("Decoding Updated field: %v", err)
+		return
 	}
 
 	if out.MD5, err = base64.StdEncoding.DecodeString(in.Md5Hash); err != nil {
