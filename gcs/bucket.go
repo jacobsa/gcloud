@@ -114,11 +114,10 @@ func fromRawObject(
 		ACL:             fromRawAcls(in.Acl),
 		ContentEncoding: in.ContentEncoding,
 		Size:            int64(in.Size),
-		CRC32C:          in.CRC32C,
 		MediaLink:       in.MediaLink,
 		Metadata:        in.Metadata,
 		Generation:      in.Generation,
-		MetaGeneration:  in.MetaGeneration,
+		MetaGeneration:  in.Metageneration,
 		StorageClass:    in.StorageClass,
 		Deleted:         in.TimeDeleted,
 		Updated:         in.Updated,
@@ -133,6 +132,23 @@ func fromRawObject(
 		err = fmt.Errorf("Decoding Md5Hash field: %v", err)
 		return
 	}
+
+	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)
+	if err != nil {
+		err = fmt.Errorf("Decoding Crc32c field: %v", err)
+		return
+	}
+
+	if len(crc32cString) != 4 {
+		err = fmt.Errorf("Wrong length for decoded Crc32c field: %d", len(crc32cString))
+		return
+	}
+
+	out.CRC32C =
+		uint32(crc32cString[0])<<24 |
+			uint32(crc32cString[1])<<16 |
+			uint32(crc32cString[2])<<8 |
+			uint32(crc32cString[3])<<0
 
 	return
 }
