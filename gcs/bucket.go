@@ -84,27 +84,36 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 	return storage.NewReader(authContext, b.name, objectName)
 }
 
-func (b *bucket) NewWriter(
+// TODO(jacobsa): Delete objectWriter.
+func (b *bucket) CreateObject(
 	ctx context.Context,
-	attrs *storage.ObjectAttrs) (ObjectWriter, error) {
+	req *CreateObjectRequest) (o *storage.Object, err error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 
 	// As of 2015-02, the wrapped storage package doesn't check this for us,
 	// causing silently transformed names:
 	//     https://github.com/GoogleCloudPlatform/gcloud-golang/issues/111
-	if !utf8.ValidString(attrs.Name) {
-		return nil, errors.New("Invalid object name: not valid UTF-8")
+	if !utf8.ValidString(req.Attrs.Name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
 	}
 
-	// Create and initialize the wrapped writer.
-	wrapped := storage.NewWriter(authContext, b.name, attrs.Name)
-	wrapped.ObjectAttrs = *attrs
+	// Create and initialize an object writer from the wrapped package.
+	writer := storage.NewWriter(authContext, b.name, req.Attrs.Name)
+	writer.ObjectAttrs = req.Attrs
 
-	w := &objectWriter{
-		wrapped: wrapped,
+	// Attempt to copy the contents into the writer.
+	if _, err = io.Copy(writer, req.Contents); err != nil {
+		return
 	}
 
-	return w, nil
+	// Finalize the object.
+	if err = writer.Close(); err != nil {
+		return
+	}
+
+	o = writer.Object()
+	return
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) error {
