@@ -435,7 +435,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
 	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("TODO")))
+	ExpectThat(err, Error(HasSubstr("Precondition")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
