@@ -347,25 +347,36 @@ func (b *bucket) CreateObject(
 func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *storage.Object, err error) {
-	// Set up a reader containing an appropriate JSON object.
-	jsonBody := struct {
-		Bucket string `json:"bucket"`
-		Name   string `json:"name"`
+	// Set up a map representing the JSON object we want to send to GCS. For now,
+	// we don't treat empty strings specially.
+	jsonMap := make(map[string]*string)
 
-		ContentType     *string `json:"contentType"`
-		ContentEncoding *string `json:"contentEncoding"`
-		ContentLanguage *string `json:"contentLanguage"`
-		CacheControl    *string `json:"cacheControl"`
-	}{
-		b.Name(),
-		req.Name,
-		req.ContentType,
-		req.ContentEncoding,
-		req.ContentLanguage,
-		req.CacheControl,
+	if req.ContentType != nil {
+		jsonMap["contentType"] = req.ContentType
 	}
 
-	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonBody)
+	if req.ContentEncoding != nil {
+		jsonMap["contentEncoding"] = req.ContentEncoding
+	}
+
+	if req.ContentLanguage != nil {
+		jsonMap["contentLanguage"] = req.ContentLanguage
+	}
+
+	if req.CacheControl != nil {
+		jsonMap["cacheControl"] = req.CacheControl
+	}
+
+	// Implement the convention that a pointer to an empty string means to delete
+	// the field (communicated to GCS by setting it to null in the JSON).
+	for k, v := range jsonMap {
+		if *v == "" {
+			jsonMap[k] = nil
+		}
+	}
+
+	// Set up a reader for the JSON object.
+	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonMap)
 	if err != nil {
 		return
 	}
