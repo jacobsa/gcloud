@@ -279,6 +279,10 @@ func (b *bucket) CreateObject(
 	call.Media(media)
 	call.Projection("full")
 
+	if req.GenerationPrecondition != nil {
+		call.IfGenerationMatch(*req.GenerationPrecondition)
+	}
+
 	// Execute the call.
 	rawObject, err := call.Do()
 	if err != nil {
