@@ -184,6 +184,7 @@ func fromRawObject(
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
+	// TODO(jacobsa): Refactor so that this is done once by NewConn.
 	rawService, err := storagev1.New(b.client)
 	if err != nil {
 		err = fmt.Errorf("storagev1.New: %v", err)
