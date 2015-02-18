@@ -6,11 +6,13 @@ package gcs
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 	"unicode/utf8"
 
@@ -364,7 +366,56 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	err = errors.New("TODO: Implement UpdateObject.")
+	// Set up URL params.
+	urlParams := make(url.Values)
+	urlParams.Set("projection", "full")
+
+	// Set up the URL with a tempalte that we will later expand.
+	url := googleapi.ResolveRelative(b.rawService.BasePath, "b/{bucket}/o/{object}")
+	url += "?" + urlParams.Encode()
+
+	// Create an HTTP request using NewRequest, which parses the URL string.
+	// Expand the URL object it creates.
+	httpReq, err := http.NewRequest("PATCH", url, body)
+	if err != nil {
+		err = fmt.Errorf("http.NewRequest: %v", err)
+		return
+	}
+
+	googleapi.Expand(
+		httpReq.URL,
+		map[string]string{
+			"bucket": b.Name(),
+			"object": req.Name,
+		})
+
+	// Set up HTTP request headers.
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
+
+	// Execute the HTTP request.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		return
+	}
+
+	// Parse the response.
+	var rawObject *storagev1.Object
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = fromRawObject(b.Name(), rawObject); err != nil {
+		return
+	}
+
 	return
 }
 
