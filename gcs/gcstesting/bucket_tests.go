@@ -267,7 +267,7 @@ func (t *createTest) ErrorAfterPartialContents() {
 	_, err := t.bucket.CreateObject(t.ctx, req)
 
 	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("TODO")))
+	ExpectThat(err, Error(HasSubstr("timeout")))
 
 	// The object should not show up in a listing.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
