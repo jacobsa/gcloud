@@ -174,7 +174,7 @@ func (t *createTest) ObjectAttributes_Default() {
 	// Check the Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("text/plain; charset=utf-8", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.ACL, ElementsAre())
