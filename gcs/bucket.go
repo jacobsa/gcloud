@@ -47,9 +47,6 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
-// A sentinel string pointer; see UpdateObjectRequest.
-var UpdateObject_DeleteString *string = new(string)
-
 // A request to update the metadata of an object, accepted by
 // Bucket.UpdateObject.
 type UpdateObjectRequest struct {
@@ -59,16 +56,13 @@ type UpdateObjectRequest struct {
 	// String fields in the object to update (or not). The semantics are as
 	// follows, for a given field F:
 	//
-	//  *  If F is set to nil, the corresponding object field is untouched.
+	//  *  If F is set to nil, the corresponding GCS object field is untouched.
 	//
-	//  *  If F is set to UpdateObject_DeleteString, the corresponding object
-	//     field is removed.
+	//  *  If F is set to a non-nil pointer s, then the corresponding GCS object
+	//     field is set to *s.
 	//
-	//  *  Otherwise, the corresponding object field is set to the given string.
+	//  *  There is no facility for removing GCS object fields.
 	//
-	// TODO(jacobsa): storage.Object doesn't distinguish missing strings from
-	// empty strings for these; should we really support the deletion sentinel
-	// here?
 	ContentType        *string
 	StorageClass       *string
 	ContentEncoding    *string
@@ -78,7 +72,8 @@ type UpdateObjectRequest struct {
 
 	// User-provided metadata updates. Keys that are not mentioned are untouched.
 	// Keys whose values are nil are deleted, and others are updated to the
-	// supplied string.
+	// supplied string. There is no facility for completely removing user
+	// metadata.
 	Metadata map[string]*string
 }
 
