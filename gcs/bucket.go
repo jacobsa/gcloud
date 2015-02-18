@@ -89,18 +89,24 @@ type Bucket interface {
 	// List the objects in the bucket that meet the criteria defined by the
 	// query, returning a result object that contains the results and potentially
 	// a cursor for retrieving the next portion of the larger set of results.
-	ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error)
+	ListObjects(
+		ctx context.Context,
+		query *storage.Query) (*storage.Objects, error)
 
 	// Create a reader for the contents of the object with the given name. The
 	// caller must arrange for the reader to be closed when it is no longer
 	// needed.
-	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
+	NewReader(
+		ctx context.Context,
+		objectName string) (io.ReadCloser, error)
 
 	// Create or overwrite an object according to the supplied request. The new
 	// object is guaranteed to exist immediately for the purposes of reading (and
 	// eventually for listing) after this method returns a nil error. It is
 	// guaranteed not to exist before req.Contents returns io.EOF.
-	CreateObject(ctx context.Context, req *CreateObjectRequest) (*storage.Object, error)
+	CreateObject(
+		ctx context.Context,
+		req *CreateObjectRequest) (*storage.Object, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
@@ -123,12 +129,16 @@ func (b *bucket) Name() string {
 	return b.name
 }
 
-func (b *bucket) ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error) {
+func (b *bucket) ListObjects(
+	ctx context.Context,
+	query *storage.Query) (*storage.Objects, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.ListObjects(authContext, b.name, query)
 }
 
-func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadCloser, error) {
+func (b *bucket) NewReader(
+	ctx context.Context,
+	objectName string) (io.ReadCloser, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.NewReader(authContext, b.name, objectName)
 }
@@ -212,7 +222,10 @@ func fromRawObject(
 	}
 
 	if len(crc32cString) != 4 {
-		err = fmt.Errorf("Wrong length for decoded Crc32c field: %d", len(crc32cString))
+		err = fmt.Errorf(
+			"Wrong length for decoded Crc32c field: %d",
+			len(crc32cString))
+
 		return
 	}
 
