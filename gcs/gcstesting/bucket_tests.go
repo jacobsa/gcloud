@@ -411,6 +411,22 @@ func (t *createTest) IllegalNames() {
 	ExpectThat(objects.Results, ElementsAre())
 }
 
+func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
+	AssertFalse(true, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Read
 ////////////////////////////////////////////////////////////////////////
