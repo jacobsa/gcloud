@@ -457,7 +457,42 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 }
 
 func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
-	AssertFalse(true, "TODO")
+	// Request to create an object with a precondition saying it shouldn't exist.
+	// The request should succeed.
+	var gen int64 = 0
+	req := &gcs.CreateObjectRequest{
+		Attrs: storage.ObjectAttrs{
+			Name: "foo",
+		},
+		Contents:               strings.NewReader("burrito"),
+		GenerationPrecondition: &gen,
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	ExpectEq(len("burrito"), o.Size)
+	ExpectNe(0, o.Generation)
+
+	// The object should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	AssertEq("foo", listing.Results[0].Name)
+	ExpectEq(o.Generation, listing.Results[0].Generation)
+	ExpectEq(len("burrito"), listing.Results[0].Size)
+
+	// We should see the new contents when we read.
+	r, err := t.bucket.NewReader(t.ctx, "foo")
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
 }
 
 func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied() {
@@ -474,7 +509,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 
 	// Request to create another version of the object, with a precondition
 	// saying it should exist with the appropriate generation number. The request
-	// should succeed
+	// should succeed.
 	var gen int64 = orig.Generation
 	req := &gcs.CreateObjectRequest{
 		Attrs: storage.ObjectAttrs{
