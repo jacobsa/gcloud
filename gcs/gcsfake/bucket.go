@@ -11,6 +11,7 @@ import (
 	"hash/crc32"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -341,17 +342,18 @@ func (b *bucket) mintObject(
 		Updated:         time.Now(),
 	}
 
-	// Match GCS's behavior for default ContentType.
-	if o.metadata.ContentType == "" {
-		o.metadata.ContentType = "application/octet-stream"
-	}
-
 	// Fill in the MD5 field.
 	md5Array := md5.Sum([]byte(contents))
 	o.metadata.MD5 = md5Array[:]
 
 	// Set up contents.
 	o.contents = contents
+
+	// Match the real GCS client library's behavior of sniffing content types
+	// when not explicitly specified.
+	if o.metadata.ContentType == "" {
+		o.metadata.ContentType = http.DetectContentType([]byte(contents))
+	}
 
 	return
 }
