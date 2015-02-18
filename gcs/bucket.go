@@ -341,6 +341,29 @@ func (b *bucket) CreateObject(
 func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *storage.Object, err error) {
+	// Set up a reader containing an appropriate JSON object.
+	jsonBody := struct {
+		bucket string
+		name   string
+
+		contentType     *string
+		contentEncoding *string
+		contentLanguage *string
+		cacheControl    *string
+	}{
+		b.Name(),
+		req.Name,
+		req.ContentType,
+		req.ContentEncoding,
+		req.ContentLanguage,
+		req.CacheControl,
+	}
+
+	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonBody)
+	if err != nil {
+		return
+	}
+
 	err = errors.New("TODO: Implement UpdateObject.")
 	return
 }
