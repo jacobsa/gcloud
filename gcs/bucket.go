@@ -69,9 +69,10 @@ type Bucket interface {
 }
 
 type bucket struct {
-	projID string
-	client *http.Client
-	name   string
+	projID     string
+	client     *http.Client
+	rawService *storagev1.Service
+	name       string
 }
 
 func (b *bucket) Name() string {
@@ -180,13 +181,14 @@ func fromRawObject(
 	return
 }
 
-func getRawService(authContext context.Context) *storagev1.Service
-
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	objectsService := getRawService(authContext).Objects
+	rawService, err := storagev1.New(b.client)
+	if err != nil {
+		err = fmt.Errorf("storagev1.New: %v", err)
+		return
+	}
 
 	// As of 2015-02, the wrapped storage package doesn't check this for us,
 	// causing silently transformed names:
@@ -209,7 +211,7 @@ func (b *bucket) CreateObject(
 	}
 
 	// Configure a 'call' object.
-	call := objectsService.Insert(b.Name(), inputObj)
+	call := rawService.Objects.Insert(b.Name(), inputObj)
 	call.Media(req.Contents)
 	call.Projection("full")
 
