@@ -412,13 +412,11 @@ func (t *createTest) IllegalNames() {
 }
 
 func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
-	const objectName = "foo"
-
 	// Create an existing object.
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: objectName},
+		&storage.ObjectAttrs{Name: "foo"},
 		"taco")
 
 	// Request to create another version of the object, with a precondition
@@ -426,7 +424,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	var gen int64 = 0
 	req := &gcs.CreateObjectRequest{
 		Attrs: storage.ObjectAttrs{
-			Name: objectName,
+			Name: "foo",
 		},
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
@@ -445,12 +443,12 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
-	AssertEq(objectName, listing.Results[0].Name)
+	AssertEq("foo", listing.Results[0].Name)
 	ExpectEq(o.Generation, listing.Results[0].Generation)
 	ExpectEq(len("taco"), listing.Results[0].Size)
 
 	// We should see the old contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, objectName)
+	r, err := t.bucket.NewReader(t.ctx, "foo")
 	AssertEq(nil, err)
 
 	contents, err := ioutil.ReadAll(r)
@@ -467,13 +465,11 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied() {
 }
 
 func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
-	const objectName = "foo"
-
 	// Create an existing object.
 	orig, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: objectName},
+		&storage.ObjectAttrs{Name: "foo"},
 		"taco")
 
 	// Request to create another version of the object, with a precondition
@@ -482,7 +478,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	var gen int64 = orig.Generation
 	req := &gcs.CreateObjectRequest{
 		Attrs: storage.ObjectAttrs{
-			Name: objectName,
+			Name: "foo",
 		},
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
@@ -502,12 +498,12 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
-	AssertEq(objectName, listing.Results[0].Name)
+	AssertEq("foo", listing.Results[0].Name)
 	ExpectEq(o.Generation, listing.Results[0].Generation)
 	ExpectEq(len("burrito"), listing.Results[0].Size)
 
 	// We should see the new contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, objectName)
+	r, err := t.bucket.NewReader(t.ctx, "foo")
 	AssertEq(nil, err)
 
 	contents, err := ioutil.ReadAll(r)
