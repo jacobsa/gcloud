@@ -4,7 +4,9 @@
 package gcs
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"unicode/utf8"
@@ -99,18 +101,19 @@ func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
 
 func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule
 
-func fromRawObject(bucketName string, in *storagev1.Object) *storage.Object {
-	out := &storage.Object{
+func fromRawObject(
+	bucketName string,
+	in *storagev1.Object) (out *storage.Object, err error) {
+	// Convert the easy fields.
+	out = &storage.Object{
 		Bucket:          bucketName,
 		Name:            in.Name,
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
 		ACL:             fromRawAcls(in.Acl),
-		Owner:           in.Owner,
 		ContentEncoding: in.ContentEncoding,
-		Size:            in.Size,
-		MD5:             in.MD5,
+		Size:            int64(in.Size),
 		CRC32C:          in.CRC32C,
 		MediaLink:       in.MediaLink,
 		Metadata:        in.Metadata,
@@ -121,7 +124,17 @@ func fromRawObject(bucketName string, in *storagev1.Object) *storage.Object {
 		Updated:         in.Updated,
 	}
 
-	return out
+	// Handle special cases.
+	if in.Owner != nil {
+		out.Owner = in.Owner.Entity
+	}
+
+	if out.MD5, err = base64.StdEncoding.DecodeString(in.Md5Hash); err != nil {
+		err = fmt.Errorf("Decoding Md5Hash field: %v", err)
+		return
+	}
+
+	return
 }
 
 func getRawService(authContext context.Context) *storagev1.Service
@@ -164,7 +177,10 @@ func (b *bucket) CreateObject(
 	}
 
 	// Convert the returned object.
-	o = fromRawObject(b.Name(), rawObject)
+	o, err = fromRawObject(b.Name(), rawObject)
+	if err != nil {
+		return
+	}
 
 	return
 }
