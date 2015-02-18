@@ -4,7 +4,6 @@
 package gcsutil
 
 import (
-	"io"
 	"strings"
 
 	"github.com/jacobsa/gcloud/gcs"
@@ -18,23 +17,11 @@ func CreateObject(
 	ctx context.Context,
 	bucket gcs.Bucket,
 	attrs *storage.ObjectAttrs,
-	contents string) (o *storage.Object, err error) {
-	// Create a writer.
-	writer, err := bucket.NewWriter(ctx, attrs)
-	if err != nil {
-		return
+	contents string) (*storage.Object, error) {
+	req := &gcs.CreateObjectRequest{
+		Attrs:    *attrs,
+		Contents: strings.NewReader(contents),
 	}
 
-	// Copy into the writer.
-	if _, err = io.Copy(writer, strings.NewReader(contents)); err != nil {
-		return
-	}
-
-	// Close the writer.
-	if err = writer.Close(); err != nil {
-		return
-	}
-
-	o = writer.Object()
-	return
+	return bucket.CreateObject(ctx, req)
 }

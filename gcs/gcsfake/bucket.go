@@ -4,12 +4,14 @@
 package gcsfake
 
 import (
+	"bytes"
 	"crypto/md5"
 	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -262,11 +264,11 @@ func (b *bucket) NewReader(
 	return ioutil.NopCloser(strings.NewReader(b.objects[index].contents)), nil
 }
 
-func (b *bucket) NewWriter(
+func (b *bucket) CreateObject(
 	ctx context.Context,
-	attrs *storage.ObjectAttrs) (gcs.ObjectWriter, error) {
+	req *gcs.CreateObjectRequest) (o *storage.Object, err error) {
 	// Check that the object name is legal.
-	name := attrs.Name
+	name := req.Attrs.Name
 	if len(name) == 0 || len(name) > 1024 {
 		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
 	}
@@ -281,7 +283,18 @@ func (b *bucket) NewWriter(
 		}
 	}
 
-	return newObjectWriter(b, attrs), nil
+	// Snarf the object contents.
+	buf := new(bytes.Buffer)
+	if _, err = io.Copy(buf, req.Contents); err != nil {
+		return
+	}
+
+	contents := buf.String()
+
+	// Store the object.
+	o = b.addObject(&req.Attrs, contents)
+
+	return
 }
 
 // LOCKS_EXCLUDED(b.mu)
@@ -329,17 +342,18 @@ func (b *bucket) mintObject(
 		Updated:         time.Now(),
 	}
 
-	// Match GCS's behavior for default ContentType.
-	if o.metadata.ContentType == "" {
-		o.metadata.ContentType = "application/octet-stream"
-	}
-
 	// Fill in the MD5 field.
 	md5Array := md5.Sum([]byte(contents))
 	o.metadata.MD5 = md5Array[:]
 
 	// Set up contents.
 	o.contents = contents
+
+	// Match the real GCS client library's behavior of sniffing content types
+	// when not explicitly specified.
+	if o.metadata.ContentType == "" {
+		o.metadata.ContentType = http.DetectContentType([]byte(contents))
+	}
 
 	return
 }
