@@ -32,8 +32,7 @@ type CreateObjectRequest struct {
 	Attrs storage.ObjectAttrs
 
 	// A reader from which to obtain the contents of the object. Must be non-nil.
-	// Will be closed when CreateObject returns, regardless of whether it succeeds.
-	Contents io.ReadCloser
+	Contents io.Reader
 }
 
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
