@@ -47,6 +47,10 @@ func computeCrc32C(s string) uint32 {
 	return crc32.Checksum([]byte(s), crc32.MakeTable(crc32.Castagnoli))
 }
 
+func makeStringPtr(s string) *string {
+	return &s
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -669,7 +673,15 @@ type updateTest struct {
 }
 
 func (t *updateTest) NonExistentObject() {
-	AssertTrue(false, "TODO")
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr("image/png"),
+	}
+
+	_, err := t.bucket.UpdateObject(t.ctx, req)
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("TODO")))
 }
 
 func (t *updateTest) ClearAllFields() {
