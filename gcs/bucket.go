@@ -60,10 +60,14 @@ type UpdateObjectRequest struct {
 	//
 	//  *  If F is set to nil, the corresponding GCS object field is untouched.
 	//
-	//  *  If F is set to a non-nil pointer s, then the corresponding GCS object
-	//     field is set to *s.
+	//  *  If *F is the empty string, then the corresponding GCS object field is
+	//     removed.
 	//
-	//  *  There is no facility for removing GCS object fields.
+	//  *  Otherwise, the corresponding GCS object field is set to *F.
+	//
+	//  *  There is no facility for setting a GCS object field to the empty
+	//     string, since many of the fields do not actually allow that as a legal
+	//     value.
 	//
 	ContentType     *string
 	ContentEncoding *string

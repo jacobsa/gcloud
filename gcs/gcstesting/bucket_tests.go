@@ -684,7 +684,7 @@ func (t *updateTest) NonExistentObject() {
 	ExpectThat(err, Error(HasSubstr("TODO")))
 }
 
-func (t *updateTest) ClearAllFields() {
+func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
 	attrs := &storage.ObjectAttrs{
 		Name:            "foo",
@@ -700,7 +700,7 @@ func (t *updateTest) ClearAllFields() {
 	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	// Clear all of the fields that were set, aside from user metadata.
+	// Remove all of the fields that were set, aside from user metadata.
 	req := &gcs.UpdateObjectRequest{
 		Name:            "foo",
 		ContentType:     makeStringPtr(""),
@@ -720,6 +720,8 @@ func (t *updateTest) ClearAllFields() {
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
+
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
 
 	// Check that a listing agrees.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
