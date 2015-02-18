@@ -725,12 +725,6 @@ func (t *updateTest) Successful() {
 			"qux": "burrito",
 		}))
 
-	// Strip ACLs, which are returned by the underlying "cloud/storage" package
-	// for calls to UpdateAttr but not calls to ListObjects.
-	//
-	// TODO(jacobsa): Send a changelist to fix this.
-	o.ACL = []storage.ACLRule{}
-
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
