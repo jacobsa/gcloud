@@ -97,7 +97,32 @@ func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
 	return out
 }
 
-func fromRawObject(*storagev1.Object) *storage.Object
+func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule
+
+func fromRawObject(bucketName string, in *storagev1.Object) *storage.Object {
+	out := &storage.Object{
+		Bucket:          bucketName,
+		Name:            in.Name,
+		ContentType:     in.ContentType,
+		ContentLanguage: in.ContentLanguage,
+		CacheControl:    in.CacheControl,
+		ACL:             fromRawAcls(in.Acl),
+		Owner:           in.Owner,
+		ContentEncoding: in.ContentEncoding,
+		Size:            in.Size,
+		MD5:             in.MD5,
+		CRC32C:          in.CRC32C,
+		MediaLink:       in.MediaLink,
+		Metadata:        in.Metadata,
+		Generation:      in.Generation,
+		MetaGeneration:  in.MetaGeneration,
+		StorageClass:    in.StorageClass,
+		Deleted:         in.TimeDeleted,
+		Updated:         in.Updated,
+	}
+
+	return out
+}
 
 func getRawService(authContext context.Context) *storagev1.Service
 
@@ -139,7 +164,7 @@ func (b *bucket) CreateObject(
 	}
 
 	// Convert the returned object.
-	o = fromRawObject(rawObject)
+	o = fromRawObject(b.Name(), rawObject)
 
 	return
 }
