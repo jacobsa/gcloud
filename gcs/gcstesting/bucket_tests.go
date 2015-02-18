@@ -450,7 +450,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	ExpectEq(len("taco"), listing.Results[0].Size)
 
 	// We should see the old contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, "foo")
+	r, err := t.bucket.NewReader(t.ctx, objectName)
 	AssertEq(nil, err)
 
 	contents, err := ioutil.ReadAll(r)
@@ -467,7 +467,52 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied() {
 }
 
 func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
-	AssertFalse(true, "TODO")
+	const objectName = "foo"
+
+	// Create an existing object.
+	orig, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: objectName},
+		"taco")
+
+	// Request to create another version of the object, with a precondition
+	// saying it should exist with the appropriate generation number. The request
+	// should succeed
+	var gen int64 = orig.Generation
+	req := &gcs.CreateObjectRequest{
+		Attrs: storage.ObjectAttrs{
+			Name: objectName,
+		},
+		Contents:               strings.NewReader("burrito"),
+		GenerationPrecondition: &gen,
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	ExpectEq(len("burrito"), o.Size)
+	ExpectNe(orig.Generation, o.Generation)
+
+	// The new version should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	AssertEq(objectName, listing.Results[0].Name)
+	ExpectEq(o.Generation, listing.Results[0].Generation)
+	ExpectEq(len("burrito"), listing.Results[0].Size)
+
+	// We should see the new contents when we read.
+	r, err := t.bucket.NewReader(t.ctx, objectName)
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
 }
 
 ////////////////////////////////////////////////////////////////////////
