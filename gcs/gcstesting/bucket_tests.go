@@ -10,11 +10,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
-	"io"
 	"io/ioutil"
 	"math"
 	"sort"
 	"strings"
+	"testing/iotest"
 	"time"
 
 	"github.com/jacobsa/gcloud/gcs"
@@ -250,18 +250,24 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
-func (t *createTest) WriteThenAbandon() {
-	// Set up a writer for an object.
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
+func (t *createTest) ErrorAfterPartialContents() {
+	const contents = "tacoburritoenchilada"
+
+	// Set up a reader that will return some successful data, then an error.
+	req := &gcs.CreateObjectRequest{
+		Attrs: storage.ObjectAttrs{
+			Name: "foo",
+		},
+		Contents: iotest.TimeoutReader(
+			iotest.OneByteReader(
+				strings.NewReader(contents))),
 	}
 
-	writer, err := t.bucket.NewWriter(t.ctx, attrs)
-	AssertEq(nil, err)
+	// An attempt to create the object should fail.
+	_, err := t.bucket.CreateObject(t.ctx, req)
 
-	// Write a bunch of data, but don't yet close.
-	_, err = io.Copy(writer, strings.NewReader(strings.Repeat("foo", 1<<19)))
-	AssertEq(nil, err)
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("timeout")))
 
 	// The object should not show up in a listing.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)

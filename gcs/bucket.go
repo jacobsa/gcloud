@@ -14,6 +14,27 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
+// A request to create an object, accepted by Bucket.CreateObject.
+type CreateObjectRequest struct {
+	// Attributes with which the object should be created. The Name field must be
+	// set; other zero-valued fields are ignored.
+	//
+	// Object names must:
+	//
+	// *  be non-empty.
+	// *  be no longer than 1024 bytes.
+	// *  be valid UTF-8.
+	// *  not contain the code point U+000A (line feed).
+	// *  not contain the code point U+000D (carriage return).
+	//
+	// See here for authoritative documentation:
+	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
+	Attrs storage.ObjectAttrs
+
+	// A reader from which to obtain the contents of the object. Must be non-nil.
+	Contents io.Reader
+}
+
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
 // authorization information.
 //
@@ -33,21 +54,11 @@ type Bucket interface {
 	// needed.
 	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
 
-	// Return an ObjectWriter that can be used to create or overwrite an object
-	// with the given attributes. attrs.Name must be specified. Otherwise, nil-
-	// and zero-valud attributes are ignored.
-	//
-	// Object names must:
-	//
-	// *  be non-empty.
-	// *  be no longer than 1024 bytes.
-	// *  be valid UTF-8.
-	// *  not contain the code point U+000A (line feed).
-	// *  not contain the code point U+000D (carriage return).
-	//
-	// See here for authoritative documentation:
-	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
-	NewWriter(ctx context.Context, attrs *storage.ObjectAttrs) (ObjectWriter, error)
+	// Create or overwrite an object according to the supplied request. The new
+	// object is guaranteed to exist immediately for the purposes of reading (and
+	// eventually for listing) after this method returns a nil error. It is
+	// guaranteed not to exist before req.Contents returns io.EOF.
+	CreateObject(ctx context.Context, req *CreateObjectRequest) (*storage.Object, error)
 
 	// Delete the object with the given name.
 	DeleteObject(ctx context.Context, name string) error
@@ -73,27 +84,35 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 	return storage.NewReader(authContext, b.name, objectName)
 }
 
-func (b *bucket) NewWriter(
+func (b *bucket) CreateObject(
 	ctx context.Context,
-	attrs *storage.ObjectAttrs) (ObjectWriter, error) {
+	req *CreateObjectRequest) (o *storage.Object, err error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 
 	// As of 2015-02, the wrapped storage package doesn't check this for us,
 	// causing silently transformed names:
 	//     https://github.com/GoogleCloudPlatform/gcloud-golang/issues/111
-	if !utf8.ValidString(attrs.Name) {
-		return nil, errors.New("Invalid object name: not valid UTF-8")
+	if !utf8.ValidString(req.Attrs.Name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
 	}
 
-	// Create and initialize the wrapped writer.
-	wrapped := storage.NewWriter(authContext, b.name, attrs.Name)
-	wrapped.ObjectAttrs = *attrs
+	// Create and initialize an object writer from the wrapped package.
+	writer := storage.NewWriter(authContext, b.name, req.Attrs.Name)
+	writer.ObjectAttrs = req.Attrs
 
-	w := &objectWriter{
-		wrapped: wrapped,
+	// Attempt to copy the contents into the writer.
+	if _, err = io.Copy(writer, req.Contents); err != nil {
+		return
 	}
 
-	return w, nil
+	// Finalize the object.
+	if err = writer.Close(); err != nil {
+		return
+	}
+
+	o = writer.Object()
+	return
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) error {

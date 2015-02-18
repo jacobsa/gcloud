@@ -4,6 +4,7 @@
 package gcsfake
 
 import (
+	"bytes"
 	"crypto/md5"
 	"errors"
 	"fmt"
@@ -262,11 +263,11 @@ func (b *bucket) NewReader(
 	return ioutil.NopCloser(strings.NewReader(b.objects[index].contents)), nil
 }
 
-func (b *bucket) NewWriter(
+func (b *bucket) CreateObject(
 	ctx context.Context,
-	attrs *storage.ObjectAttrs) (gcs.ObjectWriter, error) {
+	req *gcs.CreateObjectRequest) (o *storage.Object, err error) {
 	// Check that the object name is legal.
-	name := attrs.Name
+	name := req.Attrs.Name
 	if len(name) == 0 || len(name) > 1024 {
 		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
 	}
@@ -281,7 +282,18 @@ func (b *bucket) NewWriter(
 		}
 	}
 
-	return newObjectWriter(b, attrs), nil
+	// Snarf the object contents.
+	buf := new(bytes.Buffer)
+	if _, err = io.Copy(buf, req.Contents); err != nil {
+		return
+	}
+
+	contents := buf.String()
+
+	// Store the object.
+	o = b.addObject(&req.Attrs, contents)
+
+	return
 }
 
 // LOCKS_EXCLUDED(b.mu)
