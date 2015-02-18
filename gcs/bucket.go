@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/net/context"
+	storagev1 "google.golang.org/api/storage/v1"
 	"google.golang.org/cloud"
 	"google.golang.org/cloud/storage"
 )
@@ -84,10 +85,17 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 	return storage.NewReader(authContext, b.name, objectName)
 }
 
+func toRawAcls([]storage.ACLRule) []*storagev1.ObjectAccessControl
+
+func fromRawObject(*storagev1.Object) *storage.Object
+
+func getRawService(authContext context.Context) *storagev1.Service
+
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	objectsService := getRawService(authContext).Objects
 
 	// As of 2015-02, the wrapped storage package doesn't check this for us,
 	// causing silently transformed names:
@@ -97,21 +105,32 @@ func (b *bucket) CreateObject(
 		return
 	}
 
-	// Create and initialize an object writer from the wrapped package.
-	writer := storage.NewWriter(authContext, b.name, req.Attrs.Name)
-	writer.ObjectAttrs = req.Attrs
+	// Set up an object struct based on the supplied attributes.
+	inputObj := &storagev1.Object{
+		Name:            req.Attrs.Name,
+		Bucket:          b.Name(),
+		ContentType:     req.Attrs.ContentType,
+		ContentLanguage: req.Attrs.ContentLanguage,
+		ContentEncoding: req.Attrs.ContentEncoding,
+		CacheControl:    req.Attrs.CacheControl,
+		Acl:             toRawAcls(req.Attrs.ACL),
+		Metadata:        req.Attrs.Metadata,
+	}
 
-	// Attempt to copy the contents into the writer.
-	if _, err = io.Copy(writer, req.Contents); err != nil {
+	// Configure a 'call' object.
+	call := objectsService.Insert(b.Name(), inputObj)
+	call.Media(req.Contents)
+	call.Projection("full")
+
+	// Execute the call.
+	rawObject, err := call.Do()
+	if err != nil {
 		return
 	}
 
-	// Finalize the object.
-	if err = writer.Close(); err != nil {
-		return
-	}
+	// Convert the returned object.
+	o = fromRawObject(rawObject)
 
-	o = writer.Object()
 	return
 }
 
