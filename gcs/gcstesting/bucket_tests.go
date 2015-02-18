@@ -692,12 +692,44 @@ func (t *updateTest) ClearAllFields() {
 		ContentEncoding: "gzip",
 		ContentLanguage: "fr",
 		CacheControl:    "public",
+		Metadata: map[string]string{
+			"foo": "bar",
+		},
 	}
 
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	AssertFalse(true, "TODO")
+	// Clear all of the fields that were set, aside from user metadata.
+	req := &gcs.UpdateObjectRequest{
+		Name:            "foo",
+		ContentType:     makeStringPtr(""),
+		ContentEncoding: makeStringPtr(""),
+		ContentLanguage: makeStringPtr(""),
+		CacheControl:    makeStringPtr(""),
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+
+	ExpectEq("", o.ContentType)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 func (t *updateTest) ModifyAllFields() {
