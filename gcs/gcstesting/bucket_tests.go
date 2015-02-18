@@ -496,7 +496,29 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 }
 
 func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
-	AssertFalse(true, "TODO")
+	// Request to create a non-existent object with a precondition saying it
+	// should already exist with some generation number. The request should fail.
+	var gen int64 = 17
+	req := &gcs.CreateObjectRequest{
+		Attrs: storage.ObjectAttrs{
+			Name: "foo",
+		},
+		Contents:               strings.NewReader("burrito"),
+		GenerationPrecondition: &gen,
+	}
+
+	_, err := t.bucket.CreateObject(t.ctx, req)
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("Precondition")))
+
+	// Nothing should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+	ExpectEq(0, len(listing.Results))
 }
 
 func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
