@@ -100,7 +100,17 @@ func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
 	return out
 }
 
-func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule
+func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule {
+	out := make([]storage.ACLRule, len(in))
+	for i, rule := range in {
+		out[i] = storage.ACLRule{
+			Entity: storage.ACLEntity(rule.Entity),
+			Role:   storage.ACLRole(rule.Role),
+		}
+	}
+
+	return out
+}
 
 func fromRfc3339(s string) (t time.Time, err error) {
 	if s != "" {
