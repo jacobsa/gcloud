@@ -102,7 +102,13 @@ func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
 
 func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule
 
-func fromRfc3339(s string) (t time.Time, err error)
+func fromRfc3339(s string) (t time.Time, err error) {
+	if s != "" {
+		t, err = time.Parse(time.RFC3339, s)
+	}
+
+	return
+}
 
 func fromRawObject(
 	bucketName string,
