@@ -342,9 +342,9 @@ func (b *bucket) CreateObject(
 
 func (b *bucket) UpdateObject(
 	ctx context.Context,
-	newAttrs *storage.ObjectAttrs) (*storage.Object, error) {
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.UpdateAttrs(authContext, b.Name(), newAttrs.Name, *newAttrs)
+	req *UpdateObjectRequest) (o *storage.Object, err error) {
+	err = errors.New("TODO: Implement UpdateObject.")
+	return
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) error {
