@@ -685,6 +685,19 @@ func (t *updateTest) NonExistentObject() {
 }
 
 func (t *updateTest) ClearAllFields() {
+	// Create an object with explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		StorageClass:    "DURABLE_REDUCED_AVAILABILITY",
+		ContentEncoding: "gzip",
+		ContentLanguage: "fr",
+		CacheControl:    "public",
+	}
+
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
 	AssertFalse(true, "TODO")
 }
 
@@ -692,7 +705,19 @@ func (t *updateTest) ModifyAllFields() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *updateTest) MixedModifications() {
+func (t *updateTest) MixedModificationsToFields() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *updateTest) AddUserMetadata() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *updateTest) MixedModificationsToUserMetadata() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *updateTest) RemoveUserMetadata() {
 	AssertFalse(true, "TODO")
 }
 
