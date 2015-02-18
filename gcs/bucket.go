@@ -345,13 +345,13 @@ func (b *bucket) UpdateObject(
 	req *UpdateObjectRequest) (o *storage.Object, err error) {
 	// Set up a reader containing an appropriate JSON object.
 	jsonBody := struct {
-		bucket string
-		name   string
+		Bucket string `json:"bucket"`
+		Name   string `json:"name"`
 
-		contentType     *string
-		contentEncoding *string
-		contentLanguage *string
-		cacheControl    *string
+		ContentType     *string `json:"contentType"`
+		ContentEncoding *string `json:"contentEncoding"`
+		ContentLanguage *string `json:"contentLanguage"`
+		CacheControl    *string `json:"cacheControl"`
 	}{
 		b.Name(),
 		req.Name,
