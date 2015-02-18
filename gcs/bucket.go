@@ -104,7 +104,9 @@ type Bucket interface {
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
-	UpdateObject(req *UpdateObjectRequest) (*storage.Object, error)
+	UpdateObject(
+		ctx context.Context,
+		req *UpdateObjectRequest) (*storage.Object, error)
 
 	// Delete the object with the given name.
 	DeleteObject(ctx context.Context, name string) error
