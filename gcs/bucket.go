@@ -85,7 +85,17 @@ func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadClose
 	return storage.NewReader(authContext, b.name, objectName)
 }
 
-func toRawAcls([]storage.ACLRule) []*storagev1.ObjectAccessControl
+func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
+	out := make([]*storagev1.ObjectAccessControl, len(in))
+	for i, rule := range in {
+		out[i] = &storagev1.ObjectAccessControl{
+			Entity: string(rule.Entity),
+			Role:   string(rule.Role),
+		}
+	}
+
+	return out
+}
 
 func fromRawObject(*storagev1.Object) *storage.Object
 
