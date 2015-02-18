@@ -4,10 +4,12 @@
 package gcs
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"time"
 	"unicode/utf8"
@@ -198,8 +200,20 @@ func (r *contentTypeReader) ContentType() string {
 	return r.contentType
 }
 
-func makeMedia(req *CreateObjectRequest) (r io.Reader) {
+func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
 	r = req.Contents
+
+	// Work around a bug in the googleapi package: ConditionallyIncludeMedia
+	// completely ignores I/O errors from the Reader you hand it (cf.
+	// http://goo.gl/hA48zs and Google-internal bug ID 19417010).
+	//
+	// So buffer the entire contents in memory. :-(
+	contents, err := ioutil.ReadAll(r)
+	if err != nil {
+		return
+	}
+
+	r = bytes.NewReader(contents)
 
 	// Work around the following interaction:
 	//
@@ -249,9 +263,15 @@ func (b *bucket) CreateObject(
 		Metadata:        req.Attrs.Metadata,
 	}
 
+	// Set up an appropriate reader to hand to the call object below.
+	media, err := makeMedia(req)
+	if err != nil {
+		return
+	}
+
 	// Configure a 'call' object.
 	call := rawService.Objects.Insert(b.Name(), inputObj)
-	call.Media(makeMedia(req))
+	call.Media(media)
 	call.Projection("full")
 
 	// Execute the call.
