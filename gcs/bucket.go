@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/net/context"
+	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
 	"google.golang.org/cloud"
 	"google.golang.org/cloud/storage"
@@ -181,6 +182,43 @@ func fromRawObject(
 	return
 }
 
+type contentTypeReader struct {
+	wrapped     io.Reader
+	contentType string
+}
+
+var _ io.Reader = &contentTypeReader{}
+var _ googleapi.ContentTyper = &contentTypeReader{}
+
+func (r *contentTypeReader) Read(p []byte) (int, error) {
+	return r.wrapped.Read(p)
+}
+
+func (r *contentTypeReader) ContentType() string {
+	return r.contentType
+}
+
+func makeMedia(req *CreateObjectRequest) (r io.Reader) {
+	r = req.Contents
+
+	// Work around the following interaction:
+	//
+	// 1. The storage package attempts to sniff the content type from the media,
+	// regardless of whether Object.ContentType has been explicitly set (cf.
+	// http://goo.gl/Dlvq7j).
+	//
+	// 2. The sniffed content type goes into the HTTP headers and the explicit
+	// ContentType field goes into the JSON body.
+	//
+	// 3. GCS apparently ignores the JSON body content type and stores the one
+	// from the HTTP headers (cf. Google-internal bug ID 19416462).
+	if req.Attrs.ContentType != "" {
+		r = &contentTypeReader{r, req.Attrs.ContentType}
+	}
+
+	return
+}
+
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
@@ -213,7 +251,7 @@ func (b *bucket) CreateObject(
 
 	// Configure a 'call' object.
 	call := rawService.Objects.Insert(b.Name(), inputObj)
-	call.Media(req.Contents)
+	call.Media(makeMedia(req))
 	call.Projection("full")
 
 	// Execute the call.
