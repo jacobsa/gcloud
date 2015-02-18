@@ -26,9 +26,5 @@ type conn struct {
 }
 
 func (c *conn) GetBucket(name string) Bucket {
-	return &bucket{
-		projID: c.projID,
-		client: c.client,
-		name:   name,
-	}
+	return newBucket(c.projID, c.client, name)
 }

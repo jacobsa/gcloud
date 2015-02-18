@@ -302,3 +302,14 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) error {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.DeleteObject(authContext, b.name, name)
 }
+
+func newBucket(
+	projID string,
+	client *http.Client,
+	name string) Bucket {
+	return &bucket{
+		projID: projID,
+		client: client,
+		name:   name,
+	}
+}
