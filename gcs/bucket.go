@@ -40,6 +40,11 @@ type CreateObjectRequest struct {
 
 	// A reader from which to obtain the contents of the object. Must be non-nil.
 	Contents io.Reader
+
+	// If non-nil, the object will be created/overwritten only if the current
+	// generation for the object name is equal to the given value. Zero means the
+	// object does not exist.
+	GenerationPrecondition *int64
 }
 
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
@@ -273,6 +278,10 @@ func (b *bucket) CreateObject(
 	call := rawService.Objects.Insert(b.Name(), inputObj)
 	call.Media(media)
 	call.Projection("full")
+
+	if req.GenerationPrecondition != nil {
+		call.IfGenerationMatch(*req.GenerationPrecondition)
+	}
 
 	// Execute the call.
 	rawObject, err := call.Do()
