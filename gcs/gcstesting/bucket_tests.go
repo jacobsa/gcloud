@@ -689,7 +689,6 @@ func (t *updateTest) ClearAllFields() {
 	attrs := &storage.ObjectAttrs{
 		Name:            "foo",
 		ContentType:     "image/png",
-		StorageClass:    "DURABLE_REDUCED_AVAILABILITY",
 		ContentEncoding: "gzip",
 		ContentLanguage: "fr",
 		CacheControl:    "public",

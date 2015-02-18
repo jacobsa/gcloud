@@ -63,12 +63,10 @@ type UpdateObjectRequest struct {
 	//
 	//  *  There is no facility for removing GCS object fields.
 	//
-	ContentType        *string
-	StorageClass       *string
-	ContentEncoding    *string
-	ContentDisposition *string
-	ContentLanguage    *string
-	CacheControl       *string
+	ContentType     *string
+	ContentEncoding *string
+	ContentLanguage *string
+	CacheControl    *string
 
 	// User-provided metadata updates. Keys that are not mentioned are untouched.
 	// Keys whose values are nil are deleted, and others are updated to the
