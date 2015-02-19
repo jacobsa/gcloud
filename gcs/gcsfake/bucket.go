@@ -324,7 +324,7 @@ func (b *bucket) UpdateObject(
 	// Does the object exist?
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
-		err = errors.New("Object Not Found.")
+		err = errors.New("Object not found.")
 		return
 	}
 
