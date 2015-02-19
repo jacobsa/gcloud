@@ -301,10 +301,16 @@ func (b *bucket) CreateObject(
 
 	contents := buf.String()
 
-	// Store the object and return a copy of the new entry.
-	o = new(storage.Object)
-	*o = b.addObject(&req.Attrs, contents)
+	// Lock and proceed.
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
+	obj, err := b.addObjectLocked(req, contents)
+	if err != nil {
+		return
+	}
+
+	o = &obj
 	return
 }
 
@@ -434,21 +440,17 @@ func (b *bucket) mintObject(
 	return
 }
 
-// Add a record for an object with the given attributes and contents, then
-// return a copy of the minted entry.
+// Add a record and return a copy of the minted entry.
 //
-// LOCKS_EXCLUDED(b.mu)
-func (b *bucket) addObject(
-	attrs *storage.ObjectAttrs,
-	contents string) storage.Object {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
+// EXCLUSIVE_LOCKS_REQUIRED(b.mu)
+func (b *bucket) addObjectLocked(
+	req *gcs.CreateObjectRequest,
+	contents string) (entry storage.Object, err error) {
 	// Create an object record from the given attributes.
-	var o fakeObject = b.mintObject(attrs, contents)
+	var o fakeObject = b.mintObject(&req.Attrs, contents)
 
 	// Replace an entry in or add an entry to our list of objects.
-	existingIndex := b.objects.find(attrs.Name)
+	existingIndex := b.objects.find(req.Attrs.Name)
 	if existingIndex < len(b.objects) {
 		b.objects[existingIndex] = o
 	} else {
@@ -456,7 +458,8 @@ func (b *bucket) addObject(
 		sort.Sort(b.objects)
 	}
 
-	return o.entry
+	entry = o.entry
+	return
 }
 
 func minInt(a, b int) int {
