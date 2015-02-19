@@ -957,10 +957,6 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
-func (t *updateTest) RemoveUserMetadata() {
-	AssertFalse(true, "TODO")
-}
-
 ////////////////////////////////////////////////////////////////////////
 // Delete
 ////////////////////////////////////////////////////////////////////////
