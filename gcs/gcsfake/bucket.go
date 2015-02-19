@@ -315,6 +315,12 @@ func (b *bucket) UpdateObject(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// Match real GCS in not allowing the removal of ContentType.
+	if req.ContentType != nil && *req.ContentType == "" {
+		err = errors.New("The ContentType field is required and cannot be removed.")
+		return
+	}
+
 	// Does the object exist?
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
