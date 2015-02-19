@@ -32,7 +32,7 @@ func NewFakeBucket(name string) gcs.Bucket {
 	return b
 }
 
-type object struct {
+type fakeObject struct {
 	// A storage.Object representing metadata for this object.
 	metadata *storage.Object
 
@@ -41,7 +41,7 @@ type object struct {
 }
 
 // A slice of objects compared by name.
-type objectSlice []object
+type objectSlice []fakeObject
 
 func (s objectSlice) Len() int           { return len(s) }
 func (s objectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
@@ -182,7 +182,7 @@ func (b *bucket) ListObjects(
 	// Scan the array.
 	var lastResultWasPrefix bool
 	for i := indexStart; i < indexLimit; i++ {
-		var o object = b.objects[i]
+		var o fakeObject = b.objects[i]
 		name := o.metadata.Name
 
 		// Search for a delimiter if necessary.
@@ -362,7 +362,7 @@ func (b *bucket) DeleteObject(
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
 	attrs *storage.ObjectAttrs,
-	contents string) (o object) {
+	contents string) (o fakeObject) {
 	// Set up basic metadata.
 	b.prevGeneration++
 	o.metadata = &storage.Object{
@@ -410,7 +410,7 @@ func (b *bucket) addObject(
 	defer b.mu.Unlock()
 
 	// Create an object record from the given attributes.
-	var o object = b.mintObject(attrs, contents)
+	var o fakeObject = b.mintObject(attrs, contents)
 
 	// Replace an entry in or add an entry to our list of objects.
 	existingIndex := b.objects.find(attrs.Name)
