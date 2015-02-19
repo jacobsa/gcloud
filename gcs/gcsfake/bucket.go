@@ -34,7 +34,7 @@ func NewFakeBucket(name string) gcs.Bucket {
 
 type fakeObject struct {
 	// A storage.Object representing a GCS entry for this object.
-	entry *storage.Object
+	entry storage.Object
 
 	// The contents of the object. These never change.
 	contents string
@@ -222,8 +222,10 @@ func (b *bucket) ListObjects(
 
 		lastResultWasPrefix = false
 
-		// Otherwise, save as an object result.
-		listing.Results = append(listing.Results, o.entry)
+		// Otherwise, return as an object result. Make a copy to avoid handing back
+		// internal state.
+		var oCopy storage.Object = o.entry
+		listing.Results = append(listing.Results, &oCopy)
 	}
 
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
@@ -299,9 +301,9 @@ func (b *bucket) CreateObject(
 
 	contents := buf.String()
 
-	// Store the object.
-	// TODO(jacobsa): This object might be concurrently modified. Return a copy.
-	o = b.addObject(&req.Attrs, contents)
+	// Store the object and return a copy of the new entry.
+	o = new(storage.Object)
+	*o = b.addObject(&req.Attrs, contents)
 
 	return
 }
@@ -320,7 +322,7 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	var obj *storage.Object = b.objects[index].entry
+	var obj *storage.Object = &b.objects[index].entry
 
 	// Update the object according to the request.
 	if req.ContentType != nil {
@@ -339,9 +341,9 @@ func (b *bucket) UpdateObject(
 		obj.CacheControl = *req.CacheControl
 	}
 
-	// Make a copy.
-	o = new(storage.Object)
-	*o = *obj
+	// Make a copy to avoid handing back internal state.
+	var objCopy storage.Object = *obj
+	o = &objCopy
 
 	return
 }
@@ -373,7 +375,7 @@ func (b *bucket) mintObject(
 	contents string) (o fakeObject) {
 	// Set up basic info.
 	b.prevGeneration++
-	o.entry = &storage.Object{
+	o.entry = storage.Object{
 		Bucket:          b.Name(),
 		Name:            attrs.Name,
 		ContentType:     attrs.ContentType,
@@ -408,12 +410,12 @@ func (b *bucket) mintObject(
 }
 
 // Add a record for an object with the given attributes and contents, then
-// return the minted entry.
+// return a copy of the minted entry.
 //
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) addObject(
 	attrs *storage.ObjectAttrs,
-	contents string) *storage.Object {
+	contents string) storage.Object {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
