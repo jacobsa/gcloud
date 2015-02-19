@@ -376,8 +376,10 @@ func (b *bucket) UpdateObject(
 		}
 	}
 
-	// Add a field for user metadata.
-	jsonMap["metadata"] = req.Metadata
+	// Add a field for user metadata if appropriate.
+	if req.Metadata != nil {
+		jsonMap["metadata"] = req.Metadata
+	}
 
 	// Set up a reader for the JSON object.
 	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonMap)
