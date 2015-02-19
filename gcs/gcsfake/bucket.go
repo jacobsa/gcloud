@@ -341,6 +341,15 @@ func (b *bucket) UpdateObject(
 		obj.CacheControl = *req.CacheControl
 	}
 
+	for k, v := range req.Metadata {
+		if v == nil {
+			delete(obj.Metadata, k)
+			continue
+		}
+
+		obj.Metadata[k] = *v
+	}
+
 	// Bump up the entry generation number.
 	obj.MetaGeneration++
 
