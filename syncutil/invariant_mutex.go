@@ -12,6 +12,8 @@ var fCheckInvariants = flag.Bool("syncutil.check_invariants", false, "Crash when
 
 // A reader/writer mutex like sync.RWMutex that additionally runs a check for
 // registered invariants at times when invariants should hold, when enabled.
+// This can aid debugging subtle code by crashing early as soon as something
+// unexpected happens.
 //
 // Must be created with NewInvariantMutex. See that function for more details.
 //
