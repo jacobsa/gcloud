@@ -43,9 +43,17 @@ type fakeObject struct {
 // A slice of objects compared by name.
 type fakeObjectSlice []fakeObject
 
-func (s fakeObjectSlice) Len() int           { return len(s) }
-func (s fakeObjectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
-func (s fakeObjectSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s fakeObjectSlice) Len() int {
+	return len(s)
+}
+
+func (s fakeObjectSlice) Less(i, j int) bool {
+	return s[i].metadata.Name < s[j].metadata.Name
+}
+
+func (s fakeObjectSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
 
 // Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
 // there is no such i.
