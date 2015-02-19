@@ -684,6 +684,10 @@ func (t *updateTest) NonExistentObject() {
 	ExpectThat(err, Error(HasSubstr("TODO")))
 }
 
+func (t *updateTest) RemoveContentType() {
+	AssertFalse(true, "TODO")
+}
+
 func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
 	attrs := &storage.ObjectAttrs{
