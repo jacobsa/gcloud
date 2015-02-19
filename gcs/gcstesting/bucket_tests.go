@@ -737,6 +737,7 @@ func (t *updateTest) RemoveAllFields() {
 	// Check the returned object.
 	AssertEq("foo", o.Name)
 	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
 
 	ExpectEq("image/png", o.ContentType)
 	ExpectEq("", o.ContentEncoding)
@@ -787,6 +788,7 @@ func (t *updateTest) ModifyAllFields() {
 	// Check the returned object.
 	AssertEq("foo", o.Name)
 	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
 
 	ExpectEq("image/jpeg", o.ContentType)
 	ExpectEq("bzip2", o.ContentEncoding)
@@ -837,6 +839,7 @@ func (t *updateTest) MixedModificationsToFields() {
 	// Check the returned object.
 	AssertEq("foo", o.Name)
 	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
 
 	ExpectEq("image/png", o.ContentType)
 	ExpectEq("", o.ContentEncoding)
@@ -883,6 +886,7 @@ func (t *updateTest) AddUserMetadata() {
 	// Check the returned object.
 	AssertEq("foo", o.Name)
 	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
 
 	ExpectThat(
 		o.Metadata,
@@ -936,6 +940,7 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 	// Check the returned object.
 	AssertEq("foo", o.Name)
 	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
 
 	ExpectThat(
 		o.Metadata,
