@@ -47,6 +47,10 @@ func computeCrc32C(s string) uint32 {
 	return crc32.Checksum([]byte(s), crc32.MakeTable(crc32.Castagnoli))
 }
 
+func makeStringPtr(s string) *string {
+	return &s
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -658,6 +662,304 @@ func (t *readTest) NonEmptyObject() {
 
 	// Close
 	AssertEq(nil, r.Close())
+}
+
+////////////////////////////////////////////////////////////////////////
+// Update
+////////////////////////////////////////////////////////////////////////
+
+type updateTest struct {
+	bucketTest
+}
+
+func (t *updateTest) NonExistentObject() {
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr("image/png"),
+	}
+
+	_, err := t.bucket.UpdateObject(t.ctx, req)
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(MatchesRegexp("404|Object not found")))
+}
+
+func (t *updateTest) RemoveContentType() {
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name:        "foo",
+		ContentType: "image/png",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Attempt to remove the content type field.
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr(""),
+	}
+
+	_, err = t.bucket.UpdateObject(t.ctx, req)
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("required")))
+}
+
+func (t *updateTest) RemoveAllFields() {
+	// Create an object with explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentEncoding: "gzip",
+		ContentLanguage: "fr",
+		CacheControl:    "public",
+		Metadata: map[string]string{
+			"foo": "bar",
+		},
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Remove all of the fields that were set, aside from user metadata and
+	// ContentType (which cannot be removed).
+	req := &gcs.UpdateObjectRequest{
+		Name:            "foo",
+		ContentEncoding: makeStringPtr(""),
+		ContentLanguage: makeStringPtr(""),
+		CacheControl:    makeStringPtr(""),
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
+
+	ExpectEq("image/png", o.ContentType)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
+}
+
+func (t *updateTest) ModifyAllFields() {
+	// Create an object with explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentEncoding: "gzip",
+		ContentLanguage: "fr",
+		CacheControl:    "public",
+		Metadata: map[string]string{
+			"foo": "bar",
+		},
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Modify all of the fields that were set, aside from user metadata.
+	req := &gcs.UpdateObjectRequest{
+		Name:            "foo",
+		ContentType:     makeStringPtr("image/jpeg"),
+		ContentEncoding: makeStringPtr("bzip2"),
+		ContentLanguage: makeStringPtr("de"),
+		CacheControl:    makeStringPtr("private"),
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
+
+	ExpectEq("image/jpeg", o.ContentType)
+	ExpectEq("bzip2", o.ContentEncoding)
+	ExpectEq("de", o.ContentLanguage)
+	ExpectEq("private", o.CacheControl)
+
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
+}
+
+func (t *updateTest) MixedModificationsToFields() {
+	// Create an object with some explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentEncoding: "gzip",
+		ContentLanguage: "fr",
+		Metadata: map[string]string{
+			"foo": "bar",
+		},
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Leave one field unmodified, delete one field, modify an existing field,
+	// and add a new field.
+	req := &gcs.UpdateObjectRequest{
+		Name:            "foo",
+		ContentType:     nil,
+		ContentEncoding: makeStringPtr(""),
+		ContentLanguage: makeStringPtr("de"),
+		CacheControl:    makeStringPtr("private"),
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
+
+	ExpectEq("image/png", o.ContentType)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq("de", o.ContentLanguage)
+	ExpectEq("private", o.CacheControl)
+
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
+}
+
+func (t *updateTest) AddUserMetadata() {
+	// Create an object with no user metadata.
+	attrs := &storage.ObjectAttrs{
+		Name:     "foo",
+		Metadata: nil,
+	}
+
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	AssertEq(nil, orig.Metadata)
+
+	// Add some metadata.
+	req := &gcs.UpdateObjectRequest{
+		Name: "foo",
+		Metadata: map[string]*string{
+			"0": makeStringPtr("taco"),
+			"1": makeStringPtr("burrito"),
+		},
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
+
+	ExpectThat(
+		o.Metadata,
+		DeepEquals(
+			map[string]string{
+				"0": "taco",
+				"1": "burrito",
+			}))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
+}
+
+func (t *updateTest) MixedModificationsToUserMetadata() {
+	// Create an object with some user metadata.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+		Metadata: map[string]string{
+			"0": "taco",
+			"2": "enchilada",
+			"3": "queso",
+		},
+	}
+
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	AssertThat(orig.Metadata, DeepEquals(attrs.Metadata))
+
+	// Leave an existing field untouched, add a new field, remove an existing
+	// field, and modify an existing field.
+	req := &gcs.UpdateObjectRequest{
+		Name: "foo",
+		Metadata: map[string]*string{
+			"1": makeStringPtr("burrito"),
+			"2": nil,
+			"3": makeStringPtr("updated"),
+		},
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+	AssertEq(2, o.MetaGeneration)
+
+	ExpectThat(
+		o.Metadata,
+		DeepEquals(
+			map[string]string{
+				"0": "taco",
+				"1": "burrito",
+				"3": "updated",
+			}))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 ////////////////////////////////////////////////////////////////////////

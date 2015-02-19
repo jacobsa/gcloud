@@ -32,36 +32,44 @@ func NewFakeBucket(name string) gcs.Bucket {
 	return b
 }
 
-type object struct {
-	// A storage.Object representing metadata for this object. Never changes.
-	metadata *storage.Object
+type fakeObject struct {
+	// A storage.Object representing a GCS entry for this object.
+	entry storage.Object
 
 	// The contents of the object. These never change.
 	contents string
 }
 
 // A slice of objects compared by name.
-type objectSlice []object
+type fakeObjectSlice []fakeObject
 
-func (s objectSlice) Len() int           { return len(s) }
-func (s objectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
-func (s objectSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s fakeObjectSlice) Len() int {
+	return len(s)
+}
 
-// Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
-// there is no such i.
-func (s objectSlice) lowerBound(name string) int {
+func (s fakeObjectSlice) Less(i, j int) bool {
+	return s[i].entry.Name < s[j].entry.Name
+}
+
+func (s fakeObjectSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+// Return the smallest i such that s[i].entry.Name >= name, or len(s) if there
+// is no such i.
+func (s fakeObjectSlice) lowerBound(name string) int {
 	pred := func(i int) bool {
-		return s[i].metadata.Name >= name
+		return s[i].entry.Name >= name
 	}
 
 	return sort.Search(len(s), pred)
 }
 
-// Return the smallest i such that s[i].metadata.Name == name, or len(s) if
-// there is no such i.
-func (s objectSlice) find(name string) int {
+// Return the smallest i such that s[i].entry.Name == name, or len(s) if there
+// is no such i.
+func (s fakeObjectSlice) find(name string) int {
 	lb := s.lowerBound(name)
-	if lb < len(s) && s[lb].metadata.Name == name {
+	if lb < len(s) && s[lb].entry.Name == name {
 		return lb
 	}
 
@@ -89,9 +97,9 @@ func prefixSuccessor(prefix string) string {
 	return string(limit)
 }
 
-// Return the smallest i such that prefix < s[i].metadata.Name and
-// !strings.HasPrefix(s[i].metadata.Name, prefix).
-func (s objectSlice) prefixUpperBound(prefix string) int {
+// Return the smallest i such that prefix < s[i].entry.Name and
+// !strings.HasPrefix(s[i].entry.Name, prefix).
+func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	successor := prefixSuccessor(prefix)
 	if successor == "" {
 		return len(s)
@@ -107,12 +115,12 @@ type bucket struct {
 	// The set of extant objects.
 	//
 	// INVARIANT: Strictly increasing.
-	objects objectSlice // GUARDED_BY(mu)
+	objects fakeObjectSlice // GUARDED_BY(mu)
 
 	// The most recent generation number that was minted. The next object will
 	// receive generation prevGeneration + 1.
 	//
-	// INVARIANT: This is an upper bound for generation numbers in objectSlice.
+	// INVARIANT: This is an upper bound for generation numbers in objects.
 	prevGeneration int64 // GUARDED_BY(mu)
 }
 
@@ -122,22 +130,22 @@ func (b *bucket) checkInvariants() {
 	for i := 1; i < len(b.objects); i++ {
 		objA := b.objects[i-1]
 		objB := b.objects[i]
-		if !(objA.metadata.Name < objB.metadata.Name) {
+		if !(objA.entry.Name < objB.entry.Name) {
 			panic(
 				fmt.Sprintf(
 					"Object names are not strictly increasing: %v vs. %v",
-					objA.metadata.Name,
-					objB.metadata.Name))
+					objA.entry.Name,
+					objB.entry.Name))
 		}
 	}
 
 	// Make sure prevGeneration is an upper bound for object generation numbers.
 	for _, o := range b.objects {
-		if !(o.metadata.Generation <= b.prevGeneration) {
+		if !(o.entry.Generation <= b.prevGeneration) {
 			panic(
 				fmt.Sprintf(
 					"Object generation %v exceeds %v",
-					o.metadata.Generation,
+					o.entry.Generation,
 					b.prevGeneration))
 		}
 	}
@@ -182,8 +190,8 @@ func (b *bucket) ListObjects(
 	// Scan the array.
 	var lastResultWasPrefix bool
 	for i := indexStart; i < indexLimit; i++ {
-		var o object = b.objects[i]
-		name := o.metadata.Name
+		var o fakeObject = b.objects[i]
+		name := o.entry.Name
 
 		// Search for a delimiter if necessary.
 		if query.Delimiter != "" {
@@ -214,8 +222,10 @@ func (b *bucket) ListObjects(
 
 		lastResultWasPrefix = false
 
-		// Otherwise, save as an object result.
-		listing.Results = append(listing.Results, o.metadata)
+		// Otherwise, return as an object result. Make a copy to avoid handing back
+		// internal state.
+		var oCopy storage.Object = o.entry
+		listing.Results = append(listing.Results, &oCopy)
 	}
 
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
@@ -242,7 +252,7 @@ func (b *bucket) ListObjects(
 			}
 		} else {
 			// Otherwise, we'll start scanning at the next object.
-			listing.Next.Cursor = b.objects[indexLimit].metadata.Name
+			listing.Next.Cursor = b.objects[indexLimit].entry.Name
 		}
 	}
 
@@ -291,8 +301,74 @@ func (b *bucket) CreateObject(
 
 	contents := buf.String()
 
-	// Store the object.
-	o = b.addObject(&req.Attrs, contents)
+	// Store the object and return a copy of the new entry.
+	o = new(storage.Object)
+	*o = b.addObject(&req.Attrs, contents)
+
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *bucket) UpdateObject(
+	ctx context.Context,
+	req *gcs.UpdateObjectRequest) (o *storage.Object, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Match real GCS in not allowing the removal of ContentType.
+	if req.ContentType != nil && *req.ContentType == "" {
+		err = errors.New("The ContentType field is required and cannot be removed.")
+		return
+	}
+
+	// Does the object exist?
+	index := b.objects.find(req.Name)
+	if index == len(b.objects) {
+		err = errors.New("Object not found.")
+		return
+	}
+
+	var obj *storage.Object = &b.objects[index].entry
+
+	// Update the entry's basic fields according to the request.
+	if req.ContentType != nil {
+		obj.ContentType = *req.ContentType
+	}
+
+	if req.ContentEncoding != nil {
+		obj.ContentEncoding = *req.ContentEncoding
+	}
+
+	if req.ContentLanguage != nil {
+		obj.ContentLanguage = *req.ContentLanguage
+	}
+
+	if req.CacheControl != nil {
+		obj.CacheControl = *req.CacheControl
+	}
+
+	// Update the user metadata if necessary.
+	if len(req.Metadata) > 0 {
+		if obj.Metadata == nil {
+			obj.Metadata = make(map[string]string)
+		}
+
+		for k, v := range req.Metadata {
+			if v == nil {
+				delete(obj.Metadata, k)
+				continue
+			}
+
+			obj.Metadata[k] = *v
+		}
+	}
+
+	// Bump up the entry generation number.
+	obj.MetaGeneration++
+
+	// Make a copy to avoid handing back internal state.
+	var objCopy storage.Object = *obj
+	o = &objCopy
 
 	return
 }
@@ -321,10 +397,10 @@ func (b *bucket) DeleteObject(
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
 	attrs *storage.ObjectAttrs,
-	contents string) (o object) {
-	// Set up basic metadata.
+	contents string) (o fakeObject) {
+	// Set up basic info.
 	b.prevGeneration++
-	o.metadata = &storage.Object{
+	o.entry = storage.Object{
 		Bucket:          b.Name(),
 		Name:            attrs.Name,
 		ContentType:     attrs.ContentType,
@@ -344,32 +420,32 @@ func (b *bucket) mintObject(
 
 	// Fill in the MD5 field.
 	md5Array := md5.Sum([]byte(contents))
-	o.metadata.MD5 = md5Array[:]
+	o.entry.MD5 = md5Array[:]
 
 	// Set up contents.
 	o.contents = contents
 
 	// Match the real GCS client library's behavior of sniffing content types
 	// when not explicitly specified.
-	if o.metadata.ContentType == "" {
-		o.metadata.ContentType = http.DetectContentType([]byte(contents))
+	if o.entry.ContentType == "" {
+		o.entry.ContentType = http.DetectContentType([]byte(contents))
 	}
 
 	return
 }
 
 // Add a record for an object with the given attributes and contents, then
-// return the minted metadata.
+// return a copy of the minted entry.
 //
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) addObject(
 	attrs *storage.ObjectAttrs,
-	contents string) *storage.Object {
+	contents string) storage.Object {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	// Create an object record from the given attributes.
-	var o object = b.mintObject(attrs, contents)
+	var o fakeObject = b.mintObject(attrs, contents)
 
 	// Replace an entry in or add an entry to our list of objects.
 	existingIndex := b.objects.find(attrs.Name)
@@ -380,7 +456,7 @@ func (b *bucket) addObject(
 		sort.Sort(b.objects)
 	}
 
-	return o.metadata
+	return o.entry
 }
 
 func minInt(a, b int) int {

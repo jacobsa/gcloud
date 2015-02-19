@@ -6,11 +6,13 @@ package gcs
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 	"unicode/utf8"
 
@@ -47,6 +49,39 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
+// A request to update the metadata of an object, accepted by
+// Bucket.UpdateObject.
+type UpdateObjectRequest struct {
+	// The name of the object to update. Must be specified.
+	Name string
+
+	// String fields in the object to update (or not). The semantics are as
+	// follows, for a given field F:
+	//
+	//  *  If F is set to nil, the corresponding GCS object field is untouched.
+	//
+	//  *  If *F is the empty string, then the corresponding GCS object field is
+	//     removed.
+	//
+	//  *  Otherwise, the corresponding GCS object field is set to *F.
+	//
+	//  *  There is no facility for setting a GCS object field to the empty
+	//     string, since many of the fields do not actually allow that as a legal
+	//     value.
+	//
+	// Note that the GCS object's content type field cannot be removed.
+	ContentType     *string
+	ContentEncoding *string
+	ContentLanguage *string
+	CacheControl    *string
+
+	// User-provided metadata updates. Keys that are not mentioned are untouched.
+	// Keys whose values are nil are deleted, and others are updated to the
+	// supplied string. There is no facility for completely removing user
+	// metadata.
+	Metadata map[string]*string
+}
+
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
 // authorization information.
 //
@@ -59,18 +94,30 @@ type Bucket interface {
 	// List the objects in the bucket that meet the criteria defined by the
 	// query, returning a result object that contains the results and potentially
 	// a cursor for retrieving the next portion of the larger set of results.
-	ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error)
+	ListObjects(
+		ctx context.Context,
+		query *storage.Query) (*storage.Objects, error)
 
 	// Create a reader for the contents of the object with the given name. The
 	// caller must arrange for the reader to be closed when it is no longer
 	// needed.
-	NewReader(ctx context.Context, objectName string) (io.ReadCloser, error)
+	NewReader(
+		ctx context.Context,
+		objectName string) (io.ReadCloser, error)
 
 	// Create or overwrite an object according to the supplied request. The new
 	// object is guaranteed to exist immediately for the purposes of reading (and
 	// eventually for listing) after this method returns a nil error. It is
 	// guaranteed not to exist before req.Contents returns io.EOF.
-	CreateObject(ctx context.Context, req *CreateObjectRequest) (*storage.Object, error)
+	CreateObject(
+		ctx context.Context,
+		req *CreateObjectRequest) (*storage.Object, error)
+
+	// Update the object specified by newAttrs.Name, patching using the non-zero
+	// fields of newAttrs.
+	UpdateObject(
+		ctx context.Context,
+		req *UpdateObjectRequest) (*storage.Object, error)
 
 	// Delete the object with the given name.
 	DeleteObject(ctx context.Context, name string) error
@@ -87,12 +134,16 @@ func (b *bucket) Name() string {
 	return b.name
 }
 
-func (b *bucket) ListObjects(ctx context.Context, query *storage.Query) (*storage.Objects, error) {
+func (b *bucket) ListObjects(
+	ctx context.Context,
+	query *storage.Query) (*storage.Objects, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.ListObjects(authContext, b.name, query)
 }
 
-func (b *bucket) NewReader(ctx context.Context, objectName string) (io.ReadCloser, error) {
+func (b *bucket) NewReader(
+	ctx context.Context,
+	objectName string) (io.ReadCloser, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
 	return storage.NewReader(authContext, b.name, objectName)
 }
@@ -176,7 +227,10 @@ func fromRawObject(
 	}
 
 	if len(crc32cString) != 4 {
-		err = fmt.Errorf("Wrong length for decoded Crc32c field: %d", len(crc32cString))
+		err = fmt.Errorf(
+			"Wrong length for decoded Crc32c field: %d",
+			len(crc32cString))
+
 		return
 	}
 
@@ -285,6 +339,101 @@ func (b *bucket) CreateObject(
 	// Convert the returned object.
 	o, err = fromRawObject(b.Name(), rawObject)
 	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (b *bucket) UpdateObject(
+	ctx context.Context,
+	req *UpdateObjectRequest) (o *storage.Object, err error) {
+	// Set up a map representing the JSON object we want to send to GCS. For now,
+	// we don't treat empty strings specially.
+	jsonMap := make(map[string]interface{})
+
+	if req.ContentType != nil {
+		jsonMap["contentType"] = req.ContentType
+	}
+
+	if req.ContentEncoding != nil {
+		jsonMap["contentEncoding"] = req.ContentEncoding
+	}
+
+	if req.ContentLanguage != nil {
+		jsonMap["contentLanguage"] = req.ContentLanguage
+	}
+
+	if req.CacheControl != nil {
+		jsonMap["cacheControl"] = req.CacheControl
+	}
+
+	// Implement the convention that a pointer to an empty string means to delete
+	// the field (communicated to GCS by setting it to null in the JSON).
+	for k, v := range jsonMap {
+		if *(v.(*string)) == "" {
+			jsonMap[k] = nil
+		}
+	}
+
+	// Add a field for user metadata if appropriate.
+	if req.Metadata != nil {
+		jsonMap["metadata"] = req.Metadata
+	}
+
+	// Set up a reader for the JSON object.
+	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonMap)
+	if err != nil {
+		return
+	}
+
+	// Set up URL params.
+	urlParams := make(url.Values)
+	urlParams.Set("projection", "full")
+
+	// Set up the URL with a tempalte that we will later expand.
+	url := googleapi.ResolveRelative(b.rawService.BasePath, "b/{bucket}/o/{object}")
+	url += "?" + urlParams.Encode()
+
+	// Create an HTTP request using NewRequest, which parses the URL string.
+	// Expand the URL object it creates.
+	httpReq, err := http.NewRequest("PATCH", url, body)
+	if err != nil {
+		err = fmt.Errorf("http.NewRequest: %v", err)
+		return
+	}
+
+	googleapi.Expand(
+		httpReq.URL,
+		map[string]string{
+			"bucket": b.Name(),
+			"object": req.Name,
+		})
+
+	// Set up HTTP request headers.
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
+
+	// Execute the HTTP request.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		return
+	}
+
+	// Parse the response.
+	var rawObject *storagev1.Object
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = fromRawObject(b.Name(), rawObject); err != nil {
 		return
 	}
 
