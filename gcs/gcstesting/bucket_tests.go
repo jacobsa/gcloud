@@ -700,10 +700,10 @@ func (t *updateTest) RemoveAllFields() {
 	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
-	// Remove all of the fields that were set, aside from user metadata.
+	// Remove all of the fields that were set, aside from user metadata and
+	// ContentType (which cannot be removed).
 	req := &gcs.UpdateObjectRequest{
 		Name:            "foo",
-		ContentType:     makeStringPtr(""),
 		ContentEncoding: makeStringPtr(""),
 		ContentLanguage: makeStringPtr(""),
 		CacheControl:    makeStringPtr(""),
@@ -716,7 +716,7 @@ func (t *updateTest) RemoveAllFields() {
 	AssertEq("foo", o.Name)
 	AssertEq(len("taco"), o.Size)
 
-	ExpectEq("", o.ContentType)
+	ExpectEq("image/png", o.ContentType)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)

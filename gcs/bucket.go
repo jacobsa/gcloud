@@ -69,6 +69,7 @@ type UpdateObjectRequest struct {
 	//     string, since many of the fields do not actually allow that as a legal
 	//     value.
 	//
+	// Note that the GCS object's content type field cannot be removed.
 	ContentType     *string
 	ContentEncoding *string
 	ContentLanguage *string
