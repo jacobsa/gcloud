@@ -681,7 +681,7 @@ func (t *updateTest) NonExistentObject() {
 	_, err := t.bucket.UpdateObject(t.ctx, req)
 
 	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("TODO")))
+	ExpectThat(err, Error(HasSubstr("404")))
 }
 
 func (t *updateTest) RemoveContentType() {
