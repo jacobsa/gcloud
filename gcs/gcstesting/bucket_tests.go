@@ -757,11 +757,103 @@ func (t *updateTest) RemoveAllFields() {
 }
 
 func (t *updateTest) ModifyAllFields() {
-	AssertFalse(true, "TODO")
+	// Create an object with explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentEncoding: "gzip",
+		ContentLanguage: "fr",
+		CacheControl:    "public",
+		Metadata: map[string]string{
+			"foo": "bar",
+		},
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Modify all of the fields that were set, aside from user metadata.
+	req := &gcs.UpdateObjectRequest{
+		Name:            "foo",
+		ContentType:     makeStringPtr("image/jpeg"),
+		ContentEncoding: makeStringPtr("bzip2"),
+		ContentLanguage: makeStringPtr("de"),
+		CacheControl:    makeStringPtr("private"),
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+
+	ExpectEq("image/jpeg", o.ContentType)
+	ExpectEq("bzip2", o.ContentEncoding)
+	ExpectEq("de", o.ContentLanguage)
+	ExpectEq("private", o.CacheControl)
+
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 func (t *updateTest) MixedModificationsToFields() {
-	AssertFalse(true, "TODO")
+	// Create an object with some explicit attributes set.
+	attrs := &storage.ObjectAttrs{
+		Name:            "foo",
+		ContentType:     "image/png",
+		ContentEncoding: "gzip",
+		ContentLanguage: "fr",
+		Metadata: map[string]string{
+			"foo": "bar",
+		},
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Leave one field unmodified, delete one field, modify an existing field,
+	// and add a new field.
+	req := &gcs.UpdateObjectRequest{
+		Name:            "foo",
+		ContentType:     nil,
+		ContentEncoding: makeStringPtr(""),
+		ContentLanguage: makeStringPtr("de"),
+		CacheControl:    makeStringPtr("private"),
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+
+	ExpectEq("image/png", o.ContentType)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq("de", o.ContentLanguage)
+	ExpectEq("private", o.CacheControl)
+
+	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 func (t *updateTest) AddUserMetadata() {
