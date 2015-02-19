@@ -350,7 +350,7 @@ func (b *bucket) UpdateObject(
 	req *UpdateObjectRequest) (o *storage.Object, err error) {
 	// Set up a map representing the JSON object we want to send to GCS. For now,
 	// we don't treat empty strings specially.
-	jsonMap := make(map[string]*string)
+	jsonMap := make(map[string]interface{})
 
 	if req.ContentType != nil {
 		jsonMap["contentType"] = req.ContentType
@@ -371,10 +371,13 @@ func (b *bucket) UpdateObject(
 	// Implement the convention that a pointer to an empty string means to delete
 	// the field (communicated to GCS by setting it to null in the JSON).
 	for k, v := range jsonMap {
-		if *v == "" {
+		if *(v.(*string)) == "" {
 			jsonMap[k] = nil
 		}
 	}
+
+	// Add a field for user metadata.
+	jsonMap["metadata"] = req.Metadata
 
 	// Set up a reader for the JSON object.
 	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonMap)
