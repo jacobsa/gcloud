@@ -685,7 +685,25 @@ func (t *updateTest) NonExistentObject() {
 }
 
 func (t *updateTest) RemoveContentType() {
-	AssertFalse(true, "TODO")
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name:        "foo",
+		ContentType: "image/png",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Attempt to remove the content type field.
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr(""),
+	}
+
+	_, err = t.bucket.UpdateObject(t.ctx, req)
+
+	AssertNe(nil, err)
+	ExpectThat(err, Error(HasSubstr("required")))
 }
 
 func (t *updateTest) RemoveAllFields() {
