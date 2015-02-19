@@ -12,8 +12,50 @@ var fCheckInvariants = flag.Bool("syncutil.check_invariants", false, "Crash when
 
 // A reader/writer mutex like sync.RWMutex that additionally runs a check for
 // registered invariants at times when invariants should hold, when enabled.
+// This can aid debugging subtle code by crashing early as soon as something
+// unexpected happens.
 //
 // Must be created with NewInvariantMutex. See that function for more details.
+//
+// A typical use looks like this:
+//
+//     type myStruct struct {
+//       mu syncutil.InvariantMutex
+//
+//       // INVARIANT: nextGeneration == currentGeneration + 1
+//       currentGeneration int // GUARDED_BY(mu)
+//       nextGeneration    int // GUARDED_BY(mu)
+//     }
+//
+//     // The constructor function for myStruct sets up the mutex to
+//     // call the checkInvariants method.
+//     func newMyStruct() *myStruct {
+//       s := &myStruct{
+//         currentGeneration: 1,
+//         nextGeneration:    2,
+//       }
+//
+//       s.mu = syncutil.NewInvariantMutex(func() { s.checkInvariants() })
+//       return s
+//     }
+//
+//     func (s *myStruct) checkInvariants() {
+//       if s.nextGeneration != s.currentGeneration+1 {
+//         panic(
+//           fmt.Sprintf("%v != %v + 1", s.nextGeneration, s.currentGeneration))
+//       }
+//     }
+//
+//     // When the flag is set, invariants will be checked at entry to and exit
+//     // from this function.
+//     func (s *myStruct) setGeneration(n int) {
+//       s.mu.Lock()
+//       defer s.mu.Unlock()
+//
+//       s.currentGeneration = n
+//       s.nextGeneration = n + 1
+//     }
+//
 type InvariantMutex struct {
 	mu    sync.RWMutex
 	check func()
