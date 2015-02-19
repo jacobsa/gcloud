@@ -33,8 +33,8 @@ func NewFakeBucket(name string) gcs.Bucket {
 }
 
 type fakeObject struct {
-	// A storage.Object representing metadata for this object.
-	metadata *storage.Object
+	// A storage.Object representing a GCS entry for this object.
+	entry *storage.Object
 
 	// The contents of the object. These never change.
 	contents string
@@ -48,28 +48,28 @@ func (s fakeObjectSlice) Len() int {
 }
 
 func (s fakeObjectSlice) Less(i, j int) bool {
-	return s[i].metadata.Name < s[j].metadata.Name
+	return s[i].entry.Name < s[j].entry.Name
 }
 
 func (s fakeObjectSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
-// there is no such i.
+// Return the smallest i such that s[i].entry.Name >= name, or len(s) if there
+// is no such i.
 func (s fakeObjectSlice) lowerBound(name string) int {
 	pred := func(i int) bool {
-		return s[i].metadata.Name >= name
+		return s[i].entry.Name >= name
 	}
 
 	return sort.Search(len(s), pred)
 }
 
-// Return the smallest i such that s[i].metadata.Name == name, or len(s) if
-// there is no such i.
+// Return the smallest i such that s[i].entry.Name == name, or len(s) if there
+// is no such i.
 func (s fakeObjectSlice) find(name string) int {
 	lb := s.lowerBound(name)
-	if lb < len(s) && s[lb].metadata.Name == name {
+	if lb < len(s) && s[lb].entry.Name == name {
 		return lb
 	}
 
@@ -97,8 +97,8 @@ func prefixSuccessor(prefix string) string {
 	return string(limit)
 }
 
-// Return the smallest i such that prefix < s[i].metadata.Name and
-// !strings.HasPrefix(s[i].metadata.Name, prefix).
+// Return the smallest i such that prefix < s[i].entry.Name and
+// !strings.HasPrefix(s[i].entry.Name, prefix).
 func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	successor := prefixSuccessor(prefix)
 	if successor == "" {
@@ -130,22 +130,22 @@ func (b *bucket) checkInvariants() {
 	for i := 1; i < len(b.objects); i++ {
 		objA := b.objects[i-1]
 		objB := b.objects[i]
-		if !(objA.metadata.Name < objB.metadata.Name) {
+		if !(objA.entry.Name < objB.entry.Name) {
 			panic(
 				fmt.Sprintf(
 					"Object names are not strictly increasing: %v vs. %v",
-					objA.metadata.Name,
-					objB.metadata.Name))
+					objA.entry.Name,
+					objB.entry.Name))
 		}
 	}
 
 	// Make sure prevGeneration is an upper bound for object generation numbers.
 	for _, o := range b.objects {
-		if !(o.metadata.Generation <= b.prevGeneration) {
+		if !(o.entry.Generation <= b.prevGeneration) {
 			panic(
 				fmt.Sprintf(
 					"Object generation %v exceeds %v",
-					o.metadata.Generation,
+					o.entry.Generation,
 					b.prevGeneration))
 		}
 	}
@@ -191,7 +191,7 @@ func (b *bucket) ListObjects(
 	var lastResultWasPrefix bool
 	for i := indexStart; i < indexLimit; i++ {
 		var o fakeObject = b.objects[i]
-		name := o.metadata.Name
+		name := o.entry.Name
 
 		// Search for a delimiter if necessary.
 		if query.Delimiter != "" {
@@ -223,7 +223,7 @@ func (b *bucket) ListObjects(
 		lastResultWasPrefix = false
 
 		// Otherwise, save as an object result.
-		listing.Results = append(listing.Results, o.metadata)
+		listing.Results = append(listing.Results, o.entry)
 	}
 
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
@@ -250,7 +250,7 @@ func (b *bucket) ListObjects(
 			}
 		} else {
 			// Otherwise, we'll start scanning at the next object.
-			listing.Next.Cursor = b.objects[indexLimit].metadata.Name
+			listing.Next.Cursor = b.objects[indexLimit].entry.Name
 		}
 	}
 
@@ -320,7 +320,7 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	var obj *storage.Object = b.objects[index].metadata
+	var obj *storage.Object = b.objects[index].entry
 
 	// Update the object according to the request.
 	if req.ContentType != nil {
@@ -371,9 +371,9 @@ func (b *bucket) DeleteObject(
 func (b *bucket) mintObject(
 	attrs *storage.ObjectAttrs,
 	contents string) (o fakeObject) {
-	// Set up basic metadata.
+	// Set up basic info.
 	b.prevGeneration++
-	o.metadata = &storage.Object{
+	o.entry = &storage.Object{
 		Bucket:          b.Name(),
 		Name:            attrs.Name,
 		ContentType:     attrs.ContentType,
@@ -393,22 +393,22 @@ func (b *bucket) mintObject(
 
 	// Fill in the MD5 field.
 	md5Array := md5.Sum([]byte(contents))
-	o.metadata.MD5 = md5Array[:]
+	o.entry.MD5 = md5Array[:]
 
 	// Set up contents.
 	o.contents = contents
 
 	// Match the real GCS client library's behavior of sniffing content types
 	// when not explicitly specified.
-	if o.metadata.ContentType == "" {
-		o.metadata.ContentType = http.DetectContentType([]byte(contents))
+	if o.entry.ContentType == "" {
+		o.entry.ContentType = http.DetectContentType([]byte(contents))
 	}
 
 	return
 }
 
 // Add a record for an object with the given attributes and contents, then
-// return the minted metadata.
+// return the minted entry.
 //
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) addObject(
@@ -429,7 +429,7 @@ func (b *bucket) addObject(
 		sort.Sort(b.objects)
 	}
 
-	return o.metadata
+	return o.entry
 }
 
 func minInt(a, b int) int {
