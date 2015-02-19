@@ -341,6 +341,9 @@ func (b *bucket) UpdateObject(
 		obj.CacheControl = *req.CacheControl
 	}
 
+	// Bump up the entry generation number.
+	obj.MetaGeneration++
+
 	// Make a copy to avoid handing back internal state.
 	var objCopy storage.Object = *obj
 	o = &objCopy
