@@ -292,7 +292,48 @@ func (b *bucket) CreateObject(
 	contents := buf.String()
 
 	// Store the object.
+	// TODO(jacobsa): This object might be concurrently modified. Return a copy.
 	o = b.addObject(&req.Attrs, contents)
+
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *bucket) UpdateObject(
+	ctx context.Context,
+	req *gcs.UpdateObjectRequest) (o *storage.Object, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Does the object exist?
+	index := b.objects.find(req.Name)
+	if index == len(b.objects) {
+		err = errors.New("Object Not Found.")
+		return
+	}
+
+	var obj *storage.Object = b.objects[index].metadata
+
+	// Update the object according to the request.
+	if req.ContentType != nil {
+		obj.ContentType = *req.ContentType
+	}
+
+	if req.ContentEncoding != nil {
+		obj.ContentEncoding = *req.ContentEncoding
+	}
+
+	if req.ContentLanguage != nil {
+		obj.ContentLanguage = *req.ContentLanguage
+	}
+
+	if req.CacheControl != nil {
+		obj.CacheControl = *req.CacheControl
+	}
+
+	// Make a copy.
+	o = new(storage.Object)
+	*o = *obj
 
 	return
 }
