@@ -324,7 +324,7 @@ func (b *bucket) UpdateObject(
 
 	var obj *storage.Object = &b.objects[index].entry
 
-	// Update the object according to the request.
+	// Update the entry's basic fields according to the request.
 	if req.ContentType != nil {
 		obj.ContentType = *req.ContentType
 	}
@@ -341,13 +341,20 @@ func (b *bucket) UpdateObject(
 		obj.CacheControl = *req.CacheControl
 	}
 
-	for k, v := range req.Metadata {
-		if v == nil {
-			delete(obj.Metadata, k)
-			continue
+	// Update the user metadata if necessary.
+	if len(req.Metadata) > 0 {
+		if obj.Metadata == nil {
+			obj.Metadata = make(map[string]string)
 		}
 
-		obj.Metadata[k] = *v
+		for k, v := range req.Metadata {
+			if v == nil {
+				delete(obj.Metadata, k)
+				continue
+			}
+
+			obj.Metadata[k] = *v
+		}
 	}
 
 	// Bump up the entry generation number.
