@@ -33,7 +33,7 @@ func NewFakeBucket(name string) gcs.Bucket {
 }
 
 type object struct {
-	// A storage.Object representing metadata for this object. Never changes.
+	// A storage.Object representing metadata for this object.
 	metadata *storage.Object
 
 	// The contents of the object. These never change.
