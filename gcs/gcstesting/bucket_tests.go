@@ -857,7 +857,50 @@ func (t *updateTest) MixedModificationsToFields() {
 }
 
 func (t *updateTest) AddUserMetadata() {
-	AssertFalse(true, "TODO")
+	// Create an object with no user metadata.
+	attrs := &storage.ObjectAttrs{
+		Name:     "foo",
+		Metadata: nil,
+	}
+
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	AssertEq(nil, orig.Metadata)
+
+	// Add some metadata.
+	req := &gcs.UpdateObjectRequest{
+		Name: "foo",
+		Metadata: map[string]*string{
+			"0": makeStringPtr("taco"),
+			"1": makeStringPtr("burrito"),
+		},
+	}
+
+	o, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Check the returned object.
+	AssertEq("foo", o.Name)
+	AssertEq(len("taco"), o.Size)
+
+	ExpectThat(
+		o.Metadata,
+		DeepEquals(
+			map[string]string{
+				"0": "taco",
+				"1": "burrito",
+			}))
+
+	// Check that a listing agrees.
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	AssertEq(nil, err)
+
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+
+	AssertEq(1, len(listing.Results))
+	ExpectThat(listing.Results[0], DeepEquals(o))
 }
 
 func (t *updateTest) MixedModificationsToUserMetadata() {
