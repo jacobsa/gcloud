@@ -20,11 +20,11 @@ var fCheckInvariants = flag.Bool("syncutil.check_invariants", false, "Crash when
 // A typical use looks like this:
 //
 //     type myStruct struct {
-//       mu InvariantMutex
+//       mu syncutil.InvariantMutex
 //
 //       // INVARIANT: nextGeneration == currentGeneration + 1
-//       currentGeneration int  // GUARDED_BY(mu)
-//       nextGeneration    int  // GUARDED_BY(mu)
+//       currentGeneration int // GUARDED_BY(mu)
+//       nextGeneration    int // GUARDED_BY(mu)
 //     }
 //
 //     // The constructor function for myStruct sets up the mutex to
@@ -35,12 +35,12 @@ var fCheckInvariants = flag.Bool("syncutil.check_invariants", false, "Crash when
 //         nextGeneration:    2,
 //       }
 //
-//       s.mu = NewInvariantMutex(func() { s.checkInvariants() })
+//       s.mu = syncutil.NewInvariantMutex(func() { s.checkInvariants() })
 //       return s
 //     }
 //
-//     type (s *myStruct) checkInvariants() {
-//       if s.nextGeneration != s.currentGeneration + 1 {
+//     func (s *myStruct) checkInvariants() {
+//       if s.nextGeneration != s.currentGeneration+1 {
 //         panic(
 //           fmt.Sprintf("%v != %v + 1", s.nextGeneration, s.currentGeneration))
 //       }
@@ -52,8 +52,8 @@ var fCheckInvariants = flag.Bool("syncutil.check_invariants", false, "Crash when
 //       s.mu.Lock()
 //       defer s.mu.Unlock()
 //
-//       currentGeneration = n
-//       nextGeneration = n + 1
+//       s.currentGeneration = n
+//       s.nextGeneration = n + 1
 //     }
 //
 type InvariantMutex struct {
