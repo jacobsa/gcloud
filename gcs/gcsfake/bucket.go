@@ -446,11 +446,41 @@ func (b *bucket) mintObject(
 func (b *bucket) addObjectLocked(
 	req *gcs.CreateObjectRequest,
 	contents string) (entry storage.Object, err error) {
+	// Find any existing record for this name.
+	existingIndex := b.objects.find(req.Attrs.Name)
+
+	var existingRecord *fakeObject
+	if existingIndex < len(b.objects) {
+		existingRecord = &b.objects[existingIndex]
+	}
+
+	// Check preconditions.
+	if req.GenerationPrecondition != nil {
+		if *req.GenerationPrecondition == 0 && existingRecord != nil {
+			err = errors.New("Precondition failed: object exists.")
+			return
+		}
+
+		if *req.GenerationPrecondition > 0 {
+			if existingRecord == nil {
+				err = errors.New("Precondition failed: object doesn't exist.")
+				return
+			}
+
+			if existingRecord.entry.Generation != *req.GenerationPrecondition {
+				err = fmt.Errorf(
+					"Precondition failed: object has generation %v",
+					existingRecord.entry.Generation)
+
+				return
+			}
+		}
+	}
+
 	// Create an object record from the given attributes.
 	var o fakeObject = b.mintObject(&req.Attrs, contents)
 
 	// Replace an entry in or add an entry to our list of objects.
-	existingIndex := b.objects.find(req.Attrs.Name)
 	if existingIndex < len(b.objects) {
 		b.objects[existingIndex] = o
 	} else {
