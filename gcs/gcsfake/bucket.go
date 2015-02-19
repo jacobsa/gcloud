@@ -41,15 +41,15 @@ type fakeObject struct {
 }
 
 // A slice of objects compared by name.
-type objectSlice []fakeObject
+type fakeObjectSlice []fakeObject
 
-func (s objectSlice) Len() int           { return len(s) }
-func (s objectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
-func (s objectSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s fakeObjectSlice) Len() int           { return len(s) }
+func (s fakeObjectSlice) Less(i, j int) bool { return s[i].metadata.Name < s[j].metadata.Name }
+func (s fakeObjectSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
 // there is no such i.
-func (s objectSlice) lowerBound(name string) int {
+func (s fakeObjectSlice) lowerBound(name string) int {
 	pred := func(i int) bool {
 		return s[i].metadata.Name >= name
 	}
@@ -59,7 +59,7 @@ func (s objectSlice) lowerBound(name string) int {
 
 // Return the smallest i such that s[i].metadata.Name == name, or len(s) if
 // there is no such i.
-func (s objectSlice) find(name string) int {
+func (s fakeObjectSlice) find(name string) int {
 	lb := s.lowerBound(name)
 	if lb < len(s) && s[lb].metadata.Name == name {
 		return lb
@@ -91,7 +91,7 @@ func prefixSuccessor(prefix string) string {
 
 // Return the smallest i such that prefix < s[i].metadata.Name and
 // !strings.HasPrefix(s[i].metadata.Name, prefix).
-func (s objectSlice) prefixUpperBound(prefix string) int {
+func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	successor := prefixSuccessor(prefix)
 	if successor == "" {
 		return len(s)
@@ -107,12 +107,12 @@ type bucket struct {
 	// The set of extant objects.
 	//
 	// INVARIANT: Strictly increasing.
-	objects objectSlice // GUARDED_BY(mu)
+	objects fakeObjectSlice // GUARDED_BY(mu)
 
 	// The most recent generation number that was minted. The next object will
 	// receive generation prevGeneration + 1.
 	//
-	// INVARIANT: This is an upper bound for generation numbers in objectSlice.
+	// INVARIANT: This is an upper bound for generation numbers in objects.
 	prevGeneration int64 // GUARDED_BY(mu)
 }
 
