@@ -35,7 +35,7 @@ var fCheckInvariants = flag.Bool("syncutil.check_invariants", false, "Crash when
 //         nextGeneration:    2,
 //       }
 //
-//       s.mu = syncutil.NewInvariantMutex(func() { s.checkInvariants() })
+//       s.mu = syncutil.NewInvariantMutex(s.checkInvariants)
 //       return s
 //     }
 //
