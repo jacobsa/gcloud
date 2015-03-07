@@ -103,9 +103,16 @@ func (i *InvariantMutex) checkIfEnabled() {
 // by the mutex should hold (e.g. just after acquiring the lock). The function
 // should crash if an invariant is violated. It should not have side effects,
 // as there are no guarantees that it will run.
+//
+// The invariants must hold at the time that NewInvariantMutex is called.
 func NewInvariantMutex(check func()) InvariantMutex {
 	if check == nil {
 		panic("check must be non-nil.")
+	}
+
+	// Check now, if enabled.
+	if *fCheckInvariants {
+		check()
 	}
 
 	return InvariantMutex{
