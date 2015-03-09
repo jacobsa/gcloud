@@ -370,6 +370,21 @@ func (b *bucket) CreateObject(
 	return
 }
 
+func (b *bucket) StatObject(
+	ctx context.Context,
+	req *StatObjectRequest) (o *storage.Object, err error) {
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	o, err = storage.StatObject(authContext, b.name, req.Name)
+
+	// Transform errors.
+	if err == storage.ErrObjectNotExist {
+		err = ErrNotFound
+		return
+	}
+
+	return
+}
+
 func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *storage.Object, err error) {
