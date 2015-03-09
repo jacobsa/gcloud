@@ -698,7 +698,7 @@ func (t *statTest) StatAfterCreating() {
 		Name: "foo",
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
 	// Stat it.
@@ -711,12 +711,35 @@ func (t *statTest) StatAfterCreating() {
 	AssertNe(nil, o)
 
 	ExpectEq("foo", o.Name)
-	ExpectEq(1, o.Generation)
+	ExpectEq(orig.Generation, o.Generation)
 	ExpectEq(len("taco"), o.Size)
 }
 
 func (t *statTest) StatAfterOverwriting() {
-	AssertTrue(false, "TODO")
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Overwrite it.
+	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "burrito")
+	AssertEq(nil, err)
+
+	// Stat it.
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	o, err := t.bucket.StatObject(t.ctx, req)
+	AssertEq(nil, err)
+	AssertNe(nil, o)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq(o2.Generation, o.Generation)
+	ExpectEq(len("burrito"), o.Size)
 }
 
 func (t *statTest) StatAfterUpdating() {
