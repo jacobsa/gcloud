@@ -743,7 +743,36 @@ func (t *statTest) StatAfterOverwriting() {
 }
 
 func (t *statTest) StatAfterUpdating() {
-	AssertTrue(false, "TODO")
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Update it.
+	ureq := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr("image/png"),
+	}
+
+	o2, err := t.bucket.UpdateObject(t.ctx, ureq)
+	AssertEq(nil, err)
+
+	// Stat it.
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	o, err := t.bucket.StatObject(t.ctx, req)
+	AssertEq(nil, err)
+	AssertNe(nil, o)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq(o2.Generation, o.Generation)
+	ExpectEq(o2.MetaGeneration, o.MetaGeneration)
+	ExpectEq(len("taco"), o.Size)
 }
 
 ////////////////////////////////////////////////////////////////////////
