@@ -179,6 +179,35 @@ func (m *mockBucket) NewReader(p0 context.Context, p1 string) (o0 io.ReadCloser,
 	return
 }
 
+func (m *mockBucket) StatObject(p0 context.Context, p1 *gcs.StatObjectRequest) (o0 *storage.Object, o1 error) {
+	// Get a file name and line number for the caller.
+	_, file, line, _ := runtime.Caller(1)
+
+	// Hand the call off to the controller, which does most of the work.
+	retVals := m.controller.HandleMethodCall(
+		m,
+		"StatObject",
+		file,
+		line,
+		[]interface{}{p0, p1})
+
+	if len(retVals) != 2 {
+		panic(fmt.Sprintf("mockBucket.StatObject: invalid return values: %v", retVals))
+	}
+
+	// o0 *storage.Object
+	if retVals[0] != nil {
+		o0 = retVals[0].(*storage.Object)
+	}
+
+	// o1 error
+	if retVals[1] != nil {
+		o1 = retVals[1].(error)
+	}
+
+	return
+}
+
 func (m *mockBucket) UpdateObject(p0 context.Context, p1 *gcs.UpdateObjectRequest) (o0 *storage.Object, o1 error) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
