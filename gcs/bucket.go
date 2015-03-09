@@ -34,6 +34,9 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
+// A sentinel error. See notes on the methods of Bucket.
+var ErrNotFound = errors.New("not found")
+
 // A request to create an object, accepted by Bucket.CreateObject.
 type CreateObjectRequest struct {
 	// Attributes with which the object should be created. The Name field must be
@@ -123,6 +126,12 @@ type Bucket interface {
 	CreateObject(
 		ctx context.Context,
 		req *CreateObjectRequest) (*storage.Object, error)
+
+	// Return current information about the object with the given name. If the
+	// object doesn't exist, err will be ErrNotFound.
+	StatObject(
+		ctx context.Context,
+		req *StatObjectRequest) (*storage.Object, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
