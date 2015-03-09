@@ -693,6 +693,29 @@ func (t *statTest) NonExistentObject() {
 }
 
 func (t *statTest) StatAfterCreating() {
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Stat it.
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	o, err := t.bucket.StatObject(t.ctx, req)
+	AssertEq(nil, err)
+	AssertNe(nil, o)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq(1, o.Generation)
+	ExpectEq(len("taco"), o.Size)
+}
+
+func (t *statTest) StatAfterOverwriting() {
 	AssertTrue(false, "TODO")
 }
 
