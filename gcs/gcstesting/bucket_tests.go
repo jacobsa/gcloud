@@ -684,7 +684,12 @@ type statTest struct {
 }
 
 func (t *statTest) NonExistentObject() {
-	AssertTrue(false, "TODO")
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	_, err := t.bucket.StatObject(t.ctx, req)
+	ExpectEq(gcs.ErrNotFound, err)
 }
 
 func (t *statTest) StatAfterCreating() {
