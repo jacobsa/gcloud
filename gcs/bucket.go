@@ -63,6 +63,11 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
+type StatObjectRequest struct {
+	// The name of the object in question.
+	Name string
+}
+
 // A request to update the metadata of an object, accepted by
 // Bucket.UpdateObject.
 type UpdateObjectRequest struct {
