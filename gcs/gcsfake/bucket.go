@@ -326,6 +326,27 @@ func (b *bucket) CreateObject(
 }
 
 // LOCKS_EXCLUDED(b.mu)
+func (b *bucket) StatObject(
+	ctx context.Context,
+	req *gcs.StatObjectRequest) (o *storage.Object, err error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	// Does the object exist?
+	index := b.objects.find(req.Name)
+	if index == len(b.objects) {
+		err = gcs.ErrNotFound
+		return
+	}
+
+	// Make a copy to avoid handing back internal state.
+	var objCopy storage.Object = b.objects[index].entry
+	o = &objCopy
+
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *gcs.UpdateObjectRequest) (o *storage.Object, err error) {

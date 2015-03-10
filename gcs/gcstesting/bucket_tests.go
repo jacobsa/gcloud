@@ -676,6 +676,106 @@ func (t *readTest) NonEmptyObject() {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Stat
+////////////////////////////////////////////////////////////////////////
+
+type statTest struct {
+	bucketTest
+}
+
+func (t *statTest) NonExistentObject() {
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	_, err := t.bucket.StatObject(t.ctx, req)
+	ExpectEq(gcs.ErrNotFound, err)
+}
+
+func (t *statTest) StatAfterCreating() {
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Stat it.
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	o, err := t.bucket.StatObject(t.ctx, req)
+	AssertEq(nil, err)
+	AssertNe(nil, o)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq(orig.Generation, o.Generation)
+	ExpectEq(len("taco"), o.Size)
+}
+
+func (t *statTest) StatAfterOverwriting() {
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Overwrite it.
+	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "burrito")
+	AssertEq(nil, err)
+
+	// Stat it.
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	o, err := t.bucket.StatObject(t.ctx, req)
+	AssertEq(nil, err)
+	AssertNe(nil, o)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq(o2.Generation, o.Generation)
+	ExpectEq(len("burrito"), o.Size)
+}
+
+func (t *statTest) StatAfterUpdating() {
+	// Create an object.
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	AssertEq(nil, err)
+
+	// Update it.
+	ureq := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr("image/png"),
+	}
+
+	o2, err := t.bucket.UpdateObject(t.ctx, ureq)
+	AssertEq(nil, err)
+
+	// Stat it.
+	req := &gcs.StatObjectRequest{
+		Name: "foo",
+	}
+
+	o, err := t.bucket.StatObject(t.ctx, req)
+	AssertEq(nil, err)
+	AssertNe(nil, o)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq(o2.Generation, o.Generation)
+	ExpectEq(o2.MetaGeneration, o.MetaGeneration)
+	ExpectEq(len("taco"), o.Size)
+}
+
+////////////////////////////////////////////////////////////////////////
 // Update
 ////////////////////////////////////////////////////////////////////////
 

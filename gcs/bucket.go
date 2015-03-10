@@ -34,6 +34,9 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
+// A sentinel error. See notes on the methods of Bucket.
+var ErrNotFound = errors.New("not found")
+
 // A request to create an object, accepted by Bucket.CreateObject.
 type CreateObjectRequest struct {
 	// Attributes with which the object should be created. The Name field must be
@@ -58,6 +61,11 @@ type CreateObjectRequest struct {
 	// generation for the object name is equal to the given value. Zero means the
 	// object does not exist.
 	GenerationPrecondition *int64
+}
+
+type StatObjectRequest struct {
+	// The name of the object in question.
+	Name string
 }
 
 // A request to update the metadata of an object, accepted by
@@ -123,6 +131,12 @@ type Bucket interface {
 	CreateObject(
 		ctx context.Context,
 		req *CreateObjectRequest) (*storage.Object, error)
+
+	// Return current information about the object with the given name. If the
+	// object doesn't exist, err will be ErrNotFound.
+	StatObject(
+		ctx context.Context,
+		req *StatObjectRequest) (*storage.Object, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
@@ -350,6 +364,21 @@ func (b *bucket) CreateObject(
 	// Convert the returned object.
 	o, err = fromRawObject(b.Name(), rawObject)
 	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (b *bucket) StatObject(
+	ctx context.Context,
+	req *StatObjectRequest) (o *storage.Object, err error) {
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	o, err = storage.StatObject(authContext, b.name, req.Name)
+
+	// Transform errors.
+	if err == storage.ErrObjectNotExist {
+		err = ErrNotFound
 		return
 	}
 
