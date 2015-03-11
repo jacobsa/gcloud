@@ -19,13 +19,23 @@ import (
 	"strings"
 
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcsfuse/timeutil"
 	"github.com/jacobsa/ogletest"
 	"github.com/jacobsa/ogletest/srcutil"
 )
 
+// Dependencies needed for tests registered by RegisterBucketTests.
+type BucketTestDeps struct {
+	// An initialized, empty bucket.
+	Bucket gcs.Bucket
+
+	// A clock matching the bucket's notion of time.
+	Clock timeutil.Clock
+}
+
 // An interface that all bucket tests must implement.
 type bucketTestSetUpInterface interface {
-	setUpBucketTest(b gcs.Bucket)
+	setUpBucketTest(deps BucketTestDeps)
 }
 
 func getSuiteName(suiteType reflect.Type) string {
@@ -48,7 +58,7 @@ func getTestMethods(suitePointerType reflect.Type) []reflect.Method {
 }
 
 func registerTestSuite(
-	makeBucket func() gcs.Bucket,
+	makeDeps func() BucketTestDeps,
 	prototype bucketTestSetUpInterface) {
 	suitePointerType := reflect.TypeOf(prototype)
 	suiteType := suitePointerType.Elem()
@@ -68,8 +78,8 @@ func registerTestSuite(
 		// SetUp should create a bucket and then initialize the suite object,
 		// remembering that the suite implements bucketTestSetUpInterface.
 		tf.SetUp = func(*ogletest.TestInfo) {
-			bucket := makeBucket()
-			instance.Interface().(bucketTestSetUpInterface).setUpBucketTest(bucket)
+			deps := makeDeps()
+			instance.Interface().(bucketTestSetUpInterface).setUpBucketTest(deps)
 		}
 
 		// The test function itself should simply invoke the method.
@@ -86,9 +96,9 @@ func registerTestSuite(
 	ogletest.Register(ts)
 }
 
-// Given a function that returns an initialized, empty bucket, register test
+// Given a function that returns appropriate test depencencies, register test
 // suites that exercise the buckets returned by the function with ogletest.
-func RegisterBucketTests(makeBucket func() gcs.Bucket) {
+func RegisterBucketTests(makeDeps func() BucketTestDeps) {
 	// A list of empty instances of the test suites we want to register.
 	suitePrototypes := []bucketTestSetUpInterface{
 		&createTest{},
@@ -101,6 +111,6 @@ func RegisterBucketTests(makeBucket func() gcs.Bucket) {
 
 	// Register each.
 	for _, suitePrototype := range suitePrototypes {
-		registerTestSuite(makeBucket, suitePrototype)
+		registerTestSuite(makeDeps, suitePrototype)
 	}
 }
