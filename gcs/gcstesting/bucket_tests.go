@@ -564,8 +564,8 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 
 	_, err := t.bucket.CreateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Precondition")))
+	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(HasSubstr("generation")))
 
 	// Nothing should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -597,8 +597,8 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Precondition")))
+	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(HasSubstr("generation")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
