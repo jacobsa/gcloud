@@ -16,8 +16,8 @@ package gcsfake_test
 
 import (
 	"testing"
+	"time"
 
-	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsfake"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/ogletest"
@@ -26,7 +26,15 @@ import (
 func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 
 func init() {
-	gcstesting.RegisterBucketTests(func() gcs.Bucket {
-		return gcsfake.NewFakeBucket("some_bucket")
+	gcstesting.RegisterBucketTests(func() (deps gcstesting.BucketTestDeps) {
+		// Set up a fixed, non-zero time.
+		clock := &syncutil.SimulatedClock{}
+		clock.SetTime(time.Date(2012, 8, 15, 22, 56, 0, 0, time.Local))
+		deps.Clock = clock
+
+		// Set up the bucket.
+		deps.Bucket = gcsfake.NewFakeBucket(clock, "some_bucket")
+
+		return
 	})
 }
