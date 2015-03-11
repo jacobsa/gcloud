@@ -125,7 +125,17 @@ func (t *bucketTest) advanceTime() {
 
 // Return a matcher that matches event times as reported by the bucket
 // corresponding to the supplied start time as measured by the test.
-func (t *bucketTest) matchesStartTime(start time.Time) Matcher
+func (t *bucketTest) matchesStartTime(start time.Time) Matcher {
+	// For simulated clocks we can use exact equality.
+	if _, ok := t.clock.(*timeutil.SimulatedClock); ok {
+		return timeutil.TimeEq(start)
+	}
+
+	// Otherwise, we need to take into account latency between the start of our
+	// call and the time the server actually executed the operation.
+	const slop = 60 * time.Second
+	return timeutil.TimeNear(start, slop)
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Create
