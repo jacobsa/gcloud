@@ -206,7 +206,7 @@ func (t *createTest) ObjectAttributes_Default() {
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
-	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
+	ExpectLt(math.Abs(t.clock.Now().Sub(o.Updated).Seconds()), 60)
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -253,7 +253,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
-	ExpectLt(math.Abs(time.Since(o.Updated).Seconds()), 60)
+	ExpectLt(math.Abs(t.clock.Now().Sub(o.Updated).Seconds()), 60)
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
