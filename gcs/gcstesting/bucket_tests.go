@@ -798,18 +798,19 @@ func (t *statTest) StatAfterOverwriting() {
 
 func (t *statTest) StatAfterUpdating() {
 	// Create an object.
+	createTime := t.clock.Now()
 	attrs := &storage.ObjectAttrs{
 		Name: "foo",
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
+	AssertThat(orig.Updated, t.matchesStartTime(createTime))
 
 	// Ensure the time below doesn't match exactly.
 	t.advanceTime()
 
-	// Update it.
-	updateTime := t.clock.Now()
+	// Update the object.
 	ureq := &gcs.UpdateObjectRequest{
 		Name:        "foo",
 		ContentType: makeStringPtr("image/png"),
@@ -817,12 +818,16 @@ func (t *statTest) StatAfterUpdating() {
 
 	o2, err := t.bucket.UpdateObject(t.ctx, ureq)
 	AssertEq(nil, err)
-	AssertThat(o2.Updated, t.matchesStartTime(updateTime))
+	AssertNe(o2.MetaGeneration, orig.MetaGeneration)
+
+	// Despite the name, 'Updated' doesn't reflect object updates, only creation
+	// of new generations. Cf. Google-internal bug 19684518.
+	AssertThat(o2.Updated, timeutil.TimeEq(orig.Updated))
 
 	// Ensure the time below doesn't match exactly.
 	t.advanceTime()
 
-	// Stat it.
+	// Stat the object.
 	req := &gcs.StatObjectRequest{
 		Name: "foo",
 	}
@@ -1135,6 +1140,34 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
+}
+
+func (t *updateTest) DoesntAffectUpdateTime() {
+	// Create an object.
+	createTime := t.clock.Now()
+	attrs := &storage.ObjectAttrs{
+		Name: "foo",
+	}
+
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "")
+	AssertEq(nil, err)
+	AssertThat(o.Updated, t.matchesStartTime(createTime))
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
+
+	// Modify a field.
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		ContentType: makeStringPtr("image/jpeg"),
+	}
+
+	o2, err := t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// Despite the name, 'Updated' doesn't reflect object updates, only creation
+	// of new generations. Cf. Google-internal bug 19684518.
+	ExpectThat(o2.Updated, timeutil.TimeEq(o.Updated))
 }
 
 ////////////////////////////////////////////////////////////////////////
