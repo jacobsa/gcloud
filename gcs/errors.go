@@ -18,3 +18,14 @@ import "errors"
 
 // A sentinel error. See notes on the methods of Bucket.
 var ErrNotFound = errors.New("not found")
+
+// A *PreconditionError value is an error that indicates a precondition failed.
+// See notes on the methods of Bucket.
+type PreconditionError struct {
+	// A wrapped error, used in Error().
+	Err error
+}
+
+func (pe *PreconditionError) Error() string {
+	return pe.Error.Error()
+}
