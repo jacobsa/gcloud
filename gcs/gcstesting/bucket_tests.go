@@ -30,6 +30,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
+	"github.com/jacobsa/gcsfuse/timeutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
@@ -69,12 +70,14 @@ func makeStringPtr(s string) *string {
 type bucketTest struct {
 	ctx    context.Context
 	bucket gcs.Bucket
+	clock  timeutil.Clock
 }
 
 var _ bucketTestSetUpInterface = &bucketTest{}
 
-func (t *bucketTest) setUpBucketTest(b gcs.Bucket) {
-	t.bucket = b
+func (t *bucketTest) setUpBucketTest(deps BucketTestDeps) {
+	t.bucket = deps.bucket
+	t.clock = deps.clock
 	t.ctx = context.Background()
 }
 
