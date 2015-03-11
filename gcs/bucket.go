@@ -358,6 +358,13 @@ func (b *bucket) CreateObject(
 	// Execute the call.
 	rawObject, err := call.Do()
 	if err != nil {
+		// Special case: handle precondition errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusPreconditionFailed {
+				err = &PreconditionError{Err: typed}
+			}
+		}
+
 		return
 	}
 
