@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
-	"math"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -112,6 +111,13 @@ func (t *bucketTest) readObject(objectName string) (contents string, err error) 
 	return
 }
 
+// Ensure that the clock will report a different time after returning.
+func (t *bucketTest) advanceTime()
+
+// Return a matcher that matches event times as reported by the bucket
+// corresponding to the supplied start time as measured by the test.
+func (t *bucketTest) matchesStartTime(start time.Time) Matcher
+
 ////////////////////////////////////////////////////////////////////////
 // Create
 ////////////////////////////////////////////////////////////////////////
@@ -182,12 +188,16 @@ func (t *createTest) Overwrite() {
 
 func (t *createTest) ObjectAttributes_Default() {
 	// Create an object with default attributes aside from the name.
+	createTime := t.clock.Now()
 	attrs := &storage.ObjectAttrs{
 		Name: "foo",
 	}
 
 	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
 
 	// Check the Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
@@ -205,8 +215,8 @@ func (t *createTest) ObjectAttributes_Default() {
 	ExpectLt(0, o.Generation)
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
-	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
-	ExpectLt(math.Abs(t.clock.Now().Sub(o.Updated).Seconds()), 60)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(createTime))
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -221,6 +231,7 @@ func (t *createTest) ObjectAttributes_Default() {
 
 func (t *createTest) ObjectAttributes_Explicit() {
 	// Create an object with explicit attributes set.
+	createTime := t.clock.Now()
 	attrs := &storage.ObjectAttrs{
 		Name:            "foo",
 		ContentType:     "image/png",
@@ -235,6 +246,9 @@ func (t *createTest) ObjectAttributes_Explicit() {
 
 	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
 
 	// Check the Object struct.
 	ExpectEq(t.bucket.Name(), o.Bucket)
@@ -253,7 +267,8 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
 	ExpectThat(o.Deleted, DeepEquals(time.Time{}))
-	ExpectLt(math.Abs(t.clock.Now().Sub(o.Updated).Seconds()), 60)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(createTime))
 
 	// Make sure it matches what is in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -697,12 +712,17 @@ func (t *statTest) NonExistentObject() {
 
 func (t *statTest) StatAfterCreating() {
 	// Create an object.
+	createTime := t.clock.Now()
 	attrs := &storage.ObjectAttrs{
 		Name: "foo",
 	}
 
 	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
+	AssertThat(orig.Updated, t.matchesStartTime(createTime))
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
 
 	// Stat it.
 	req := &gcs.StatObjectRequest{
@@ -716,6 +736,8 @@ func (t *statTest) StatAfterCreating() {
 	ExpectEq("foo", o.Name)
 	ExpectEq(orig.Generation, o.Generation)
 	ExpectEq(len("taco"), o.Size)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, timeutil.TimeEq(orig.Updated))
 }
 
 func (t *statTest) StatAfterOverwriting() {
@@ -727,9 +749,17 @@ func (t *statTest) StatAfterOverwriting() {
 	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
+
 	// Overwrite it.
+	overwriteTime := t.clock.Now()
 	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "burrito")
 	AssertEq(nil, err)
+	AssertThat(o2.Updated, t.matchesStartTime(overwriteTime))
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
 
 	// Stat it.
 	req := &gcs.StatObjectRequest{
@@ -743,6 +773,8 @@ func (t *statTest) StatAfterOverwriting() {
 	ExpectEq("foo", o.Name)
 	ExpectEq(o2.Generation, o.Generation)
 	ExpectEq(len("burrito"), o.Size)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, timeutil.TimeEq(o2.Updated))
 }
 
 func (t *statTest) StatAfterUpdating() {
@@ -754,7 +786,11 @@ func (t *statTest) StatAfterUpdating() {
 	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
 	AssertEq(nil, err)
 
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
+
 	// Update it.
+	updateTime := t.clock.Now()
 	ureq := &gcs.UpdateObjectRequest{
 		Name:        "foo",
 		ContentType: makeStringPtr("image/png"),
@@ -762,6 +798,10 @@ func (t *statTest) StatAfterUpdating() {
 
 	o2, err := t.bucket.UpdateObject(t.ctx, ureq)
 	AssertEq(nil, err)
+	AssertThat(o2.Updated, t.matchesStartTime(updateTime))
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
 
 	// Stat it.
 	req := &gcs.StatObjectRequest{
@@ -776,6 +816,8 @@ func (t *statTest) StatAfterUpdating() {
 	ExpectEq(o2.Generation, o.Generation)
 	ExpectEq(o2.MetaGeneration, o.MetaGeneration)
 	ExpectEq(len("taco"), o.Size)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, timeutil.TimeEq(o2.Updated))
 }
 
 ////////////////////////////////////////////////////////////////////////
