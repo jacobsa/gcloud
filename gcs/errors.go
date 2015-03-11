@@ -14,7 +14,10 @@
 
 package gcs
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // A sentinel error. See notes on the methods of Bucket.
 var ErrNotFound = errors.New("not found")
@@ -27,5 +30,5 @@ type PreconditionError struct {
 }
 
 func (pe *PreconditionError) Error() string {
-	return pe.Err.Error()
+	return fmt.Sprintf("Precondition failed: %v", pe.Err)
 }
