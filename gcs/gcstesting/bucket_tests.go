@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"reflect"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -60,6 +61,21 @@ func computeCrc32C(s string) uint32 {
 
 func makeStringPtr(s string) *string {
 	return &s
+}
+
+// Match candidates whose type is the same as the supplied prototype.
+func hasSameTypeAs(prototype interface{}) Matcher {
+	expected := reflect.TypeOf(prototype)
+	pred := func(c interface{}) error {
+		actual := reflect.TypeOf(c)
+		if actual != expected {
+			return fmt.Errorf("which has type %v", actual)
+		}
+
+		return nil
+	}
+
+	return NewMatcher(pred, fmt.Sprintf("has type %v", expected))
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -484,8 +500,8 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Precondition")))
+	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("object exists|googleapi.*412")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -561,8 +577,8 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 
 	_, err := t.bucket.CreateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Precondition")))
+	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("object doesn't exist|googleapi.*412")))
 
 	// Nothing should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -594,8 +610,8 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Precondition")))
+	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("generation|googleapi.*412")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)

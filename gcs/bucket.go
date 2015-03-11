@@ -34,9 +34,6 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
-// A sentinel error. See notes on the methods of Bucket.
-var ErrNotFound = errors.New("not found")
-
 // A request to create an object, accepted by Bucket.CreateObject.
 type CreateObjectRequest struct {
 	// Attributes with which the object should be created. The Name field must be
@@ -128,6 +125,9 @@ type Bucket interface {
 	// object is guaranteed to exist immediately for the purposes of reading (and
 	// eventually for listing) after this method returns a nil error. It is
 	// guaranteed not to exist before req.Contents returns io.EOF.
+	//
+	// If the request fails due to a precondition not being met, the error will
+	// be of type *PreconditionError.
 	CreateObject(
 		ctx context.Context,
 		req *CreateObjectRequest) (*storage.Object, error)
@@ -358,6 +358,13 @@ func (b *bucket) CreateObject(
 	// Execute the call.
 	rawObject, err := call.Do()
 	if err != nil {
+		// Special case: handle precondition errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusPreconditionFailed {
+				err = &PreconditionError{Err: typed}
+			}
+		}
+
 		return
 	}
 
