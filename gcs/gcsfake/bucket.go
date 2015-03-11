@@ -25,21 +25,22 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
+	"github.com/jacobsa/gcsfuse/timeutil"
 	"golang.org/x/net/context"
 	"google.golang.org/cloud/storage"
 )
 
 var crc32Table = crc32.MakeTable(crc32.Castagnoli)
 
-// Create an in-memory bucket with the given name and empty contents.
-func NewFakeBucket(name string) gcs.Bucket {
-	b := &bucket{name: name}
-	b.mu = syncutil.NewInvariantMutex(func() { b.checkInvariants() })
+// Create an in-memory bucket with the given name and empty contents. The
+// supplied clock will be used for generating timestamps.
+func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
+	b := &bucket{clock: clock, name: name}
+	b.mu = syncutil.NewInvariantMutex(b.checkInvariants)
 	return b
 }
 
@@ -120,8 +121,9 @@ func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 }
 
 type bucket struct {
-	name string
-	mu   syncutil.InvariantMutex
+	clock timeutil.Clock
+	name  string
+	mu    syncutil.InvariantMutex
 
 	// The set of extant objects.
 	//
@@ -453,7 +455,7 @@ func (b *bucket) mintObject(
 		Generation:      b.prevGeneration,
 		MetaGeneration:  1,
 		StorageClass:    "STANDARD",
-		Updated:         time.Now(),
+		Updated:         b.clock.Now(),
 	}
 
 	// Fill in the MD5 field.
