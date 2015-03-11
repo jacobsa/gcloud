@@ -34,9 +34,6 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
-// A sentinel error. See notes on the methods of Bucket.
-var ErrNotFound = errors.New("not found")
-
 // A request to create an object, accepted by Bucket.CreateObject.
 type CreateObjectRequest struct {
 	// Attributes with which the object should be created. The Name field must be
