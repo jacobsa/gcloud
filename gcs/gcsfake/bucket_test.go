@@ -20,6 +20,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs/gcsfake"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
+	"github.com/jacobsa/gcsfuse/timeutil"
 	"github.com/jacobsa/ogletest"
 )
 
@@ -28,7 +29,7 @@ func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 func init() {
 	gcstesting.RegisterBucketTests(func() (deps gcstesting.BucketTestDeps) {
 		// Set up a fixed, non-zero time.
-		clock := &syncutil.SimulatedClock{}
+		clock := &timeutil.SimulatedClock{}
 		clock.SetTime(time.Date(2012, 8, 15, 22, 56, 0, 0, time.Local))
 		deps.Clock = clock
 
