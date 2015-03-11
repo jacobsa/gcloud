@@ -112,7 +112,16 @@ func (t *bucketTest) readObject(objectName string) (contents string, err error) 
 }
 
 // Ensure that the clock will report a different time after returning.
-func (t *bucketTest) advanceTime()
+func (t *bucketTest) advanceTime() {
+	// For simulated clocks, we can just advance the time.
+	if c, ok := t.clock.(*timeutil.SimulatedClock); ok {
+		c.AdvanceTime(time.Second)
+		return
+	}
+
+	// Otherwise, sleep a moment.
+	time.Sleep(time.Millisecond)
+}
 
 // Return a matcher that matches event times as reported by the bucket
 // corresponding to the supplied start time as measured by the test.
