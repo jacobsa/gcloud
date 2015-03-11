@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"reflect"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -63,7 +64,19 @@ func makeStringPtr(s string) *string {
 }
 
 // Match candidates whose type is the same as the supplied prototype.
-func hasSameTypeAs(prototype interface{}) Matcher
+func hasSameTypeAs(prototype interface{}) Matcher {
+	expected := reflect.TypeOf(prototype)
+	pred := func(c interface{}) error {
+		actual := reflect.TypeOf(c)
+		if actual != expected {
+			return fmt.Errorf("which has type %v", actual)
+		}
+
+		return nil
+	}
+
+	return NewMatcher(pred, fmt.Sprintf("has type %v", expected))
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Common
