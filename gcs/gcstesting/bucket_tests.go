@@ -501,7 +501,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
 	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
-	ExpectThat(err, Error(HasSubstr("object exists")))
+	ExpectThat(err, Error(MatchesRegexp("object exists|googleapi.*412")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -578,7 +578,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	_, err := t.bucket.CreateObject(t.ctx, req)
 
 	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
-	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
+	ExpectThat(err, Error(MatchesRegexp("object doesn't exist|googleapi.*412")))
 
 	// Nothing should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -611,7 +611,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
 	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
-	ExpectThat(err, Error(HasSubstr("generation")))
+	ExpectThat(err, Error(MatchesRegexp("generation|googleapi.*412")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
