@@ -62,6 +62,9 @@ func makeStringPtr(s string) *string {
 	return &s
 }
 
+// Match candidates whose type is the same as the supplied prototype.
+func hasSameTypeAs(prototype interface{}) Matcher
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -484,8 +487,8 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 
 	_, err = t.bucket.CreateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Precondition")))
+	AssertThat(err, hasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(HasSubstr("generation")))
 
 	// The old version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)

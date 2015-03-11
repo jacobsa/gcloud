@@ -27,5 +27,5 @@ type PreconditionError struct {
 }
 
 func (pe *PreconditionError) Error() string {
-	return pe.Error.Error()
+	return pe.Err.Error()
 }
