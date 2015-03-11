@@ -27,10 +27,10 @@ import (
 // Dependencies needed for tests registered by RegisterBucketTests.
 type BucketTestDeps struct {
 	// An initialized, empty bucket.
-	bucket gcs.Bucket
+	Bucket gcs.Bucket
 
 	// A clock matching the bucket's notion of time.
-	clock timeutil.Clock
+	Clock timeutil.Clock
 }
 
 // An interface that all bucket tests must implement.

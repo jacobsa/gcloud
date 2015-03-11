@@ -76,8 +76,8 @@ type bucketTest struct {
 var _ bucketTestSetUpInterface = &bucketTest{}
 
 func (t *bucketTest) setUpBucketTest(deps BucketTestDeps) {
-	t.bucket = deps.bucket
-	t.clock = deps.clock
+	t.bucket = deps.Bucket
+	t.clock = deps.Clock
 	t.ctx = context.Background()
 }
 
