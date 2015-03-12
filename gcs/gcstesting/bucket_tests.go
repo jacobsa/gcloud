@@ -29,6 +29,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
+	"github.com/jacobsa/gcloud/syncutil"
 	"github.com/jacobsa/gcsfuse/timeutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
@@ -410,22 +411,50 @@ func (t *createTest) InterestingNames() {
 	// Grab a list of interesting legal names.
 	names := interestingNames()
 
-	// Make sure we can create each.
-	for _, name := range names {
-		nameDump := hex.Dump([]byte(name))
+	// Set up a function that invokes another function for each object name, with
+	// some degree of parallelism.
+	const parallelism = 32 // About 300 ms * 100 Hz
+	forEachName := func(f func(context.Context, string)) {
+		b := syncutil.NewBundle(t.ctx)
 
+		// Feed names.
+		nameChan := make(chan string)
+		b.Add(func(ctx context.Context) error {
+			defer close(nameChan)
+			for _, n := range names {
+				nameChan <- n
+			}
+			return nil
+		})
+
+		// Consume names.
+		for i := 0; i < parallelism; i++ {
+			b.Add(func(ctx context.Context) error {
+				for n := range nameChan {
+					f(ctx, n)
+				}
+				return nil
+			})
+		}
+
+		b.Join()
+	}
+
+	// Make sure we can create each name.
+	forEachName(func(ctx context.Context, name string) {
 		err := t.createObject(name, name)
-		AssertEq(nil, err, "Name:\n%s", nameDump)
-	}
+		ExpectEq(nil, err, "Failed to create:\n%s", hex.Dump([]byte(name)))
+	})
 
-	// Make sure we can read each.
-	for _, name := range names {
-		nameDump := hex.Dump([]byte(name))
-
+	// Make sure we can read each, and that we get back the content we created
+	// above.
+	forEachName(func(ctx context.Context, name string) {
 		contents, err := t.readObject(name)
-		AssertEq(nil, err, "Name:\n%s", nameDump)
-		AssertEq(name, contents)
-	}
+		ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
+		if err != nil {
+			ExpectEq(name, contents, "Incorrect contents:\n%s", hex.Dump([]byte(name)))
+		}
+	})
 
 	// Grab a listing and extract the names.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
