@@ -400,7 +400,7 @@ func (t *createTest) InterestingNames() {
 		nameDump := hex.Dump([]byte(name))
 
 		err := t.createObject(name, "taco")
-		AssertEq(nil, err, nameDump)
+		AssertEq(nil, err, "Name:\n%s", nameDump)
 	}
 
 	// Make sure we can read each.
@@ -408,7 +408,7 @@ func (t *createTest) InterestingNames() {
 		nameDump := hex.Dump([]byte(name))
 
 		contents, err := t.readObject(name)
-		AssertEq(nil, err, nameDump)
+		AssertEq(nil, err, "Name:\n%s", nameDump)
 		AssertEq("taco", contents)
 	}
 
@@ -461,9 +461,13 @@ func (t *createTest) IllegalNames() {
 		AssertNe(nil, err, "Name:\n%s", nameDump)
 
 		if name == "" {
-			ExpectThat(err, Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))), nameDump)
+			ExpectThat(
+				err,
+				Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))),
+				"Name:\n%s",
+				nameDump)
 		} else {
-			ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
+			ExpectThat(err, Error(HasSubstr("Invalid")), "Name:\n%s", nameDump)
 		}
 	}
 
