@@ -847,6 +847,17 @@ func (t *readTest) NonEmptyObject() {
 }
 
 func (t *readTest) ParticularGeneration_NeverExisted() {
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Attempt to read a different generation.
 	AssertTrue(false, "TODO")
 }
 
