@@ -491,20 +491,28 @@ func (b *bucket) addObjectLocked(
 	// Check preconditions.
 	if req.GenerationPrecondition != nil {
 		if *req.GenerationPrecondition == 0 && existingRecord != nil {
-			err = &gcs.PreconditionError{Err: errors.New("object exists")}
+			err = &gcs.PreconditionError{
+				Err: errors.New("Precondition failed: object exists"),
+			}
+
 			return
 		}
 
 		if *req.GenerationPrecondition > 0 {
 			if existingRecord == nil {
-				err = &gcs.PreconditionError{Err: errors.New("object doesn't exist")}
+				err = &gcs.PreconditionError{
+					Err: errors.New("Precondition failed: object doesn't exist"),
+				}
+
 				return
 			}
 
 			existingGen := existingRecord.entry.Generation
 			if existingGen != *req.GenerationPrecondition {
 				err = &gcs.PreconditionError{
-					Err: fmt.Errorf("object has generation %v", existingGen),
+					Err: fmt.Errorf(
+						"Precondition failed: object has generation %v",
+						existingGen),
 				}
 
 				return

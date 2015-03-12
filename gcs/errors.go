@@ -14,10 +14,7 @@
 
 package gcs
 
-import (
-	"errors"
-	"fmt"
-)
+import "errors"
 
 // A sentinel error. See notes on the methods of Bucket.
 var ErrNotFound = errors.New("not found")
@@ -25,10 +22,10 @@ var ErrNotFound = errors.New("not found")
 // A *PreconditionError value is an error that indicates a precondition failed.
 // See notes on the methods of Bucket.
 type PreconditionError struct {
-	// A wrapped error, used in Error().
+	// A wrapped error. PreconditionError.Error simply returns Err.Error().
 	Err error
 }
 
 func (pe *PreconditionError) Error() string {
-	return fmt.Sprintf("Precondition failed: %v", pe.Err)
+	return pe.Err.Error()
 }
