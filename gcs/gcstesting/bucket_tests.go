@@ -795,7 +795,7 @@ type readTest struct {
 	bucketTest
 }
 
-func (t *readTest) NonExistentObject() {
+func (t *readTest) ObjectNameDoesntExist() {
 	req := &gcs.ReadObjectRequest{
 		Name: "foobar",
 	}
@@ -804,6 +804,18 @@ func (t *readTest) NonExistentObject() {
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 	ExpectThat(err, Error(MatchesRegexp("not found|404")))
+}
+
+func (t *readTest) GenerationNeverExisted() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *readTest) GenerationHasBeenDeleted() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *readTest) GenerationHasBeenReplaced() {
+	AssertTrue(false, "TODO")
 }
 
 func (t *readTest) EmptyObject() {
