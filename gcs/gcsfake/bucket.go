@@ -337,7 +337,10 @@ func (b *bucket) StatObject(
 	// Does the object exist?
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
-		err = gcs.ErrNotFound
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", req.Name),
+		}
+
 		return
 	}
 
