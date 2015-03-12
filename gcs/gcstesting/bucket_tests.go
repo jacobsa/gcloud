@@ -92,7 +92,11 @@ func (t *bucketTest) createObject(name string, contents string) error {
 
 func (t *bucketTest) readObject(objectName string) (contents string, err error) {
 	// Open a reader.
-	reader, err := t.bucket.NewReader(t.ctx, objectName)
+	req := &gcs.ReadObjectRequest{
+		Name: objectName,
+	}
+
+	reader, err := t.bucket.NewReader(t.ctx, req)
 	if err != nil {
 		return
 	}
@@ -500,10 +504,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	ExpectEq(len("taco"), listing.Results[0].Size)
 
 	// We should see the old contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, "foo")
-	AssertEq(nil, err)
-
-	contents, err := ioutil.ReadAll(r)
+	contents, err := t.readObject("foo")
 	AssertEq(nil, err)
 	ExpectEq("taco", string(contents))
 }
@@ -539,10 +540,7 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	ExpectEq(len("burrito"), listing.Results[0].Size)
 
 	// We should see the new contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, "foo")
-	AssertEq(nil, err)
-
-	contents, err := ioutil.ReadAll(r)
+	contents, err := t.readObject("foo")
 	AssertEq(nil, err)
 	ExpectEq("burrito", string(contents))
 }
@@ -610,10 +608,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	ExpectEq(len("taco"), listing.Results[0].Size)
 
 	// We should see the old contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, "foo")
-	AssertEq(nil, err)
-
-	contents, err := ioutil.ReadAll(r)
+	contents, err := t.readObject("foo")
 	AssertEq(nil, err)
 	ExpectEq("taco", string(contents))
 }
@@ -657,10 +652,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	ExpectEq(len("burrito"), listing.Results[0].Size)
 
 	// We should see the new contents when we read.
-	r, err := t.bucket.NewReader(t.ctx, "foo")
-	AssertEq(nil, err)
-
-	contents, err := ioutil.ReadAll(r)
+	contents, err := t.readObject("foo")
 	AssertEq(nil, err)
 	ExpectEq("burrito", string(contents))
 }
@@ -674,7 +666,11 @@ type readTest struct {
 }
 
 func (t *readTest) NonExistentObject() {
-	_, err := t.bucket.NewReader(t.ctx, "foobar")
+	req := &gcs.ReadObjectRequest{
+		Name: "foobar",
+	}
+
+	_, err := t.bucket.NewReader(t.ctx, req)
 
 	AssertNe(nil, err)
 	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
@@ -685,7 +681,11 @@ func (t *readTest) EmptyObject() {
 	AssertEq(nil, t.createObject("foo", ""))
 
 	// Read
-	r, err := t.bucket.NewReader(t.ctx, "foo")
+	req := &gcs.ReadObjectRequest{
+		Name: "foo",
+	}
+
+	r, err := t.bucket.NewReader(t.ctx, req)
 	AssertEq(nil, err)
 
 	contents, err := ioutil.ReadAll(r)
@@ -701,7 +701,11 @@ func (t *readTest) NonEmptyObject() {
 	AssertEq(nil, t.createObject("foo", "taco"))
 
 	// Read
-	r, err := t.bucket.NewReader(t.ctx, "foo")
+	req := &gcs.ReadObjectRequest{
+		Name: "foo",
+	}
+
+	r, err := t.bucket.NewReader(t.ctx, req)
 	AssertEq(nil, err)
 
 	contents, err := ioutil.ReadAll(r)
@@ -1202,7 +1206,11 @@ func (t *deleteTest) Successful() {
 	ExpectThat(objects.Results, ElementsAre())
 
 	// It shouldn't be readable.
-	_, err = t.bucket.NewReader(t.ctx, "a")
+	req := &gcs.ReadObjectRequest{
+		Name: "a",
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
 
 	AssertNe(nil, err)
 	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
