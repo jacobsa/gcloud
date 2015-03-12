@@ -150,7 +150,7 @@ func (m *mockBucket) Name() (o0 string) {
 	return
 }
 
-func (m *mockBucket) NewReader(p0 context.Context, p1 string) (o0 io.ReadCloser, o1 error) {
+func (m *mockBucket) NewReader(p0 context.Context, p1 *gcs.ReadObjectRequest) (o0 io.ReadCloser, o1 error) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
 
