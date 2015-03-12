@@ -867,7 +867,7 @@ func (t *updateTest) NonExistentObject() {
 	_, err := t.bucket.UpdateObject(t.ctx, req)
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
 func (t *updateTest) RemoveContentType() {
@@ -1188,7 +1188,7 @@ func (t *deleteTest) NonExistentObject() {
 	err := t.bucket.DeleteObject(t.ctx, "foobar")
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
 func (t *deleteTest) Successful() {
