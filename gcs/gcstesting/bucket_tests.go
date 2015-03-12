@@ -730,7 +730,9 @@ func (t *statTest) NonExistentObject() {
 	}
 
 	_, err := t.bucket.StatObject(t.ctx, req)
-	ExpectEq(gcs.ErrNotFound, err)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(HasSubstr("not found")))
 }
 
 func (t *statTest) StatAfterCreating() {
