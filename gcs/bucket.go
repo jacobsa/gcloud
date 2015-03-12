@@ -181,18 +181,41 @@ func (b *bucket) ListObjects(
 func (b *bucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	// Call the wrapped package.
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	rc, err = storage.NewReader(authContext, b.name, req.Name)
+	// Construct an appropriate URL. Cf. http://goo.gl/HSb3My
+	//
+	// Note that the requirements on bucket names (http://goo.gl/eI070k) and the
+	// fact that the object name is last mean that in principle the path is
+	// unambiguous.
+	url := &url.URL{
+		Scheme:   "https",
+		Host:     "www.googleapis.com",
+		Path:     fmt.Sprintf("/storage/v1/b/%s/o/%s", b.name, req.Name),
+		RawQuery: "alt=media",
+	}
 
-	// Transform errors.
-	if err == storage.ErrObjectNotExist {
-		err = &NotFoundError{
-			Err: err,
+	// Call the server.
+	httpRes, err := b.client.Get(url.String())
+	if err != nil {
+		err = fmt.Errorf("Get: %v", err)
+		return
+	}
+
+	// Check for HTTP error statuses.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		googleapi.CloseBody(httpRes)
+
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
 		}
 
 		return
 	}
+
+	// The body contains the object data.
+	rc = httpRes.Body
 
 	return
 }
