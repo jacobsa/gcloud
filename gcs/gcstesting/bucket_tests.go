@@ -62,6 +62,79 @@ func makeStringPtr(s string) *string {
 	return &s
 }
 
+// Return a list of object names that might be problematic for GCS or the Go
+// client but are nevertheless documented to be legal.
+//
+// Cf. https://cloud.google.com/storage/docs/bucket-naming
+func interestingNames() (names []string) {
+	const maxLegalLength = 1024
+
+	names = []string{
+		// Embedded characters important in URLs.
+		"foo % bar",
+		"foo ? bar",
+		"foo / bar",
+		"foo %?/ bar",
+
+		// Non-Roman scripts
+		"타코",
+		"世界",
+
+		// Longest legal name
+		strings.Repeat("a", maxLegalLength),
+
+		// Line terminators besides CR and LF
+		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
+		"foo \u000b bar",
+		"foo \u000c bar",
+		"foo \u0085 bar",
+		"foo \u2028 bar",
+		"foo \u2029 bar",
+
+		// Null byte.
+		"foo \u0000 bar",
+
+		// Non-control characters that are discouraged, but not forbidden,
+		// according to the documentation.
+		"foo # bar",
+		"foo []*? bar",
+
+		// Angstrom symbol singleton and normalized forms.
+		// Cf. http://unicode.org/reports/tr15/
+		"foo \u212b bar",
+		"foo \u0041\u030a bar",
+		"foo \u00c5 bar",
+
+		// Hangul separating jamo
+		// Cf. http://www.unicode.org/versions/Unicode7.0.0/ch18.pdf (Table 18-10)
+		"foo \u3131\u314f bar",
+		"foo \u1100\u1161 bar",
+		"foo \uac00 bar",
+	}
+
+	var runes []rune
+
+	// C0 control characters not forbidden by the docs.
+	runes = nil
+	for r := rune(0x01); r <= rune(0x1f); r++ {
+		if r != '\u000a' && r != '\u000d' {
+			runes = append(runes, r)
+		}
+	}
+
+	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
+
+	// C1 control characters, plus DEL.
+	runes = nil
+	for r := rune(0x7f); r <= rune(0x9f); r++ {
+		runes = append(runes, r)
+	}
+
+	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
+
+	return
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -334,72 +407,8 @@ func (t *createTest) ErrorAfterPartialContents() {
 }
 
 func (t *createTest) InterestingNames() {
-	// Naming requirements:
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	const maxLegalLength = 1024
-
-	names := []string{
-		// Embedded characters important in URLs.
-		"foo % bar",
-		"foo ? bar",
-		"foo / bar",
-		"foo %?/ bar",
-
-		// Non-Roman scripts
-		"타코",
-		"世界",
-
-		// Longest legal name
-		strings.Repeat("a", maxLegalLength),
-
-		// Line terminators besides CR and LF
-		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
-		"foo \u000b bar",
-		"foo \u000c bar",
-		"foo \u0085 bar",
-		"foo \u2028 bar",
-		"foo \u2029 bar",
-
-		// Null byte.
-		"foo \u0000 bar",
-
-		// Non-control characters that are discouraged, but not forbidden,
-		// according to the documentation.
-		"foo # bar",
-		"foo []*? bar",
-
-		// Angstrom symbol singleton and normalized forms.
-		// Cf. http://unicode.org/reports/tr15/
-		"foo \u212b bar",
-		"foo \u0041\u030a bar",
-		"foo \u00c5 bar",
-
-		// Hangul separating jamo
-		// Cf. http://www.unicode.org/versions/Unicode7.0.0/ch18.pdf (Table 18-10)
-		"foo \u3131\u314f bar",
-		"foo \u1100\u1161 bar",
-		"foo \uac00 bar",
-	}
-
-	var runes []rune
-
-	// C0 control characters not forbidden by the docs.
-	runes = nil
-	for r := rune(0x01); r <= rune(0x1f); r++ {
-		if r != '\u000a' && r != '\u000d' {
-			runes = append(runes, r)
-		}
-	}
-
-	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
-
-	// C1 control characters, plus DEL.
-	runes = nil
-	for r := rune(0x7f); r <= rune(0x9f); r++ {
-		runes = append(runes, r)
-	}
-
-	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
+	// Grab a list of interesting legal names.
+	names := interestingNames()
 
 	// Make sure we can create each.
 	for _, name := range names {
