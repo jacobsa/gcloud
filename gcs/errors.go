@@ -14,18 +14,24 @@
 
 package gcs
 
-import "errors"
+// A *NotFoundError value is an error that indicates an object name or a
+// particular generation for that name were not found.
+type NotFoundError struct {
+	Err error
+}
 
-// A sentinel error. See notes on the methods of Bucket.
-var ErrNotFound = errors.New("not found")
+// Returns nfe.Err.Error().
+func (nfe *NotFoundError) Error() string {
+	return nfe.Err.Error()
+}
 
 // A *PreconditionError value is an error that indicates a precondition failed.
 // See notes on the methods of Bucket.
 type PreconditionError struct {
-	// A wrapped error. PreconditionError.Error simply returns Err.Error().
 	Err error
 }
 
+// Returns pe.Err.Error().
 func (pe *PreconditionError) Error() string {
 	return pe.Err.Error()
 }

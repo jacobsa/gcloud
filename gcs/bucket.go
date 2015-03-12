@@ -122,6 +122,8 @@ type Bucket interface {
 
 	// Create a reader for the contents of an object. The caller must arrange for
 	// the reader to be closed when it is no longer needed.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	NewReader(
 		ctx context.Context,
 		req *ReadObjectRequest) (io.ReadCloser, error)
@@ -137,19 +139,24 @@ type Bucket interface {
 		ctx context.Context,
 		req *CreateObjectRequest) (*storage.Object, error)
 
-	// Return current information about the object with the given name. If the
-	// object doesn't exist, err will be ErrNotFound.
+	// Return current information about the object with the given name.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	StatObject(
 		ctx context.Context,
 		req *StatObjectRequest) (*storage.Object, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	UpdateObject(
 		ctx context.Context,
 		req *UpdateObjectRequest) (*storage.Object, error)
 
 	// Delete the object with the given name.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	DeleteObject(ctx context.Context, name string) error
 }
 
@@ -173,9 +180,21 @@ func (b *bucket) ListObjects(
 
 func (b *bucket) NewReader(
 	ctx context.Context,
-	req *ReadObjectRequest) (io.ReadCloser, error) {
+	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
+	// Call the wrapped package.
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.NewReader(authContext, b.name, req.Name)
+	rc, err = storage.NewReader(authContext, b.name, req.Name)
+
+	// Transform errors.
+	if err == storage.ErrObjectNotExist {
+		err = &NotFoundError{
+			Err: err,
+		}
+
+		return
+	}
+
+	return
 }
 
 func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
@@ -390,7 +409,10 @@ func (b *bucket) StatObject(
 
 	// Transform errors.
 	if err == storage.ErrObjectNotExist {
-		err = ErrNotFound
+		err = &NotFoundError{
+			Err: err,
+		}
+
 		return
 	}
 
@@ -475,6 +497,13 @@ func (b *bucket) UpdateObject(
 	defer googleapi.CloseBody(httpRes)
 
 	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
+		}
+
 		return
 	}
 
@@ -492,9 +521,27 @@ func (b *bucket) UpdateObject(
 	return
 }
 
-func (b *bucket) DeleteObject(ctx context.Context, name string) error {
+func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
+	// Call the wrapped package.
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.DeleteObject(authContext, b.name, name)
+	err = storage.DeleteObject(authContext, b.name, name)
+
+	// Transform errors.
+	if err == storage.ErrObjectNotExist {
+		err = &NotFoundError{
+			Err: err,
+		}
+	}
+
+	// Handle the fact that as of 2015-03-12, the wrapped package does not
+	// correctly return ErrObjectNotExist here.
+	if typed, ok := err.(*googleapi.Error); ok {
+		if typed.Code == http.StatusNotFound {
+			err = &NotFoundError{Err: typed}
+		}
+	}
+
+	return
 }
 
 func newBucket(

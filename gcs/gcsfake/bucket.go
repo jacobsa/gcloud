@@ -275,16 +275,21 @@ func (b *bucket) ListObjects(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) NewReader(
 	ctx context.Context,
-	req *gcs.ReadObjectRequest) (io.ReadCloser, error) {
+	req *gcs.ReadObjectRequest) (rc io.ReadCloser, err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
-		return nil, errors.New("object doesn't exist.")
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", req.Name),
+		}
+
+		return
 	}
 
-	return ioutil.NopCloser(strings.NewReader(b.objects[index].contents)), nil
+	rc = ioutil.NopCloser(strings.NewReader(b.objects[index].contents))
+	return
 }
 
 func (b *bucket) CreateObject(
@@ -337,7 +342,10 @@ func (b *bucket) StatObject(
 	// Does the object exist?
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
-		err = gcs.ErrNotFound
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", req.Name),
+		}
+
 		return
 	}
 
@@ -364,7 +372,10 @@ func (b *bucket) UpdateObject(
 	// Does the object exist?
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
-		err = errors.New("Object not found.")
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", req.Name),
+		}
+
 		return
 	}
 
@@ -416,20 +427,24 @@ func (b *bucket) UpdateObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) DeleteObject(
 	ctx context.Context,
-	name string) error {
+	name string) (err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	// Do we possess the object with the given name?
 	index := b.objects.find(name)
 	if index == len(b.objects) {
-		return errors.New("Object Not Found.")
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", name),
+		}
+
+		return
 	}
 
 	// Remove the object.
 	b.objects = append(b.objects[:index], b.objects[index+1:]...)
 
-	return nil
+	return
 }
 
 // Create an object struct for the given attributes and contents.

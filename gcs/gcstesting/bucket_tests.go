@@ -672,8 +672,8 @@ func (t *readTest) NonExistentObject() {
 
 	_, err := t.bucket.NewReader(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
 }
 
 func (t *readTest) EmptyObject() {
@@ -730,7 +730,9 @@ func (t *statTest) NonExistentObject() {
 	}
 
 	_, err := t.bucket.StatObject(t.ctx, req)
-	ExpectEq(gcs.ErrNotFound, err)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
 }
 
 func (t *statTest) StatAfterCreating() {
@@ -864,8 +866,8 @@ func (t *updateTest) NonExistentObject() {
 
 	_, err := t.bucket.UpdateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(MatchesRegexp("404|Object not found")))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
 func (t *updateTest) RemoveContentType() {
@@ -1185,8 +1187,8 @@ type deleteTest struct {
 func (t *deleteTest) NonExistentObject() {
 	err := t.bucket.DeleteObject(t.ctx, "foobar")
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Not Found")))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
 func (t *deleteTest) Successful() {
@@ -1211,9 +1213,7 @@ func (t *deleteTest) Successful() {
 	}
 
 	_, err = t.bucket.NewReader(t.ctx, req)
-
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 ////////////////////////////////////////////////////////////////////////
