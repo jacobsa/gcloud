@@ -339,6 +339,12 @@ func (t *createTest) InterestingNames() {
 	const maxLegalLength = 1024
 
 	names := []string{
+		// Embedded characters important in URLs.
+		"foo % bar",
+		"foo ? bar",
+		"foo / bar",
+		"foo %?/ bar",
+
 		// Non-Roman scripts
 		"타코",
 		"世界",
@@ -399,8 +405,17 @@ func (t *createTest) InterestingNames() {
 	for _, name := range names {
 		nameDump := hex.Dump([]byte(name))
 
-		err := t.createObject(name, "")
-		AssertEq(nil, err, nameDump)
+		err := t.createObject(name, name)
+		AssertEq(nil, err, "Name:\n%s", nameDump)
+	}
+
+	// Make sure we can read each.
+	for _, name := range names {
+		nameDump := hex.Dump([]byte(name))
+
+		contents, err := t.readObject(name)
+		AssertEq(nil, err, "Name:\n%s", nameDump)
+		AssertEq(name, contents)
 	}
 
 	// Grab a listing and extract the names.
@@ -452,9 +467,13 @@ func (t *createTest) IllegalNames() {
 		AssertNe(nil, err, "Name:\n%s", nameDump)
 
 		if name == "" {
-			ExpectThat(err, Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))), nameDump)
+			ExpectThat(
+				err,
+				Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))),
+				"Name:\n%s",
+				nameDump)
 		} else {
-			ExpectThat(err, Error(HasSubstr("Invalid")), nameDump)
+			ExpectThat(err, Error(HasSubstr("Invalid")), "Name:\n%s", nameDump)
 		}
 	}
 
