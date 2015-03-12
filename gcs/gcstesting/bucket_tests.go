@@ -451,7 +451,7 @@ func (t *createTest) InterestingNames() {
 	forEachName(func(ctx context.Context, name string) {
 		contents, err := t.readObject(name)
 		ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
-		if err != nil {
+		if err == nil {
 			ExpectEq(name, contents, "Incorrect contents:\n%s", hex.Dump([]byte(name)))
 		}
 	})
