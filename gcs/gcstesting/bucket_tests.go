@@ -29,6 +29,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
+	"github.com/jacobsa/gcloud/syncutil"
 	"github.com/jacobsa/gcsfuse/timeutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
@@ -60,6 +61,79 @@ func computeCrc32C(s string) uint32 {
 
 func makeStringPtr(s string) *string {
 	return &s
+}
+
+// Return a list of object names that might be problematic for GCS or the Go
+// client but are nevertheless documented to be legal.
+//
+// Cf. https://cloud.google.com/storage/docs/bucket-naming
+func interestingNames() (names []string) {
+	const maxLegalLength = 1024
+
+	names = []string{
+		// Embedded characters important in URLs.
+		"foo % bar",
+		"foo ? bar",
+		"foo / bar",
+		"foo %?/ bar",
+
+		// Non-Roman scripts
+		"타코",
+		"世界",
+
+		// Longest legal name
+		strings.Repeat("a", maxLegalLength),
+
+		// Line terminators besides CR and LF
+		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
+		"foo \u000b bar",
+		"foo \u000c bar",
+		"foo \u0085 bar",
+		"foo \u2028 bar",
+		"foo \u2029 bar",
+
+		// Null byte.
+		"foo \u0000 bar",
+
+		// Non-control characters that are discouraged, but not forbidden,
+		// according to the documentation.
+		"foo # bar",
+		"foo []*? bar",
+
+		// Angstrom symbol singleton and normalized forms.
+		// Cf. http://unicode.org/reports/tr15/
+		"foo \u212b bar",
+		"foo \u0041\u030a bar",
+		"foo \u00c5 bar",
+
+		// Hangul separating jamo
+		// Cf. http://www.unicode.org/versions/Unicode7.0.0/ch18.pdf (Table 18-10)
+		"foo \u3131\u314f bar",
+		"foo \u1100\u1161 bar",
+		"foo \uac00 bar",
+	}
+
+	var runes []rune
+
+	// C0 control characters not forbidden by the docs.
+	runes = nil
+	for r := rune(0x01); r <= rune(0x1f); r++ {
+		if r != '\u000a' && r != '\u000d' {
+			runes = append(runes, r)
+		}
+	}
+
+	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
+
+	// C1 control characters, plus DEL.
+	runes = nil
+	for r := rune(0x7f); r <= rune(0x9f); r++ {
+		runes = append(runes, r)
+	}
+
+	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
+
+	return
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -334,89 +408,53 @@ func (t *createTest) ErrorAfterPartialContents() {
 }
 
 func (t *createTest) InterestingNames() {
-	// Naming requirements:
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	const maxLegalLength = 1024
+	// Grab a list of interesting legal names.
+	names := interestingNames()
 
-	names := []string{
-		// Embedded characters important in URLs.
-		"foo % bar",
-		"foo ? bar",
-		"foo / bar",
-		"foo %?/ bar",
+	// Set up a function that invokes another function for each object name, with
+	// some degree of parallelism.
+	const parallelism = 32 // About 300 ms * 100 Hz
+	forEachName := func(f func(context.Context, string)) {
+		b := syncutil.NewBundle(t.ctx)
 
-		// Non-Roman scripts
-		"타코",
-		"世界",
+		// Feed names.
+		nameChan := make(chan string)
+		b.Add(func(ctx context.Context) error {
+			defer close(nameChan)
+			for _, n := range names {
+				nameChan <- n
+			}
+			return nil
+		})
 
-		// Longest legal name
-		strings.Repeat("a", maxLegalLength),
-
-		// Line terminators besides CR and LF
-		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
-		"foo \u000b bar",
-		"foo \u000c bar",
-		"foo \u0085 bar",
-		"foo \u2028 bar",
-		"foo \u2029 bar",
-
-		// Null byte.
-		"foo \u0000 bar",
-
-		// Non-control characters that are discouraged, but not forbidden,
-		// according to the documentation.
-		"foo # bar",
-		"foo []*? bar",
-
-		// Angstrom symbol singleton and normalized forms.
-		// Cf. http://unicode.org/reports/tr15/
-		"foo \u212b bar",
-		"foo \u0041\u030a bar",
-		"foo \u00c5 bar",
-
-		// Hangul separating jamo
-		// Cf. http://www.unicode.org/versions/Unicode7.0.0/ch18.pdf (Table 18-10)
-		"foo \u3131\u314f bar",
-		"foo \u1100\u1161 bar",
-		"foo \uac00 bar",
-	}
-
-	var runes []rune
-
-	// C0 control characters not forbidden by the docs.
-	runes = nil
-	for r := rune(0x01); r <= rune(0x1f); r++ {
-		if r != '\u000a' && r != '\u000d' {
-			runes = append(runes, r)
+		// Consume names.
+		for i := 0; i < parallelism; i++ {
+			b.Add(func(ctx context.Context) error {
+				for n := range nameChan {
+					f(ctx, n)
+				}
+				return nil
+			})
 		}
+
+		b.Join()
 	}
 
-	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
-
-	// C1 control characters, plus DEL.
-	runes = nil
-	for r := rune(0x7f); r <= rune(0x9f); r++ {
-		runes = append(runes, r)
-	}
-
-	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
-
-	// Make sure we can create each.
-	for _, name := range names {
-		nameDump := hex.Dump([]byte(name))
-
+	// Make sure we can create each name.
+	forEachName(func(ctx context.Context, name string) {
 		err := t.createObject(name, name)
-		AssertEq(nil, err, "Name:\n%s", nameDump)
-	}
+		ExpectEq(nil, err, "Failed to create:\n%s", hex.Dump([]byte(name)))
+	})
 
-	// Make sure we can read each.
-	for _, name := range names {
-		nameDump := hex.Dump([]byte(name))
-
+	// Make sure we can read each, and that we get back the content we created
+	// above.
+	forEachName(func(ctx context.Context, name string) {
 		contents, err := t.readObject(name)
-		AssertEq(nil, err, "Name:\n%s", nameDump)
-		AssertEq(name, contents)
-	}
+		ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
+		if err != nil {
+			ExpectEq(name, contents, "Incorrect contents:\n%s", hex.Dump([]byte(name)))
+		}
+	})
 
 	// Grab a listing and extract the names.
 	objects, err := t.bucket.ListObjects(t.ctx, nil)
