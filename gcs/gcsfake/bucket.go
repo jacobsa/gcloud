@@ -275,11 +275,11 @@ func (b *bucket) ListObjects(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) NewReader(
 	ctx context.Context,
-	objectName string) (io.ReadCloser, error) {
+	req *gcs.ReadObjectRequest) (io.ReadCloser, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	index := b.objects.find(objectName)
+	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
 		return nil, errors.New("object doesn't exist.")
 	}

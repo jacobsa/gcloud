@@ -60,6 +60,12 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
+// A request to read the contents of an object.
+type ReadObjectRequest struct {
+	// The name of the object to read.
+	Name string
+}
+
 type StatObjectRequest struct {
 	// The name of the object in question.
 	Name string
@@ -114,12 +120,11 @@ type Bucket interface {
 		ctx context.Context,
 		query *storage.Query) (*storage.Objects, error)
 
-	// Create a reader for the contents of the object with the given name. The
-	// caller must arrange for the reader to be closed when it is no longer
-	// needed.
+	// Create a reader for the contents of an object. The caller must arrange for
+	// the reader to be closed when it is no longer needed.
 	NewReader(
 		ctx context.Context,
-		objectName string) (io.ReadCloser, error)
+		req *ReadObjectRequest) (io.ReadCloser, error)
 
 	// Create or overwrite an object according to the supplied request. The new
 	// object is guaranteed to exist immediately for the purposes of reading (and
@@ -168,9 +173,9 @@ func (b *bucket) ListObjects(
 
 func (b *bucket) NewReader(
 	ctx context.Context,
-	objectName string) (io.ReadCloser, error) {
+	req *ReadObjectRequest) (io.ReadCloser, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.NewReader(authContext, b.name, objectName)
+	return storage.NewReader(authContext, b.name, req.Name)
 }
 
 func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
