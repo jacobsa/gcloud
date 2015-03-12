@@ -173,9 +173,9 @@ func (b *bucket) ListObjects(
 
 func (b *bucket) NewReader(
 	ctx context.Context,
-	objectName string) (io.ReadCloser, error) {
+	req *ReadObjectRequest) (io.ReadCloser, error) {
 	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.NewReader(authContext, b.name, objectName)
+	return storage.NewReader(authContext, b.name, req.Name)
 }
 
 func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
