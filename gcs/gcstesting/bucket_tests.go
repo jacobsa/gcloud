@@ -672,8 +672,8 @@ func (t *readTest) NonExistentObject() {
 
 	_, err := t.bucket.NewReader(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
 }
 
 func (t *readTest) EmptyObject() {
@@ -866,8 +866,8 @@ func (t *updateTest) NonExistentObject() {
 
 	_, err := t.bucket.UpdateObject(t.ctx, req)
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(MatchesRegexp("404|Object not found")))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
 }
 
 func (t *updateTest) RemoveContentType() {
