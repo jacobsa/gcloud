@@ -155,6 +155,8 @@ type Bucket interface {
 		req *UpdateObjectRequest) (*storage.Object, error)
 
 	// Delete the object with the given name.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	DeleteObject(ctx context.Context, name string) error
 }
 

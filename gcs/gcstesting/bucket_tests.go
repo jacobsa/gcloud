@@ -1187,8 +1187,8 @@ type deleteTest struct {
 func (t *deleteTest) NonExistentObject() {
 	err := t.bucket.DeleteObject(t.ctx, "foobar")
 
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("Not Found")))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
 }
 
 func (t *deleteTest) Successful() {
