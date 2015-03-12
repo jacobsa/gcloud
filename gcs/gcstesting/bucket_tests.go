@@ -339,6 +339,12 @@ func (t *createTest) InterestingNames() {
 	const maxLegalLength = 1024
 
 	names := []string{
+		// Embedded characters important in URLs.
+		"foo % bar",
+		"foo ? bar",
+		"foo / bar",
+		"foo %?/ bar",
+
 		// Non-Roman scripts
 		"타코",
 		"世界",
