@@ -128,6 +128,25 @@ func interestingNames() (names []string) {
 	return
 }
 
+// Given lists of strings A and B, return those values that are in A but not in
+// B. If A contains duplicates of a value V not in B, the only guarantee is
+// that V is returned at least once.
+func listDifference(a []string, b []string) (res []string) {
+	// This is slow, but more obviously correct than the fast algorithm.
+	m := make(map[string]struct{})
+	for _, s := range b {
+		m[s] = struct{}{}
+	}
+
+	for _, s := range a {
+		if _, ok := m[s]; !ok {
+			res = append(res, s)
+		}
+	}
+
+	return
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -455,20 +474,36 @@ func (t *createTest) InterestingNames() {
 	AssertThat(objects.Prefixes, ElementsAre())
 	AssertEq(nil, objects.Next)
 
-	var listingNames sort.StringSlice
+	var listingNames []string
 	for _, o := range objects.Results {
 		listingNames = append(listingNames, o.Name)
 	}
 
 	// The names should have come back sorted by their UTF-8 encodings.
-	AssertTrue(sort.IsSorted(listingNames), "Names: %v", listingNames)
+	AssertTrue(sort.IsSorted(sort.StringSlice(listingNames)))
 
 	// Make sure all and only the expected names exist.
-	expectedNames := make(sort.StringSlice, len(names))
-	copy(expectedNames, names)
-	sort.Sort(expectedNames)
+	if diff := listDifference(listingNames, names); len(diff) != 0 {
+		var dumps []string
+		for _, n := range diff {
+			dumps = append(dumps, hex.Dump([]byte(n)))
+		}
 
-	ExpectThat(listingNames, DeepEquals(expectedNames))
+		AddFailure(
+			"Unexpected names in listing:\n%s",
+			strings.Join(dumps, "\n"))
+	}
+
+	if diff := listDifference(names, listingNames); len(diff) != 0 {
+		var dumps []string
+		for _, n := range diff {
+			dumps = append(dumps, hex.Dump([]byte(n)))
+		}
+
+		AddFailure(
+			"Names missing from listing:\n%s",
+			strings.Join(dumps, "\n"))
+	}
 }
 
 func (t *createTest) IllegalNames() {
