@@ -858,7 +858,15 @@ func (t *readTest) ParticularGeneration_NeverExisted() {
 	AssertGt(o.Generation, 0)
 
 	// Attempt to read a different generation.
-	AssertTrue(false, "TODO")
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation + 1,
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(HasSubstr("TODO")))
 }
 
 func (t *readTest) ParticularGeneration_HasBeenDeleted() {
