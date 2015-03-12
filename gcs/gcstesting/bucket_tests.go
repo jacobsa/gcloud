@@ -806,18 +806,6 @@ func (t *readTest) ObjectNameDoesntExist() {
 	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
-func (t *readTest) GenerationNeverExisted() {
-	AssertTrue(false, "TODO")
-}
-
-func (t *readTest) GenerationHasBeenDeleted() {
-	AssertTrue(false, "TODO")
-}
-
-func (t *readTest) GenerationHasBeenReplaced() {
-	AssertTrue(false, "TODO")
-}
-
 func (t *readTest) EmptyObject() {
 	// Create
 	AssertEq(nil, t.createObject("foo", ""))
@@ -856,6 +844,22 @@ func (t *readTest) NonEmptyObject() {
 
 	// Close
 	AssertEq(nil, r.Close())
+}
+
+func (t *readTest) ParticularGeneration_NeverExisted() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *readTest) ParticularGeneration_HasBeenDeleted() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *readTest) ParticularGeneration_HasBeenReplaced() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *readTest) ParticularGeneration_Exists() {
+	AssertTrue(false, "TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////
