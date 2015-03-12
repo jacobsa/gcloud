@@ -399,8 +399,17 @@ func (t *createTest) InterestingNames() {
 	for _, name := range names {
 		nameDump := hex.Dump([]byte(name))
 
-		err := t.createObject(name, "")
+		err := t.createObject(name, "taco")
 		AssertEq(nil, err, nameDump)
+	}
+
+	// Make sure we can read each.
+	for _, name := range names {
+		nameDump := hex.Dump([]byte(name))
+
+		contents, err := t.readObject(name)
+		AssertEq(nil, err, nameDump)
+		AssertEq("taco", contents)
 	}
 
 	// Grab a listing and extract the names.
