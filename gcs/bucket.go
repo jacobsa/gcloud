@@ -122,6 +122,8 @@ type Bucket interface {
 
 	// Create a reader for the contents of an object. The caller must arrange for
 	// the reader to be closed when it is no longer needed.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	NewReader(
 		ctx context.Context,
 		req *ReadObjectRequest) (io.ReadCloser, error)
@@ -137,14 +139,17 @@ type Bucket interface {
 		ctx context.Context,
 		req *CreateObjectRequest) (*storage.Object, error)
 
-	// Return current information about the object with the given name. If the
-	// object doesn't exist, err will be ErrNotFound.
+	// Return current information about the object with the given name.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	StatObject(
 		ctx context.Context,
 		req *StatObjectRequest) (*storage.Object, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
+	//
+	// If the object doesn't exist, err will be of type *NotFoundError.
 	UpdateObject(
 		ctx context.Context,
 		req *UpdateObjectRequest) (*storage.Object, error)
