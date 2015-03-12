@@ -1213,9 +1213,7 @@ func (t *deleteTest) Successful() {
 	}
 
 	_, err = t.bucket.NewReader(t.ctx, req)
-
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("object doesn't exist")))
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 ////////////////////////////////////////////////////////////////////////
