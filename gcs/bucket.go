@@ -395,7 +395,10 @@ func (b *bucket) StatObject(
 
 	// Transform errors.
 	if err == storage.ErrObjectNotExist {
-		err = ErrNotFound
+		err = &NotFoundError{
+			Err: err,
+		}
+
 		return
 	}
 
