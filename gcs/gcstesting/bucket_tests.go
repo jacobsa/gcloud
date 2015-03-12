@@ -113,25 +113,17 @@ func interestingNames() (names []string) {
 		"foo \uac00 bar",
 	}
 
-	var runes []rune
-
 	// C0 control characters not forbidden by the docs.
-	runes = nil
 	for r := rune(0x01); r <= rune(0x1f); r++ {
 		if r != '\u000a' && r != '\u000d' {
-			runes = append(runes, r)
+			names = append(names, fmt.Sprintf("foo %s bar", string(r)))
 		}
 	}
 
-	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
-
 	// C1 control characters, plus DEL.
-	runes = nil
 	for r := rune(0x7f); r <= rune(0x9f); r++ {
-		runes = append(runes, r)
+		names = append(names, fmt.Sprintf("foo %s bar", string(r)))
 	}
-
-	names = append(names, fmt.Sprintf("foo %s bar", string(runes)))
 
 	return
 }
