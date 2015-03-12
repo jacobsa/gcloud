@@ -287,6 +287,11 @@ func (b *bucket) NewReader(
 		Opaque: opaque,
 	}
 
+	// Add a generation condition, if specified.
+	if req.Generation != 0 {
+		url.RawQuery = fmt.Sprintf("generation=%v", req.Generation)
+	}
+
 	// Call the server.
 	httpRes, err := b.client.Get(url.String())
 	if err != nil {
