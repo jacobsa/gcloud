@@ -60,6 +60,16 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
+// A request to read an object, potentially at a particular generation number.
+type ReadObjectRequest struct {
+	// The name of the object to read.
+	Name string
+
+	// The generation of the object to be read. If zero, the latest generation
+	// will be used.
+	Generation int64
+}
+
 type StatObjectRequest struct {
 	// The name of the object in question.
 	Name string
