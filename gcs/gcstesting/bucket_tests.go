@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing/iotest"
 	"time"
+	"unicode"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
@@ -121,19 +122,34 @@ func interestingNames() (names []string) {
 		"foo \uac00 bar",
 	}
 
-	// C0 control characters not forbidden by the docs.
-	for r := rune(0x01); r <= 0x1f; r++ {
-		if r != '\u000a' && r != '\u000d' {
-			names = append(names, fmt.Sprintf("foo %s bar", string(r)))
+	// All codepoints in Unicode general categories C* and Z* except for:
+	//
+	//  *  Cn (non-character and reserved), which is not included in unicode.C.
+	//  *  Co (private usage), which is large.
+	//  *  Cs (surrages), which is large.
+	//  *  U+000A and U+000D, which are forbidden by the docs.
+	//
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		// TODO(jacobsa): Re-enable these runes or move them into the illegal test
+		// once GCS is fixed or the documentation is updated. See Google-internal
+		// bug 19717210.
+		if r == 0x85 || r == 0x2028 || r == 0x2029 {
+			continue
 		}
-	}
 
-	// C1 control characters, plus DEL.
-	for r := rune(0x7f); r <= 0x9f; r++ {
-		// TODO(jacobsa): Re-enable this rune or move it into the illegal test once
-		// GCS is fixed or the documentation is updated. See Google-internal bug
-		// 19717210.
-		if r == 0x85 {
+		if !unicode.In(r, unicode.C) && !unicode.In(r, unicode.Z) {
+			continue
+		}
+
+		if unicode.In(r, unicode.Co) {
+			continue
+		}
+
+		if unicode.In(r, unicode.Cs) {
+			continue
+		}
+
+		if r == 0x0a || r == 0x0d {
 			continue
 		}
 
