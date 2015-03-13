@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing/iotest"
 	"time"
+	"unicode"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
@@ -66,16 +67,47 @@ func makeStringPtr(s string) *string {
 // Return a list of object names that might be problematic for GCS or the Go
 // client but are nevertheless documented to be legal.
 //
-// Cf. https://cloud.google.com/storage/docs/bucket-naming
+// Useful links:
+//
+//     https://cloud.google.com/storage/docs/bucket-naming
+//     http://www.unicode.org/Public/7.0.0/ucd/UnicodeData.txt
+//     http://www.unicode.org/versions/Unicode7.0.0/ch02.pdf (Table 2-3)
+//
 func interestingNames() (names []string) {
 	const maxLegalLength = 1024
 
 	names = []string{
-		// Embedded characters important in URLs.
-		"foo % bar",
-		"foo ? bar",
+		// Characters specifically mentioned by RFC 3986, i.e. that might be
+		// important in URL encoding/decoding.
+		"foo : bar",
 		"foo / bar",
+		"foo ? bar",
+		"foo # bar",
+		"foo [ bar",
+		"foo ] bar",
+		"foo @ bar",
+		"foo ! bar",
+		"foo $ bar",
+		"foo & bar",
+		"foo ' bar",
+		"foo ( bar",
+		"foo ) bar",
+		"foo * bar",
+		"foo + bar",
+		"foo , bar",
+		"foo ; bar",
+		"foo = bar",
+		"foo - bar",
+		"foo . bar",
+		"foo _ bar",
+		"foo ~ bar",
+
+		// Trickier URL cases.
+		"foo () bar",
+		"foo [] bar",
+		"foo // bar",
 		"foo %?/ bar",
+		"foo http://google.com/search?q=foo&bar=baz#qux bar",
 
 		// Non-Roman scripts
 		"타코",
@@ -83,17 +115,6 @@ func interestingNames() (names []string) {
 
 		// Longest legal name
 		strings.Repeat("a", maxLegalLength),
-
-		// Line terminators besides CR and LF
-		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
-		"foo \u000b bar",
-		"foo \u000c bar",
-		// TODO(jacobsa): Re-enable these or move them into the illegal test once
-		// GCS is fixed or the documentation is updated. See Google-internal bug
-		// 19717210.
-		// "foo \u0085 bar",
-		// "foo \u2028 bar",
-		// "foo \u2029 bar",
 
 		// Null byte.
 		"foo \u0000 bar",
@@ -116,19 +137,34 @@ func interestingNames() (names []string) {
 		"foo \uac00 bar",
 	}
 
-	// C0 control characters not forbidden by the docs.
-	for r := rune(0x01); r <= 0x1f; r++ {
-		if r != '\u000a' && r != '\u000d' {
-			names = append(names, fmt.Sprintf("foo %s bar", string(r)))
+	// All codepoints in Unicode general categories C* and Z* except for:
+	//
+	//  *  Cn (non-character and reserved), which is not included in unicode.C.
+	//  *  Co (private usage), which is large.
+	//  *  Cs (surrages), which is large.
+	//  *  U+000A and U+000D, which are forbidden by the docs.
+	//
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		// TODO(jacobsa): Re-enable these runes or move them into the illegal test
+		// once GCS is fixed or the documentation is updated. See Google-internal
+		// bug 19717210.
+		if r == 0x85 || r == 0x2028 || r == 0x2029 {
+			continue
 		}
-	}
 
-	// C1 control characters, plus DEL.
-	for r := rune(0x7f); r <= 0x9f; r++ {
-		// TODO(jacobsa): Re-enable this rune or move it into the illegal test once
-		// GCS is fixed or the documentation is updated. See Google-internal bug
-		// 19717210.
-		if r == 0x85 {
+		if !unicode.In(r, unicode.C) && !unicode.In(r, unicode.Z) {
+			continue
+		}
+
+		if unicode.In(r, unicode.Co) {
+			continue
+		}
+
+		if unicode.In(r, unicode.Cs) {
+			continue
+		}
+
+		if r == 0x0a || r == 0x0d {
 			continue
 		}
 
