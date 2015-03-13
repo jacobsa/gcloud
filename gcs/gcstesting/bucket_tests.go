@@ -77,11 +77,37 @@ func interestingNames() (names []string) {
 	const maxLegalLength = 1024
 
 	names = []string{
-		// Embedded characters important in URLs.
-		"foo % bar",
-		"foo ? bar",
+		// Characters specifically mentioned by RFC 3986, i.e. that might be
+		// important in URL encoding/decoding.
+		"foo : bar",
 		"foo / bar",
+		"foo ? bar",
+		"foo # bar",
+		"foo [ bar",
+		"foo ] bar",
+		"foo @ bar",
+		"foo ! bar",
+		"foo $ bar",
+		"foo & bar",
+		"foo ' bar",
+		"foo ( bar",
+		"foo ) bar",
+		"foo * bar",
+		"foo + bar",
+		"foo , bar",
+		"foo ; bar",
+		"foo = bar",
+		"foo - bar",
+		"foo . bar",
+		"foo _ bar",
+		"foo ~ bar",
+
+		// Trickier URL cases.
+		"foo () bar",
+		"foo [] bar",
+		"foo // bar",
 		"foo %?/ bar",
+		"foo http://google.com/search?q=foo&bar=baz#qux bar",
 
 		// Non-Roman scripts
 		"타코",
