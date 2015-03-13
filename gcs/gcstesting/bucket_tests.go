@@ -66,7 +66,12 @@ func makeStringPtr(s string) *string {
 // Return a list of object names that might be problematic for GCS or the Go
 // client but are nevertheless documented to be legal.
 //
-// Cf. https://cloud.google.com/storage/docs/bucket-naming
+// Useful links:
+//
+//     https://cloud.google.com/storage/docs/bucket-naming
+//     http://www.unicode.org/Public/7.0.0/ucd/UnicodeData.txt
+//     http://www.unicode.org/versions/Unicode7.0.0/ch02.pdf (Table 2-3)
+//
 func interestingNames() (names []string) {
 	const maxLegalLength = 1024
 
