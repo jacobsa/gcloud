@@ -60,10 +60,13 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
-// A request to read the contents of an object.
+// A request to read the contents of an object at a particular generation.
 type ReadObjectRequest struct {
 	// The name of the object to read.
 	Name string
+
+	// The generation of the object to read. Zero means the latest generation.
+	Generation int64
 }
 
 type StatObjectRequest struct {
@@ -120,8 +123,9 @@ type Bucket interface {
 		ctx context.Context,
 		query *storage.Query) (*storage.Objects, error)
 
-	// Create a reader for the contents of an object. The caller must arrange for
-	// the reader to be closed when it is no longer needed.
+	// Create a reader for the contents of a particular generation of an object.
+	// The caller must arrange for the reader to be closed when it is no longer
+	// needed.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.
 	NewReader(
@@ -281,6 +285,11 @@ func (b *bucket) NewReader(
 	url := &url.URL{
 		Scheme: "https",
 		Opaque: opaque,
+	}
+
+	// Add a generation condition, if specified.
+	if req.Generation != 0 {
+		url.RawQuery = fmt.Sprintf("generation=%v", req.Generation)
 	}
 
 	// Call the server.

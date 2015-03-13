@@ -795,7 +795,7 @@ type readTest struct {
 	bucketTest
 }
 
-func (t *readTest) NonExistentObject() {
+func (t *readTest) ObjectNameDoesntExist() {
 	req := &gcs.ReadObjectRequest{
 		Name: "foobar",
 	}
@@ -803,7 +803,7 @@ func (t *readTest) NonExistentObject() {
 	_, err := t.bucket.NewReader(t.ctx, req)
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-	ExpectThat(err, Error(MatchesRegexp("not found|404")))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
 }
 
 func (t *readTest) EmptyObject() {
@@ -844,6 +844,125 @@ func (t *readTest) NonEmptyObject() {
 
 	// Close
 	AssertEq(nil, r.Close())
+}
+
+func (t *readTest) ParticularGeneration_NeverExisted() {
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Attempt to read a different generation.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation + 1,
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
+}
+
+func (t *readTest) ParticularGeneration_HasBeenDeleted() {
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Delete it.
+	err = t.bucket.DeleteObject(t.ctx, "foo")
+	AssertEq(nil, err)
+
+	// Attempt to read by that generation.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation,
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
+}
+
+func (t *readTest) ParticularGeneration_Exists() {
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"taco")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Attempt to read the correct generation.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation,
+	}
+
+	r, err := t.bucket.NewReader(t.ctx, req)
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
+}
+
+func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"taco")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Overwrite with a new generation.
+	o2, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"burrito")
+
+	AssertEq(nil, err)
+	AssertGt(o2.Generation, 0)
+	AssertNe(o.Generation, o2.Generation)
+
+	// Reading by the old generation should fail.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation,
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
+
+	// Reading by the new generation should work.
+	req.Generation = o2.Generation
+
+	r, err := t.bucket.NewReader(t.ctx, req)
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
 }
 
 ////////////////////////////////////////////////////////////////////////
