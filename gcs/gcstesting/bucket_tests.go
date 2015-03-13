@@ -870,7 +870,30 @@ func (t *readTest) ParticularGeneration_NeverExisted() {
 }
 
 func (t *readTest) ParticularGeneration_HasBeenDeleted() {
-	AssertTrue(false, "TODO")
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Delete it.
+	err = t.bucket.DeleteObject(t.ctx, "foo")
+	AssertEq(nil, err)
+
+	// Attempt to read by that generation.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation,
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
 }
 
 func (t *readTest) ParticularGeneration_HasBeenReplaced() {
