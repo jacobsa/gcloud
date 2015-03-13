@@ -178,18 +178,109 @@ func (b *bucket) ListObjects(
 	return storage.ListObjects(authContext, b.name, query)
 }
 
+func shouldEscapeForPathSegment(c byte) bool {
+	// According to the following sections of the RFC:
+	//
+	//     http://tools.ietf.org/html/rfc3986#section-3.3
+	//     http://tools.ietf.org/html/rfc3986#section-3.4
+	//
+	// The grammar for a segment is:
+	//
+	//     segment       = *pchar
+	//     pchar         = unreserved / pct-encoded / sub-delims / ":" / "@"
+	//     unreserved    = ALPHA / DIGIT / "-" / "." / "_" / "~"
+	//     pct-encoded   = "%" HEXDIG HEXDIG
+	//     sub-delims    = "!" / "$" / "&" / "'" / "(" / ")"
+	//                   / "*" / "+" / "," / ";" / "="
+	//
+	// So we need to escape everything that is not in unreserved, sub-delims, or
+	// ":" and "@".
+
+	// unreserved (alphanumeric)
+	if 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' {
+		return false
+	}
+
+	switch c {
+	// unreserved (non-alphanumeric)
+	case '-', '.', '_', '~':
+		return false
+
+	// sub-delims
+	case '!', '$', '&', '\'', '(', ')', '*', '+', ',', ';', '=':
+		return false
+
+	// other pchars
+	case ':', '@':
+		return false
+	}
+
+	// Everything else must be escaped.
+	return true
+}
+
+// Percent-encode the supplied string so that it matches the grammar laid out
+// for the 'segment' category in RFC 3986.
+func encodePathSegment(s string) string {
+	// Scan the string once to count how many bytes must be escaped.
+	escapeCount := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if shouldEscapeForPathSegment(c) {
+			escapeCount++
+		}
+	}
+
+	// Fast path: is there anything to do?
+	if escapeCount == 0 {
+		return s
+	}
+
+	// Make a buffer that is large enough, then fill it in.
+	t := make([]byte, len(s)+2*escapeCount)
+	j := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		// Escape if necessary.
+		if shouldEscapeForPathSegment(c) {
+			t[j] = '%'
+			t[j+1] = "0123456789ABCDEF"[c>>4]
+			t[j+2] = "0123456789ABCDEF"[c&15]
+			j += 3
+		} else {
+			t[j] = c
+			j++
+		}
+	}
+
+	return string(t)
+}
+
 func (b *bucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	// Construct an appropriate URL. Cf. http://goo.gl/HSb3My
+	// Construct an appropriate URL.
 	//
-	// Note that the requirements on bucket names (http://goo.gl/eI070k) and the
-	// fact that the object name is last mean that in principle the path is
-	// unambiguous.
+	// The documentation (http://goo.gl/gZo4oj) is extremely vague about how this
+	// is supposed to work. As of 2015-03-13, it says only that "for most
+	// operations" you can use the following form to access an object:
+	//
+	//     storage.googleapis.com/<bucket>/<object>
+	//
+	// In Google-internal bug 19718068, it was clarified that the intent is that
+	// each of the bucket and object names are encoded into a single path
+	// segment, as defined by RFC 3986.
+	bucketSegment := encodePathSegment(b.name)
+	objectSegment := encodePathSegment(req.Name)
+	opaque := fmt.Sprintf(
+		"//storage.googleapis.com/%s/%s",
+		bucketSegment,
+		objectSegment)
+
 	url := &url.URL{
 		Scheme: "https",
-		Host:   "storage.googleapis.com",
-		Path:   fmt.Sprintf("/%s/%s", b.name, req.Name),
+		Opaque: opaque,
 	}
 
 	// Call the server.
