@@ -273,11 +273,14 @@ func (b *bucket) NewReader(
 	// segment, as defined by RFC 3986.
 	bucketSegment := encodePathSegment(b.name)
 	objectSegment := encodePathSegment(req.Name)
+	opaque := fmt.Sprintf(
+		"//storage.googleapis.com/%s/%s",
+		bucketSegment,
+		objectSegment)
 
 	url := &url.URL{
 		Scheme: "https",
-		Host:   "storage.googleapis.com",
-		Path:   fmt.Sprintf("/%s/%s", bucketSegment, objectSegment),
+		Opaque: opaque,
 	}
 
 	// Call the server.
