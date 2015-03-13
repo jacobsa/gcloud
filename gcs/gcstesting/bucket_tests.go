@@ -922,7 +922,47 @@ func (t *readTest) ParticularGeneration_Exists() {
 }
 
 func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
-	AssertTrue(false, "TODO")
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"taco")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Overwrite with a new generation.
+	o2, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"burrito")
+
+	AssertEq(nil, err)
+	AssertGt(o2.Generation, 0)
+	AssertNe(o.Generation, o2.Generation)
+
+	// Reading by the old generation should fail.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation,
+	}
+
+	_, err = t.bucket.NewReader(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
+
+	// Reading by the new generation should work.
+	req.Generation = o2.Generation
+
+	r, err := t.bucket.NewReader(t.ctx, req)
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
 }
 
 ////////////////////////////////////////////////////////////////////////
