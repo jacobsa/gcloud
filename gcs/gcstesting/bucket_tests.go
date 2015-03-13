@@ -896,11 +896,32 @@ func (t *readTest) ParticularGeneration_HasBeenDeleted() {
 	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
 }
 
-func (t *readTest) ParticularGeneration_HasBeenReplaced() {
-	AssertTrue(false, "TODO")
+func (t *readTest) ParticularGeneration_Exists() {
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		&storage.ObjectAttrs{Name: "foo"},
+		"taco")
+
+	AssertEq(nil, err)
+	AssertGt(o.Generation, 0)
+
+	// Attempt to read the correct generation.
+	req := &gcs.ReadObjectRequest{
+		Name:       "foo",
+		Generation: o.Generation,
+	}
+
+	r, err := t.bucket.NewReader(t.ctx, req)
+	AssertEq(nil, err)
+
+	contents, err := ioutil.ReadAll(r)
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
 }
 
-func (t *readTest) ParticularGeneration_Exists() {
+func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	AssertTrue(false, "TODO")
 }
 
