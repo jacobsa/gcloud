@@ -232,7 +232,9 @@ func (t *bucketTest) readObject(objectName string) (contents string, err error) 
 		return
 	}
 
-	defer reader.Close()
+	defer func() {
+		AssertEq(nil, reader.Close())
+	}()
 
 	// Read the contents of the object.
 	slice, err := ioutil.ReadAll(reader)
@@ -919,6 +921,9 @@ func (t *readTest) ParticularGeneration_Exists() {
 	contents, err := ioutil.ReadAll(r)
 	AssertEq(nil, err)
 	ExpectEq("taco", string(contents))
+
+	// Close
+	AssertEq(nil, r.Close())
 }
 
 func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
@@ -963,6 +968,9 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	contents, err := ioutil.ReadAll(r)
 	AssertEq(nil, err)
 	ExpectEq("burrito", string(contents))
+
+	// Close
+	AssertEq(nil, r.Close())
 }
 
 ////////////////////////////////////////////////////////////////////////
