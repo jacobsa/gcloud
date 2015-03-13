@@ -178,18 +178,31 @@ func (b *bucket) ListObjects(
 	return storage.ListObjects(authContext, b.name, query)
 }
 
+// Percent-encode the supplied string so that it matches the grammar laid out
+// for the 'segment' category in RFC 3986.
+func encodePathSegment(s string) string
+
 func (b *bucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	// Construct an appropriate URL. Cf. http://goo.gl/HSb3My
+	// Construct an appropriate URL.
 	//
-	// Note that the requirements on bucket names (http://goo.gl/eI070k) and the
-	// fact that the object name is last mean that in principle the path is
-	// unambiguous.
+	// The documentation (http://goo.gl/gZo4oj) is extremely vague about how this
+	// is supposed to work. As of 2015-03-13, it says only that "for most
+	// operations" you can use the following form to access an object:
+	//
+	//     storage.googleapis.com/<bucket>/<object>
+	//
+	// In Google-internal bug 19718068, it was clarified that the intent is that
+	// each of the bucket and object names are encoded into a single path
+	// segment, as defined by RFC 3986.
+	bucketSegment := encodePathSegment(b.name)
+	objectSegment := encodePathSegment(req.Name)
+
 	url := &url.URL{
 		Scheme: "https",
 		Host:   "storage.googleapis.com",
-		Path:   fmt.Sprintf("/%s/%s", b.name, req.Name),
+		Path:   fmt.Sprintf("/%s/%s", bucketSegment, objectSegment),
 	}
 
 	// Call the server.
