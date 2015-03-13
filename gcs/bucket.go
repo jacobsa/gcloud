@@ -187,10 +187,9 @@ func (b *bucket) NewReader(
 	// fact that the object name is last mean that in principle the path is
 	// unambiguous.
 	url := &url.URL{
-		Scheme:   "https",
-		Host:     "www.googleapis.com",
-		Path:     fmt.Sprintf("/storage/v1/b/%s/o/%s", b.name, req.Name),
-		RawQuery: "alt=media",
+		Scheme: "https",
+		Host:   "storage.googleapis.com",
+		Path:   fmt.Sprintf("/%s/%s", b.name, req.Name),
 	}
 
 	// Call the server.

@@ -88,9 +88,12 @@ func interestingNames() (names []string) {
 		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
 		"foo \u000b bar",
 		"foo \u000c bar",
-		"foo \u0085 bar",
-		"foo \u2028 bar",
-		"foo \u2029 bar",
+		// TODO(jacobsa): Re-enable these or move them into the illegal test once
+		// GCS is fixed or the documentation is updated. See Google-internal bug
+		// 19717210.
+		// "foo \u0085 bar",
+		// "foo \u2028 bar",
+		// "foo \u2029 bar",
 
 		// Null byte.
 		"foo \u0000 bar",
@@ -114,14 +117,21 @@ func interestingNames() (names []string) {
 	}
 
 	// C0 control characters not forbidden by the docs.
-	for r := rune(0x01); r <= rune(0x1f); r++ {
+	for r := rune(0x01); r <= 0x1f; r++ {
 		if r != '\u000a' && r != '\u000d' {
 			names = append(names, fmt.Sprintf("foo %s bar", string(r)))
 		}
 	}
 
 	// C1 control characters, plus DEL.
-	for r := rune(0x7f); r <= rune(0x9f); r++ {
+	for r := rune(0x7f); r <= 0x9f; r++ {
+		// TODO(jacobsa): Re-enable this rune or move it into the illegal test once
+		// GCS is fixed or the documentation is updated. See Google-internal bug
+		// 19717210.
+		if r == 0x85 {
+			continue
+		}
+
 		names = append(names, fmt.Sprintf("foo %s bar", string(r)))
 	}
 
@@ -757,7 +767,7 @@ func (t *readTest) NonExistentObject() {
 	_, err := t.bucket.NewReader(t.ctx, req)
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-	ExpectThat(err, Error(MatchesRegexp("not found|doesn't exist")))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
 func (t *readTest) EmptyObject() {
