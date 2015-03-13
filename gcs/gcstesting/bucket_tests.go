@@ -116,17 +116,6 @@ func interestingNames() (names []string) {
 		// Longest legal name
 		strings.Repeat("a", maxLegalLength),
 
-		// Line terminators besides CR and LF
-		// Cf. https://en.wikipedia.org/wiki/Newline#Unicode
-		"foo \u000b bar",
-		"foo \u000c bar",
-		// TODO(jacobsa): Re-enable these or move them into the illegal test once
-		// GCS is fixed or the documentation is updated. See Google-internal bug
-		// 19717210.
-		// "foo \u0085 bar",
-		// "foo \u2028 bar",
-		// "foo \u2029 bar",
-
 		// Null byte.
 		"foo \u0000 bar",
 
