@@ -803,7 +803,7 @@ func (t *readTest) ObjectNameDoesntExist() {
 	_, err := t.bucket.NewReader(t.ctx, req)
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-	ExpectThat(err, Error(MatchesRegexp("(?i)not found")))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
 }
 
 func (t *readTest) EmptyObject() {
@@ -866,7 +866,7 @@ func (t *readTest) ParticularGeneration_NeverExisted() {
 	_, err = t.bucket.NewReader(t.ctx, req)
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-	ExpectThat(err, Error(MatchesRegexp("(?i)not found")))
+	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
 }
 
 func (t *readTest) ParticularGeneration_HasBeenDeleted() {
