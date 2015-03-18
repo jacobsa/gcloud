@@ -143,8 +143,6 @@ func interestingNames() (names []string) {
 		"foo \ufffb bar",
 		"foo \ufffc bar",
 		"foo \ufffd bar",
-		"foo \ufffe bar",
-		"foo \uffff bar",
 	}
 
 	// All codepoints in Unicode general categories C* and Z* except for:
