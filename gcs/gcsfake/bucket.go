@@ -279,6 +279,7 @@ func (b *bucket) NewReader(
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
+	// Find the object with the requested name.
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
 		err = &gcs.NotFoundError{
@@ -288,7 +289,19 @@ func (b *bucket) NewReader(
 		return
 	}
 
-	rc = ioutil.NopCloser(strings.NewReader(b.objects[index].contents))
+	o := b.objects[index]
+
+	// Does the generation match?
+	if req.Generation != 0 && req.Generation != o.entry.Generation {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf(
+				"Object %s generation %v not found", req.Name, req.Generation),
+		}
+
+		return
+	}
+
+	rc = ioutil.NopCloser(strings.NewReader(o.contents))
 	return
 }
 
