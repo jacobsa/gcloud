@@ -135,6 +135,14 @@ func interestingNames() (names []string) {
 		"foo \u3131\u314f bar",
 		"foo \u1100\u1161 bar",
 		"foo \uac00 bar",
+
+		// Unicode specials
+		// Cf. http://en.wikipedia.org/wiki/Specials_%28Unicode_block%29
+		"foo \ufff9 bar",
+		"foo \ufffa bar",
+		"foo \ufffb bar",
+		"foo \ufffc bar",
+		"foo \ufffd bar",
 	}
 
 	// All codepoints in Unicode general categories C* and Z* except for:
