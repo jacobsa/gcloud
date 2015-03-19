@@ -31,7 +31,7 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/gcloud/syncutil"
-	"github.com/jacobsa/gcsfuse/timeutil"
+	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"

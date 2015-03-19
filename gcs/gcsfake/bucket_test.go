@@ -20,7 +20,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs/gcsfake"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
-	"github.com/jacobsa/gcsfuse/timeutil"
+	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/ogletest"
 )
 

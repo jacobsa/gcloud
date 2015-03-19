@@ -38,7 +38,7 @@ import (
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/gcloud/oauthutil"
-	"github.com/jacobsa/gcsfuse/timeutil"
+	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
 	storagev1 "google.golang.org/api/storage/v1"
