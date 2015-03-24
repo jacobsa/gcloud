@@ -28,10 +28,10 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/gcloud/syncutil"
-	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
@@ -102,12 +102,17 @@ func interestingNames() (names []string) {
 		"foo _ bar",
 		"foo ~ bar",
 
-		// Trickier URL cases.
+		// Other tricky URL cases.
 		"foo () bar",
 		"foo [] bar",
 		"foo // bar",
 		"foo %?/ bar",
 		"foo http://google.com/search?q=foo&bar=baz#qux bar",
+
+		"foo ?bar",
+		"foo? bar",
+		"foo/ bar",
+		"foo /bar",
 
 		// Non-Roman scripts
 		"타코",
