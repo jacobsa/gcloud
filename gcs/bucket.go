@@ -463,7 +463,11 @@ func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
 	return
 }
 
-func typeHeader(contentType string) textproto.MIMEHeader
+func typeHeader(contentType string) (h textproto.MIMEHeader) {
+	h = make(textproto.MIMEHeader)
+	h.Set("Content-Type", contentType)
+	return
+}
 
 func writeMetadata(w io.Writer, req *CreateObjectRequest) (err error)
 
