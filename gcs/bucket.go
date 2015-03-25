@@ -18,14 +18,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"time"
-	"unicode/utf8"
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -463,60 +463,103 @@ func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
 	return
 }
 
+func typeHeader(contentType string) textproto.MIMEHeader
+
+func writeMetadata(w io.Writer, req *CreateObjectRequest) (err error)
+
+func writeContent(w io.Writer, req *CreateObjectRequest) (err error)
+
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// As of 2015-02, the wrapped storage package doesn't check this for us,
-	// causing silently transformed names:
-	//     https://github.com/GoogleCloudPlatform/gcloud-golang/issues/111
-	if !utf8.ValidString(req.Attrs.Name) {
-		err = errors.New("Invalid object name: not valid UTF-8")
+	// TODO(jacobsa): Refactor and do this in a streaming fashion.
+	var body bytes.Buffer
+
+	// Create a multipart writer, for writing each part of the request.
+	mpw := multipart.NewWriter(&body)
+	var w io.Writer
+
+	// Write the metadata.
+	w, err = mpw.CreatePart(typeHeader("application/json"))
+	if err != nil {
+		err = fmt.Errorf("CreatePart: %v", err)
 		return
 	}
 
-	// Set up an object struct based on the supplied attributes.
-	inputObj := &storagev1.Object{
-		Name:            req.Attrs.Name,
-		Bucket:          b.Name(),
-		ContentType:     req.Attrs.ContentType,
-		ContentLanguage: req.Attrs.ContentLanguage,
-		ContentEncoding: req.Attrs.ContentEncoding,
-		CacheControl:    req.Attrs.CacheControl,
-		Acl:             toRawAcls(req.Attrs.ACL),
-		Metadata:        req.Attrs.Metadata,
+	err = writeMetadata(w, req)
+	if err != nil {
+		err = fmt.Errorf("writeMetadata: %v", err)
+		return
 	}
 
-	// Set up an appropriate reader to hand to the call object below.
-	media, err := makeMedia(req)
+	// Write the content.
+	w, err = mpw.CreatePart(typeHeader("application/octet-stream"))
+	if err != nil {
+		err = fmt.Errorf("CreatePart: %v", err)
+		return
+	}
+
+	err = writeContent(w, req)
+	if err != nil {
+		err = fmt.Errorf("writeContent: %v", err)
+		return
+	}
+
+	// Construct an appropriate URL.
+	//
+	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
+	// is supposed to work. As of 2015-03-26, it simply gives an example:
+	//
+	//     POST https://www.googleapis.com/upload/storage/v1/b/<bucket>/o
+	//
+	// In Google-internal bug 19718068, it was clarified that the intent is that
+	// the bucket name be encoded into a single path segment, as defined by RFC
+	// 3986.
+	bucketSegment := encodePathSegment(b.name)
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/upload/storage/v1/b/%s/o",
+		bucketSegment)
+
+	url := &url.URL{
+		Scheme:   "https",
+		Opaque:   opaque,
+		RawQuery: "uploadType=multipart&projection=full",
+	}
+
+	// Make the HTTP request.
+	httpReq, err := http.NewRequest("POST", url.String(), &body)
+	if err != nil {
+		err = fmt.Errorf("http.NewRequest: %v", err)
+		return
+	}
+
+	// Set up HTTP request headers.
+	httpReq.Header.Set(
+		"Content-Type",
+		fmt.Sprintf("multipart/related; boundary=%s", mpw.Boundary()))
+
+	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
+
+	// Execute the HTTP request.
+	httpRes, err := b.client.Do(httpReq)
 	if err != nil {
 		return
 	}
 
-	// Configure a 'call' object.
-	call := b.rawService.Objects.Insert(b.Name(), inputObj)
-	call.Media(media)
-	call.Projection("full")
+	defer googleapi.CloseBody(httpRes)
 
-	if req.GenerationPrecondition != nil {
-		call.IfGenerationMatch(*req.GenerationPrecondition)
-	}
-
-	// Execute the call.
-	rawObject, err := call.Do()
-	if err != nil {
-		// Special case: handle precondition errors.
-		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code == http.StatusPreconditionFailed {
-				err = &PreconditionError{Err: typed}
-			}
-		}
-
+	if err = googleapi.CheckResponse(httpRes); err != nil {
 		return
 	}
 
-	// Convert the returned object.
-	o, err = fromRawObject(b.Name(), rawObject)
-	if err != nil {
+	// Parse the response.
+	var rawObject *storagev1.Object
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = fromRawObject(b.Name(), rawObject); err != nil {
 		return
 	}
 
