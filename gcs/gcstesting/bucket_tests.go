@@ -150,7 +150,8 @@ func interestingNames() (names []string) {
 		"foo \ufffd bar",
 	}
 
-	// All codepoints in Unicode general categories C* and Z* except for:
+	// All codepoints in Unicode general categories C* (control and special) and
+	// Z* (space), except for:
 	//
 	//  *  Cn (non-character and reserved), which is not included in unicode.C.
 	//  *  Co (private usage), which is large.
@@ -158,9 +159,9 @@ func interestingNames() (names []string) {
 	//  *  U+000A and U+000D, which are forbidden by the docs.
 	//
 	for r := rune(0); r <= unicode.MaxRune; r++ {
-		// TODO(jacobsa): Re-enable these runes or move them into the illegal test
-		// once GCS is fixed or the documentation is updated. See Google-internal
-		// bug 19717210.
+		// TODO(jacobsa): Re-enable these runes once GCS is fixed or the
+		// documentation is updated.
+		// See: https://github.com/jacobsa/gcloud/issues/2
 		if r == 0x85 || r == 0x2028 || r == 0x2029 {
 			continue
 		}
