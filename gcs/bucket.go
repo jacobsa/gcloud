@@ -431,7 +431,7 @@ func toRawObject(
 	return
 }
 
-// Create the JSON for an "object resource".
+// Create the JSON for an "object resource", for use in an Objects.insert body.
 func serializeMetadata(
 	bucketName string,
 	attrs *storage.ObjectAttrs) (out []byte, err error) {
