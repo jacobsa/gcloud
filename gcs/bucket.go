@@ -431,9 +431,26 @@ func toRawObject(
 	return
 }
 
+// Create the JSON for an "object resource".
 func serializeMetadata(
 	bucketName string,
-	attrs *storage.ObjectAttrs) (json []byte, err error)
+	attrs *storage.ObjectAttrs) (out []byte, err error) {
+	// Convert to storagev1.Object.
+	rawObject, err := toRawObject(bucketName, attrs)
+	if err != nil {
+		err = fmt.Errorf("toRawObject: %v", err)
+		return
+	}
+
+	// Serialize.
+	out, err = json.Marshal(rawObject)
+	if err != nil {
+		err = fmt.Errorf("json.Marshal: %v", err)
+		return
+	}
+
+	return
+}
 
 func (b *bucket) CreateObject(
 	ctx context.Context,
