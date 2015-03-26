@@ -15,18 +15,14 @@
 package gcs
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
-	"unicode/utf8"
 
-	"github.com/jacobsa/gcloud/gcs/httputil"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
@@ -319,18 +315,6 @@ func (b *bucket) NewReader(
 	return
 }
 
-func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
-	out := make([]*storagev1.ObjectAccessControl, len(in))
-	for i, rule := range in {
-		out[i] = &storagev1.ObjectAccessControl{
-			Entity: string(rule.Entity),
-			Role:   string(rule.Role),
-		}
-	}
-
-	return out
-}
-
 func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule {
 	out := make([]storage.ACLRule, len(in))
 	for i, rule := range in {
@@ -414,163 +398,10 @@ func fromRawObject(
 	return
 }
 
-func toRawObject(
-	bucketName string,
-	in *storage.ObjectAttrs) (out *storagev1.Object, err error) {
-	out = &storagev1.Object{
-		Bucket:          bucketName,
-		Name:            in.Name,
-		ContentType:     in.ContentType,
-		ContentLanguage: in.ContentLanguage,
-		ContentEncoding: in.ContentEncoding,
-		CacheControl:    in.CacheControl,
-		Acl:             toRawAcls(in.ACL),
-		Metadata:        in.Metadata,
-	}
-
-	return
-}
-
-// Create the JSON for an "object resource", for use in an Objects.insert body.
-func serializeMetadata(
-	bucketName string,
-	attrs *storage.ObjectAttrs) (out []byte, err error) {
-	// Convert to storagev1.Object.
-	rawObject, err := toRawObject(bucketName, attrs)
-	if err != nil {
-		err = fmt.Errorf("toRawObject: %v", err)
-		return
-	}
-
-	// Serialize.
-	out, err = json.Marshal(rawObject)
-	if err != nil {
-		err = fmt.Errorf("json.Marshal: %v", err)
-		return
-	}
-
-	return
-}
-
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
-	if !utf8.ValidString(req.Attrs.Name) {
-		err = errors.New("Invalid object name: not valid UTF-8")
-		return
-	}
-
-	// Choose a default content type here.
-	//
-	// The GCS documentation for resumable uploads (http://goo.gl/hw4T7d) implies
-	// that Content-Type is optional. We use the multipart upload service where
-	// it's not clear that the documentation covers the issue at all. As of
-	// 2015-03-26, requests without a content type set and without an
-	// ifGenerationMatch URL parameter work fine. But if you set
-	// ifGenerationMatch, then you get an HTTP 400 with the reason "You must
-	// specify the content type of the destination object".
-	//
-	// Sigh, whatever. Do the defensive thing.
-	contentType := req.Attrs.ContentType
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-
-	// Construct an appropriate URL.
-	//
-	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
-	// is supposed to work. As of 2015-03-26, it simply gives an example:
-	//
-	//     POST https://www.googleapis.com/upload/storage/v1/b/<bucket>/o
-	//
-	// In Google-internal bug 19718068, it was clarified that the intent is that
-	// the bucket name be encoded into a single path segment, as defined by RFC
-	// 3986.
-	bucketSegment := encodePathSegment(b.name)
-	opaque := fmt.Sprintf(
-		"//www.googleapis.com/upload/storage/v1/b/%s/o",
-		bucketSegment)
-
-	url := &url.URL{
-		Scheme:   "https",
-		Opaque:   opaque,
-		RawQuery: "uploadType=multipart&projection=full",
-	}
-
-	if req.GenerationPrecondition != nil {
-		url.RawQuery = fmt.Sprintf(
-			"%s&ifGenerationMatch=%v",
-			url.RawQuery,
-			*req.GenerationPrecondition)
-	}
-
-	// Serialize the object metadata to JSON, for the request body.
-	metadataJson, err := serializeMetadata(b.Name(), &req.Attrs)
-	if err != nil {
-		err = fmt.Errorf("serializeMetadata: %v", err)
-		return
-	}
-
-	// Set up a reader for the multipart body.
-	httpBody := httputil.NewMultipartReader([]httputil.ContentTypedReader{
-		// A GCS "object resource" describing the object to be created, minus
-		// contents.
-		httputil.ContentTypedReader{
-			ContentType: "application/json",
-			Reader:      bytes.NewReader(metadataJson),
-		},
-
-		// The contents of the object.
-		httputil.ContentTypedReader{
-			ContentType: contentType,
-			Reader:      req.Contents,
-		},
-	})
-
-	// Create the HTTP request.
-	httpReq, err := http.NewRequest("POST", url.String(), httpBody)
-	if err != nil {
-		err = fmt.Errorf("http.NewRequest: %v", err)
-		return
-	}
-
-	// Set up HTTP request headers.
-	httpReq.Header.Set("Content-Type", httpBody.ContentType())
-	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
-
-	// Execute the HTTP request.
-	httpRes, err := b.client.Do(httpReq)
-	if err != nil {
-		return
-	}
-
-	defer googleapi.CloseBody(httpRes)
-
-	if err = googleapi.CheckResponse(httpRes); err != nil {
-		// Special case: handle precondition errors.
-		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code == http.StatusPreconditionFailed {
-				err = &PreconditionError{Err: typed}
-			}
-		}
-
-		return
-	}
-
-	// Parse the response.
-	var rawObject *storagev1.Object
-	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
-		return
-	}
-
-	// Convert the response.
-	if o, err = fromRawObject(b.Name(), rawObject); err != nil {
-		return
-	}
-
+	o, err = createObject(b.client, b.Name(), ctx, req)
 	return
 }
 
