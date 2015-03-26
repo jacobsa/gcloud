@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +27,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -526,6 +528,14 @@ func writeContent(
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
+	// We encode using json.NewEncoder, which is documented to silently transform
+	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
+	// to detect this for us.
+	if !utf8.ValidString(req.Attrs.Name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
+	}
+
 	// TODO(jacobsa): Refactor and do this in a streaming fashion.
 	var body bytes.Buffer
 
