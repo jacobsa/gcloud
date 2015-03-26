@@ -16,17 +16,66 @@
 package main
 
 import (
-	"errors"
+	"crypto/rand"
 	"flag"
+	"fmt"
+	"io"
 	"log"
+
+	"github.com/jacobsa/fuse/fsutil"
+	"github.com/jacobsa/gcloud/gcs"
+	"golang.org/x/net/context"
+	"google.golang.org/cloud/storage"
 )
 
 var fBucket = flag.String("bucket", "", "Name of bucket.")
 var fKeyFile = flag.String("key_file", "", "Path to JSON key file.")
-var fSize = flag.Int("size", 1<<26, "Size of content to write.")
+var fSize = flag.Int64("size", 1<<26, "Size of content to write.")
+
+func createBucket() (bucket gcs.Bucket, err error)
 
 func run() (err error) {
-	err = errors.New("TODO")
+	bucket, err := createBucket()
+	if err != nil {
+		err = fmt.Errorf("createBucket: %v", err)
+		return
+	}
+
+	// Create a temporary file to hold random contents.
+	f, err := fsutil.AnonymousFile("")
+	if err != nil {
+		err = fmt.Errorf("AnonymousFile: %v", err)
+		return
+	}
+
+	// Copy a bunch of random data into the file.
+	_, err = io.Copy(f, io.LimitReader(rand.Reader, *fSize))
+	if err != nil {
+		err = fmt.Errorf("Copy: %v", err)
+		return
+	}
+
+	// Seek back to the start for consumption below.
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		err = fmt.Errorf("Seek: %v", err)
+		return
+	}
+
+	// Create an object using the contents of the file.
+	req := &gcs.CreateObjectRequest{
+		Attrs: storage.ObjectAttrs{
+			Name: "foo",
+		},
+		Contents: f,
+	}
+
+	_, err = bucket.CreateObject(context.Background(), req)
+	if err != nil {
+		err = fmt.Errorf("CreateObject: %v", err)
+		return
+	}
+
 	return
 }
 
