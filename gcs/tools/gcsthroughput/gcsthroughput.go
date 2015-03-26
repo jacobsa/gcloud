@@ -114,6 +114,8 @@ func run() (err error) {
 }
 
 func main() {
+	flag.Parse()
+
 	err := run()
 	if err != nil {
 		log.Fatalln(err)
