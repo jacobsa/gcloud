@@ -49,7 +49,6 @@ package httputil
 import (
 	"bytes"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -121,27 +120,5 @@ func makeTrailerReader(boundary string) (r io.Reader) {
 	fmt.Fprintf(&b, "\r\n--%s--\r\n", w.boundary)
 
 	r = &b
-	return
-}
-
-type part struct {
-	mw     *Writer
-	closed bool
-	we     error // last error that occurred writing
-}
-
-func (p *part) close() error {
-	p.closed = true
-	return p.we
-}
-
-func (p *part) Write(d []byte) (n int, err error) {
-	if p.closed {
-		return 0, errors.New("multipart: can't write to finished part")
-	}
-	n, err = p.mw.w.Write(d)
-	if err != nil {
-		p.we = err
-	}
 	return
 }
