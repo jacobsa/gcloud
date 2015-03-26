@@ -539,16 +539,16 @@ func writeContent(
 	return
 }
 
-// Write the HTTP request body to the supplied writer.
+// Write the HTTP request body to the supplied multipart writer, without
+// closing it.
 //
 // TODO(jacobsa): Audit the code cleanliness of this and the other helpers.
 // TODO(jacobsa): Refactor and do this with a multipart reader.
 func writeBody(
-	w io.Writer,
+	mpw *multipart.Writer,
 	bucketName string,
-	req *CreateObjectRequest) (multipartBoundary string, err error) {
-	mpw := multipart.NewWriter(w)
-	multipartBoundary = mpw.Boundary()
+	req *CreateObjectRequest) (err error) {
+	var w io.Writer
 
 	// Write the metadata.
 	w, err = mpw.CreatePart(typeHeader("application/json"))
@@ -576,13 +576,6 @@ func writeBody(
 		return
 	}
 
-	// Finish the multipart request.
-	err = mpw.Close()
-	if err != nil {
-		err = fmt.Errorf("mpw.Close: %v", err)
-		return
-	}
-
 	return
 }
 
@@ -594,17 +587,6 @@ func (b *bucket) CreateObject(
 	// to detect this for us.
 	if !utf8.ValidString(req.Attrs.Name) {
 		err = errors.New("Invalid object name: not valid UTF-8")
-		return
-	}
-
-	// Create the body.
-	//
-	// TODO(jacobsa): Refactor and do this in a streaming fashion.
-	var body bytes.Buffer
-
-	multipartBoundary, err := writeBody(&body, b.Name(), req)
-	if err != nil {
-		err = fmt.Errorf("writeBody: %v", err)
 		return
 	}
 
@@ -635,8 +617,48 @@ func (b *bucket) CreateObject(
 			*req.GenerationPrecondition)
 	}
 
-	// Make the HTTP request.
-	httpReq, err := http.NewRequest("POST", url.String(), &body)
+	// Set up a pipe from which the body can be read.
+	pr, pw := io.Pipe()
+
+	// Set up a multipart writer, to which the background goroutine below writes.
+	// Copy out its boundary now to avoid any race later.
+	mpw := multipart.NewWriter(pw)
+	multipartBoundary := mpw.Boundary()
+
+	// Arrange for the body to be written into the pipe. Close the reader
+	// automatically if we return early, so that the goroutine will be cleaned
+	// up. If the goroutine encounters an error, ensure that the reader will
+	// return an error (so that the HTTP library sees it).
+	defer pr.Close()
+
+	go func() {
+		var err error
+
+		defer func() {
+			if err != nil {
+				pw.CloseWithError(err)
+			} else {
+				pw.Close()
+			}
+		}()
+
+		// Write the body into the multipart writer.
+		err = writeBody(mpw, b.Name(), req)
+		if err != nil {
+			err = fmt.Errorf("writeBody: %v", err)
+			return
+		}
+
+		// Finish the multipart body.
+		err = mpw.Close()
+		if err != nil {
+			err = fmt.Errorf("mpw.Close: %v", err)
+			return
+		}
+	}()
+
+	// Create the HTTP request.
+	httpReq, err := http.NewRequest("POST", url.String(), pr)
 	if err != nil {
 		err = fmt.Errorf("http.NewRequest: %v", err)
 		return
