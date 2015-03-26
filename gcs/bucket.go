@@ -502,7 +502,8 @@ func (b *bucket) CreateObject(
 
 	if req.GenerationPrecondition != nil {
 		url.RawQuery = fmt.Sprintf(
-			"&ifGenerationMatch=%v",
+			"%s&ifGenerationMatch=%v",
+			url.RawQuery,
 			*req.GenerationPrecondition)
 	}
 
