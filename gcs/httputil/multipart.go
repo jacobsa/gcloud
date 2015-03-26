@@ -95,7 +95,7 @@ func randomBoundary() string {
 
 // Create a reader for a single part and the boundary in front of it. first
 // specifies whether this is the first part.
-func makeReader(
+func makePartReader(
 	ctr ContentTypedReader,
 	first bool,
 	boundary string) (r io.Reader) {
@@ -115,17 +115,13 @@ func makeReader(
 	return
 }
 
-// Close finishes the multipart message and writes the trailing
-// boundary end line to the output.
-func (w *Writer) Close() error {
-	if w.lastpart != nil {
-		if err := w.lastpart.close(); err != nil {
-			return err
-		}
-		w.lastpart = nil
-	}
-	_, err := fmt.Fprintf(w.w, "\r\n--%s--\r\n", w.boundary)
-	return err
+// Create a reader for the trailing boundary.
+func makeTrailerReader(boundary string) (r io.Reader) {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "\r\n--%s--\r\n", w.boundary)
+
+	r = &b
+	return
 }
 
 type part struct {
