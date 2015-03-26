@@ -414,6 +414,22 @@ func fromRawObject(
 	return
 }
 
+func toRawObject(
+	bucketName string,
+	in *storage.ObjectAttrs) (out *storagev1.Object, err error) {
+	out = &storagev1.Object{
+		Name:            in.Name,
+		ContentType:     in.ContentType,
+		ContentLanguage: in.ContentLanguage,
+		ContentEncoding: in.ContentEncoding,
+		CacheControl:    in.CacheControl,
+		Acl:             toRawAcls(in.ACL),
+		Metadata:        in.Metadata,
+	}
+
+	return
+}
+
 type contentTypeReader struct {
 	wrapped     io.Reader
 	contentType string
@@ -469,7 +485,26 @@ func typeHeader(contentType string) (h textproto.MIMEHeader) {
 	return
 }
 
-func writeMetadata(w io.Writer, req *CreateObjectRequest) (err error)
+func writeMetadata(
+	w io.Writer,
+	bucketName string,
+	attrs *storage.ObjectAttrs) (err error) {
+	// Convert to something we can serialize to JSON.
+	rawObject, err := toRawObject(bucketName, attrs)
+	if err != nil {
+		err = fmt.Errorf("toRawObject: %v", err)
+		return
+	}
+
+	// Serialize to JSON.
+	err = json.NewEncoder(w).Encode(rawObject)
+	if err != nil {
+		err = fmt.Errorf("Encode: %v", err)
+		return
+	}
+
+	return
+}
 
 func writeContent(w io.Writer, req *CreateObjectRequest) (err error)
 
@@ -490,7 +525,7 @@ func (b *bucket) CreateObject(
 		return
 	}
 
-	err = writeMetadata(w, req)
+	err = writeMetadata(w, b.Name(), &req.Attrs)
 	if err != nil {
 		err = fmt.Errorf("writeMetadata: %v", err)
 		return
