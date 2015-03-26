@@ -138,7 +138,7 @@ func run() (err error) {
 		return
 	}
 
-	log.Printf("Wrote object in %v.", *fSize, time.Since(before))
+	log.Printf("Wrote object in %v.", time.Since(before))
 
 	return
 }
