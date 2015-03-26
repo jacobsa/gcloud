@@ -36,6 +36,7 @@ var fBucket = flag.String("bucket", "", "Name of bucket.")
 var fKeyFile = flag.String("key_file", "", "Path to JSON key file.")
 var fSize = flag.Int64("size", 1<<26, "Size of content to write.")
 var fFile = flag.String("file", "", "If set, use pre-existing contents.")
+var fRepeat = flag.Int("repeat", 1, "Repeat the content this many times.")
 
 func createBucket() (bucket gcs.Bucket, err error) {
 	// Create an authenticated HTTP client.
@@ -108,6 +109,63 @@ func getFile() (f *os.File, err error) {
 	return
 }
 
+type repeatReader struct {
+	f             *os.File
+	N             int
+	firstSeekDone bool
+}
+
+func (r *repeatReader) Read(p []byte) (n int, err error) {
+	// On the very first read, seek the file to the start and cause N to be the
+	// number of iterations left..
+	if !r.firstSeekDone {
+		if _, err = r.f.Seek(0, 0); err != nil {
+			err = fmt.Errorf("Seek: %v", err)
+			return
+		}
+
+		r.firstSeekDone = true
+
+		if r.N <= 0 {
+			err = io.EOF
+			return
+		}
+
+		r.N--
+	}
+
+	// Read some content from the file.
+	n, err = r.f.Read(p)
+
+	// Ignore EOF if n != 0.
+	if n != 0 && err == io.EOF {
+		err = nil
+	}
+
+	// Otherwise, EOF errors cause a loop, if we're not yet done.
+	if err == io.EOF {
+		if r.N <= 0 {
+			return
+		}
+
+		if _, err = r.f.Seek(0, 0); err != nil {
+			err = fmt.Errorf("Seek: %v", err)
+			return
+		}
+
+		r.N--
+		return r.Read(p)
+	}
+
+	// Propagate other errors.
+	if err != nil {
+		return
+	}
+
+	// All is good.
+	return
+}
+
 func run() (err error) {
 	bucket, err := createBucket()
 	if err != nil {
@@ -122,13 +180,19 @@ func run() (err error) {
 		return
 	}
 
-	// Create an object using the contents of the file.
+	// Repeat the specified number of times.
+	reader := &repeatReader{
+		f: f,
+		N: *fRepeat,
+	}
+
+	// Create an object using the repeated contents.
 	log.Println("Creating object.")
 	req := &gcs.CreateObjectRequest{
 		Attrs: storage.ObjectAttrs{
 			Name: "foo",
 		},
-		Contents: f,
+		Contents: reader,
 	}
 
 	before := time.Now()
