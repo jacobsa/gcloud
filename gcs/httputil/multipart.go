@@ -65,15 +65,32 @@ type ContentTypedReader struct {
 // Unlike multipart.Writer from the standard library, this can be used directly
 // as http.Request.Body without bending over backwards to convert an io.Writer
 // to an io.Reader.
-func NewMultipartReader(readers []ContentTypedReader) *MultipartReader
+func NewMultipartReader(ctrs []ContentTypedReader) *MultipartReader {
+	boundary := randomBoundary()
+
+	// Read each part followed by the trailer.
+	var readers []io.Reader
+	for i, ctr := range ctrs {
+		readers = append(readers, makePartReader(ctr, i == 0, boundary))
+	}
+
+	readers = append(readers, makeTrailerReader(boundary))
+
+	return &MultipartReader{
+		boundary: boundary,
+		r:        io.MultiReader(readers...),
+	}
+}
 
 // MultipartReader is an io.Reader that generates HTTP multipart bodies. See
 // NewMultipartReader for details.
 type MultipartReader struct {
+	boundary string
+	r        io.Reader
 }
 
 func (mr *MultipartReader) Read(p []byte) (n int, err error) {
-	err = fmt.Errorf("TODO: MultipartReader.Read")
+	n, err = mr.r.Read(p)
 	return
 }
 
