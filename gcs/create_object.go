@@ -79,19 +79,11 @@ func serializeMetadata(
 	return
 }
 
-func createObject(
+func startResumableUpload(
 	httpClient *http.Client,
 	bucketName string,
 	ctx context.Context,
-	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
-	if !utf8.ValidString(req.Attrs.Name) {
-		err = errors.New("Invalid object name: not valid UTF-8")
-		return
-	}
-
+	req *CreateObjectRequest) (uploadURL string, err error) {
 	// Construct an appropriate URL.
 	//
 	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
@@ -128,7 +120,11 @@ func createObject(
 	}
 
 	// Create the HTTP request.
-	httpReq, err := http.NewRequest("POST", url.String(), bytes.NewReader(metadataJson))
+	httpReq, err := http.NewRequest(
+		"POST",
+		url.String(),
+		bytes.NewReader(metadataJson))
+
 	if err != nil {
 		err = fmt.Errorf("http.NewRequest: %v", err)
 		return
@@ -147,28 +143,58 @@ func createObject(
 
 	defer googleapi.CloseBody(httpRes)
 
+	// Check for HTTP-level errors.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
 		return
 	}
 
 	// Extract the Location header.
-	location := httpRes.Header.Get("Location")
-	if location == "" {
-		err = fmt.Errorf("Expected location.")
+	uploadURL = httpRes.Header.Get("Location")
+	if uploadURL == "" {
+		err = fmt.Errorf("Expected a Location header.")
 		return
 	}
 
-	// Make a follow-up request to the new location.
-	httpReq, err = http.NewRequest("PUT", location, req.Contents)
+	return
+}
+
+func createObject(
+	httpClient *http.Client,
+	bucketName string,
+	ctx context.Context,
+	req *CreateObjectRequest) (o *storage.Object, err error) {
+	// We encode using json.NewEncoder, which is documented to silently transform
+	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
+	// to detect this for us.
+	if !utf8.ValidString(req.Attrs.Name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
+	}
+
+	// Start a resumable upload, obtaining an upload URL.
+	uploadURL, err := startResumableUpload(
+		httpClient,
+		bucketName,
+		ctx,
+		req)
+
+	if err != nil {
+		err = fmt.Errorf("startResumableUpload: %v", err)
+		return
+	}
+
+	// Make a follow-up request to the upload URL.
+	httpReq, err := http.NewRequest("PUT", uploadURL, req.Contents)
 	httpReq.Header.Set("Content-Type", req.Attrs.ContentType)
 
-	httpRes, err = httpClient.Do(httpReq)
+	httpRes, err := httpClient.Do(httpReq)
 	if err != nil {
 		return
 	}
 
 	defer googleapi.CloseBody(httpRes)
 
+	// Check for HTTP-level errors.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
 		// Special case: handle precondition errors.
 		if typed, ok := err.(*googleapi.Error); ok {
