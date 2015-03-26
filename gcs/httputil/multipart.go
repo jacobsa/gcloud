@@ -52,7 +52,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/textproto"
 )
 
 type ContentTypedReader struct {
@@ -94,39 +93,26 @@ func randomBoundary() string {
 	return fmt.Sprintf("%x", buf[:])
 }
 
-// CreatePart creates a new multipart section with the provided
-// header. The body of the part should be written to the returned
-// Writer. After calling CreatePart, any previous part may no longer
-// be written to.
-func (w *Writer) CreatePart(header textproto.MIMEHeader) (io.Writer, error) {
-	if w.lastpart != nil {
-		if err := w.lastpart.close(); err != nil {
-			return nil, err
-		}
-	}
+// Create a reader for a single part and the boundary in front of it. first
+// specifies whether this is the first part.
+func makeReader(
+	ctr ContentTypedReader,
+	first bool,
+	boundary string) (r io.Reader) {
+	// Set up a buffer containing the boundary.
 	var b bytes.Buffer
-	if w.lastpart != nil {
-		fmt.Fprintf(&b, "\r\n--%s\r\n", w.boundary)
+	if first {
+		fmt.Fprintf(&b, "--%s\r\n", boundary)
 	} else {
-		fmt.Fprintf(&b, "--%s\r\n", w.boundary)
+		fmt.Fprintf(&b, "\r\n--%s\r\n", boundary)
 	}
-	// TODO(bradfitz): move this to textproto.MimeHeader.Write(w), have it sort
-	// and clean, like http.Header.Write(w) does.
-	for k, vv := range header {
-		for _, v := range vv {
-			fmt.Fprintf(&b, "%s: %s\r\n", k, v)
-		}
-	}
-	fmt.Fprintf(&b, "\r\n")
-	_, err := io.Copy(w.w, &b)
-	if err != nil {
-		return nil, err
-	}
-	p := &part{
-		mw: w,
-	}
-	w.lastpart = p
-	return p, nil
+
+	fmt.Fprintf(&b, "Content-Type: %s\r\n", ctr.ContentType)
+
+	// Read the boundary followed by the content.
+	r = io.MultiReader(&b, p.Reader)
+
+	return
 }
 
 // Close finishes the multipart message and writes the trailing
