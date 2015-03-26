@@ -483,11 +483,25 @@ func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
 }
 
 func typeHeader(contentType string) (h textproto.MIMEHeader) {
-	h = make(textproto.MIMEHeader)
-
-	if contentType != "" {
-		h.Set("Content-Type", contentType)
+	// Choose a default content type here.
+	//
+	// The GCS documentation for resumable uploads (http://goo.gl/hw4T7d) implies
+	// that Content-Type is optional. We use the multipart upload service where
+	// it's not clear that the documentation covers the issue at all. As of
+	// 2015-03-26, requests without a content type set and without an
+	// ifGenerationMatch URL parameter work fine. But if you set
+	// ifGenerationMatch, then you get an HTTP 400 with the reason "You must
+	// specify the content type of the destination object".
+	//
+	// Sigh, whatever. Do the defensive thing.
+	//
+	// TODO(jacobsa): Move this to the caller.
+	if contentType == "" {
+		contentType = "application/octet-stream"
 	}
+
+	h = make(textproto.MIMEHeader)
+	h.Set("Content-Type", contentType)
 
 	return
 }
@@ -597,6 +611,12 @@ func (b *bucket) CreateObject(
 		RawQuery: "uploadType=multipart&projection=full",
 	}
 
+	if req.GenerationPrecondition != nil {
+		url.RawQuery = fmt.Sprintf(
+			"&ifGenerationMatch=%v",
+			*req.GenerationPrecondition)
+	}
+
 	// Make the HTTP request.
 	httpReq, err := http.NewRequest("POST", url.String(), &body)
 	if err != nil {
@@ -620,6 +640,13 @@ func (b *bucket) CreateObject(
 	defer googleapi.CloseBody(httpRes)
 
 	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle precondition errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusPreconditionFailed {
+				err = &PreconditionError{Err: typed}
+			}
+		}
+
 		return
 	}
 
