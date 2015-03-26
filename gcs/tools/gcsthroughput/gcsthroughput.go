@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"github.com/jacobsa/fuse/fsutil"
 	"github.com/jacobsa/gcloud/gcs"
@@ -104,11 +105,14 @@ func run() (err error) {
 		Contents: f,
 	}
 
+	before := time.Now()
 	_, err = bucket.CreateObject(context.Background(), req)
 	if err != nil {
 		err = fmt.Errorf("CreateObject: %v", err)
 		return
 	}
+
+	log.Printf("Wrote %v bytes in %v.", *fSize, time.Since(before))
 
 	return
 }
