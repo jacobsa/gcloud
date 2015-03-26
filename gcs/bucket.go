@@ -418,6 +418,7 @@ func toRawObject(
 	bucketName string,
 	in *storage.ObjectAttrs) (out *storagev1.Object, err error) {
 	out = &storagev1.Object{
+		Bucket:          bucketName,
 		Name:            in.Name,
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
