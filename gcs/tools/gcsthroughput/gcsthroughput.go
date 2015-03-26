@@ -84,6 +84,7 @@ func run() (err error) {
 	}
 
 	// Copy a bunch of random data into the file.
+	log.Println("Reading random data.")
 	_, err = io.Copy(f, io.LimitReader(rand.Reader, *fSize))
 	if err != nil {
 		err = fmt.Errorf("Copy: %v", err)
@@ -98,6 +99,7 @@ func run() (err error) {
 	}
 
 	// Create an object using the contents of the file.
+	log.Println("Creating object.")
 	req := &gcs.CreateObjectRequest{
 		Attrs: storage.ObjectAttrs{
 			Name: "foo",
