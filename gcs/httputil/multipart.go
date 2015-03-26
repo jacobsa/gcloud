@@ -109,7 +109,7 @@ func makePartReader(
 	fmt.Fprintf(&b, "Content-Type: %s\r\n", ctr.ContentType)
 
 	// Read the boundary followed by the content.
-	r = io.MultiReader(&b, p.Reader)
+	r = io.MultiReader(&b, ctr.Reader)
 
 	return
 }
@@ -117,7 +117,7 @@ func makePartReader(
 // Create a reader for the trailing boundary.
 func makeTrailerReader(boundary string) (r io.Reader) {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "\r\n--%s--\r\n", w.boundary)
+	fmt.Fprintf(&b, "\r\n--%s--\r\n", boundary)
 
 	r = &b
 	return
