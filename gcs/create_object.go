@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"unicode/utf8"
 
+	"github.com/jacobsa/gcloud/gcs/httputil"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
@@ -94,7 +95,7 @@ func startResumableUpload(
 	// In Google-internal bug 19718068, it was clarified that the intent is that
 	// the bucket name be encoded into a single path segment, as defined by RFC
 	// 3986.
-	bucketSegment := encodePathSegment(bucketName)
+	bucketSegment := httputil.EncodePathSegment(bucketName)
 	opaque := fmt.Sprintf(
 		"//www.googleapis.com/upload/storage/v1/b/%s/o",
 		bucketSegment)
