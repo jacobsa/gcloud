@@ -481,7 +481,11 @@ func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
 
 func typeHeader(contentType string) (h textproto.MIMEHeader) {
 	h = make(textproto.MIMEHeader)
-	h.Set("Content-Type", contentType)
+
+	if contentType != "" {
+		h.Set("Content-Type", contentType)
+	}
+
 	return
 }
 
@@ -542,7 +546,7 @@ func (b *bucket) CreateObject(
 	}
 
 	// Write the content.
-	w, err = mpw.CreatePart(typeHeader("application/octet-stream"))
+	w, err = mpw.CreatePart(typeHeader(req.Attrs.ContentType))
 	if err != nil {
 		err = fmt.Errorf("CreatePart: %v", err)
 		return
