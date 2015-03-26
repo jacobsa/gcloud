@@ -124,6 +124,7 @@ func makePartReader(
 	}
 
 	fmt.Fprintf(&b, "Content-Type: %s\r\n", ctr.ContentType)
+	fmt.Fprintf(&b, "\r\n")
 
 	// Read the boundary followed by the content.
 	r = io.MultiReader(&b, ctr.Reader)
