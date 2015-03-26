@@ -554,6 +554,13 @@ func (b *bucket) CreateObject(
 		return
 	}
 
+	// Finish the multipart request.
+	err = mpw.Close()
+	if err != nil {
+		err = fmt.Errorf("mpw.Close: %v", err)
+		return
+	}
+
 	// Construct an appropriate URL.
 	//
 	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
