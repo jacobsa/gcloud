@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"time"
@@ -457,7 +456,7 @@ func (b *bucket) CreateObject(
 	// specify the content type of the destination object".
 	//
 	// Sigh, whatever. Do the defensive thing.
-	contentType := req.ContentType
+	contentType := req.Attrs.ContentType
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -494,68 +493,25 @@ func (b *bucket) CreateObject(
 		// A GCS "object resource" describing the object to be created, minus contents.
 		httputil.ContentTypedReader{
 			ContentType: "application/json",
-			makeMetadataReader(b.Name(), &req.Attrs),
+			Reader:      makeMetadataReader(b.Name(), &req.Attrs),
 		},
 
 		// The contents of the object.
 		httputil.ContentTypedReader{
 			ContentType: contentType,
-			req.Contents,
+			Reader:      req.Contents,
 		},
 	})
 
-	// Set up a pipe from which the body can be read.
-	pr, pw := io.Pipe()
-
-	// Set up a multipart writer, to which the background goroutine below writes.
-	// Copy out its boundary now to avoid any race later.
-	mpw := multipart.NewWriter(pw)
-	multipartBoundary := mpw.Boundary()
-
-	// Arrange for the body to be written into the pipe. Close the reader
-	// automatically if we return early, so that the goroutine will be cleaned
-	// up. If the goroutine encounters an error, ensure that the reader will
-	// return an error (so that the HTTP library sees it).
-	defer pr.Close()
-
-	go func() {
-		var err error
-
-		defer func() {
-			if err != nil {
-				pw.CloseWithError(err)
-			} else {
-				pw.Close()
-			}
-		}()
-
-		// Write the body into the multipart writer.
-		err = writeBody(mpw, b.Name(), req)
-		if err != nil {
-			err = fmt.Errorf("writeBody: %v", err)
-			return
-		}
-
-		// Finish the multipart body.
-		err = mpw.Close()
-		if err != nil {
-			err = fmt.Errorf("mpw.Close: %v", err)
-			return
-		}
-	}()
-
 	// Create the HTTP request.
-	httpReq, err := http.NewRequest("POST", url.String(), pr)
+	httpReq, err := http.NewRequest("POST", url.String(), httpBody)
 	if err != nil {
 		err = fmt.Errorf("http.NewRequest: %v", err)
 		return
 	}
 
 	// Set up HTTP request headers.
-	httpReq.Header.Set(
-		"Content-Type",
-		fmt.Sprintf("multipart/related; boundary=%s", multipartBoundary))
-
+	httpReq.Header.Set("Content-Type", httpBody.ContentType())
 	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
 
 	// Execute the HTTP request.
