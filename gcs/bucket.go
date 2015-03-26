@@ -462,22 +462,6 @@ func (b *bucket) CreateObject(
 		return
 	}
 
-	// Choose a default content type here.
-	//
-	// The GCS documentation for resumable uploads (http://goo.gl/hw4T7d) implies
-	// that Content-Type is optional. We use the multipart upload service where
-	// it's not clear that the documentation covers the issue at all. As of
-	// 2015-03-26, requests without a content type set and without an
-	// ifGenerationMatch URL parameter work fine. But if you set
-	// ifGenerationMatch, then you get an HTTP 400 with the reason "You must
-	// specify the content type of the destination object".
-	//
-	// Sigh, whatever. Do the defensive thing.
-	contentType := req.Attrs.ContentType
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-
 	// Construct an appropriate URL.
 	//
 	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
@@ -523,7 +507,7 @@ func (b *bucket) CreateObject(
 	// Set up HTTP request headers.
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
-	httpReq.Header.Set("X-Upload-Content-Type", contentType)
+	httpReq.Header.Set("X-Upload-Content-Type", req.Attrs.ContentType)
 
 	// Execute the HTTP request.
 	httpRes, err := b.client.Do(httpReq)
@@ -546,7 +530,7 @@ func (b *bucket) CreateObject(
 
 	// Make a follow-up request to the new location.
 	httpReq, err = http.NewRequest("PUT", location, req.Contents)
-	httpReq.Header.Set("Content-Type", contentType)
+	httpReq.Header.Set("Content-Type", req.Attrs.ContentType)
 
 	httpRes, err = b.client.Do(httpReq)
 	if err != nil {
