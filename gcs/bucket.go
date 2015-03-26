@@ -506,7 +506,17 @@ func writeMetadata(
 	return
 }
 
-func writeContent(w io.Writer, req *CreateObjectRequest) (err error)
+func writeContent(
+	w io.Writer,
+	req *CreateObjectRequest) (err error) {
+	_, err = io.Copy(w, req.Contents)
+	if err != nil {
+		err = fmt.Errorf("Copy: %v", err)
+		return
+	}
+
+	return
+}
 
 func (b *bucket) CreateObject(
 	ctx context.Context,
