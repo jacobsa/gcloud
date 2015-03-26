@@ -67,12 +67,22 @@ type ContentTypedReader struct {
 // Unlike multipart.Writer from the standard library, this can be used directly
 // as http.Request.Body without bending over backwards to convert an io.Writer
 // to an io.Reader.
-func NewMultipartReader(readers []ContentTypedReader) io.Reader
+func NewMultipartReader(readers []ContentTypedReader) *MultipartReader
 
-// FormDataContentType returns the Content-Type for an HTTP
-// multipart/form-data with this Writer's Boundary.
-func (w *Writer) FormDataContentType() string {
-	return "multipart/form-data; boundary=" + w.boundary
+// MultipartReader is an io.Reader that generates HTTP multipart bodies. See
+// NewMultipartReader for details.
+type MultipartReader struct {
+}
+
+func (mr *MultipartReader) Read(p []byte) (n int, err error) {
+	err = fmt.Errorf("TODO: MultipartReader.Read")
+	return
+}
+
+// Return the value to use for the Content-Type header in an HTTP request that
+// uses mr as the body.
+func (mr *MultipartReader) ContentType() string {
+	return fmt.Sprintf("multipart/related; boundary=%s", mr.boundary)
 }
 
 func randomBoundary() string {
