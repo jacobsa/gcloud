@@ -26,7 +26,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/jacobsa/gcloud/gcs/httputil"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
@@ -497,7 +496,7 @@ func (b *bucket) CreateObject(
 	url := &url.URL{
 		Scheme:   "https",
 		Opaque:   opaque,
-		RawQuery: "uploadType=multipart&projection=full",
+		RawQuery: "uploadType=resumable&projection=full",
 	}
 
 	if req.GenerationPrecondition != nil {
@@ -514,35 +513,41 @@ func (b *bucket) CreateObject(
 		return
 	}
 
-	// Set up a reader for the multipart body.
-	httpBody := httputil.NewMultipartReader([]httputil.ContentTypedReader{
-		// A GCS "object resource" describing the object to be created, minus
-		// contents.
-		httputil.ContentTypedReader{
-			ContentType: "application/json",
-			Reader:      bytes.NewReader(metadataJson),
-		},
-
-		// The contents of the object.
-		httputil.ContentTypedReader{
-			ContentType: contentType,
-			Reader:      req.Contents,
-		},
-	})
-
 	// Create the HTTP request.
-	httpReq, err := http.NewRequest("POST", url.String(), httpBody)
+	httpReq, err := http.NewRequest("POST", url.String(), bytes.NewReader(metadataJson))
 	if err != nil {
 		err = fmt.Errorf("http.NewRequest: %v", err)
 		return
 	}
 
 	// Set up HTTP request headers.
-	httpReq.Header.Set("Content-Type", httpBody.ContentType())
+	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
 
 	// Execute the HTTP request.
 	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		return
+	}
+
+	// Extract the Location header.
+	location := httpRes.Header.Get("Location")
+	if location == "" {
+		err = fmt.Errorf("Expected location.")
+		return
+	}
+
+	// Make a follow-up request to the new location.
+	httpReq, err = http.NewRequest("PUT", location, req.Contents)
+	httpReq.Header.Set("Content-Type", contentType)
+
+	httpRes, err = b.client.Do(httpReq)
 	if err != nil {
 		return
 	}
