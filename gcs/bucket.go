@@ -15,20 +15,18 @@
 package gcs
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"net/url"
 	"time"
 	"unicode/utf8"
 
+	"github.com/jacobsa/gcloud/gcs/httputil"
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
@@ -433,56 +431,21 @@ func toRawObject(
 	return
 }
 
-type contentTypeReader struct {
-	wrapped     io.Reader
-	contentType string
-}
+func makeMetadataReader(
+	bucketName string,
+	attrs *storage.ObjectAttrs) (r io.Reader)
 
-var _ io.Reader = &contentTypeReader{}
-var _ googleapi.ContentTyper = &contentTypeReader{}
-
-func (r *contentTypeReader) Read(p []byte) (int, error) {
-	return r.wrapped.Read(p)
-}
-
-func (r *contentTypeReader) ContentType() string {
-	return r.contentType
-}
-
-func makeMedia(req *CreateObjectRequest) (r io.Reader, err error) {
-	r = req.Contents
-
-	// Work around a bug in the googleapi package: ConditionallyIncludeMedia
-	// completely ignores I/O errors from the Reader you hand it (cf.
-	// http://goo.gl/hA48zs and Google-internal bug ID 19417010).
-	//
-	// So buffer the entire contents in memory. :-(
-	contents, err := ioutil.ReadAll(r)
-	if err != nil {
+func (b *bucket) CreateObject(
+	ctx context.Context,
+	req *CreateObjectRequest) (o *storage.Object, err error) {
+	// We encode using json.NewEncoder, which is documented to silently transform
+	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
+	// to detect this for us.
+	if !utf8.ValidString(req.Attrs.Name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
 		return
 	}
 
-	r = bytes.NewReader(contents)
-
-	// Work around the following interaction:
-	//
-	// 1. The storage package attempts to sniff the content type from the media,
-	// regardless of whether Object.ContentType has been explicitly set (cf.
-	// http://goo.gl/Dlvq7j).
-	//
-	// 2. The sniffed content type goes into the HTTP headers and the explicit
-	// ContentType field goes into the JSON body.
-	//
-	// 3. GCS apparently ignores the JSON body content type and stores the one
-	// from the HTTP headers (cf. Google-internal bug ID 19416462).
-	if req.Attrs.ContentType != "" {
-		r = &contentTypeReader{r, req.Attrs.ContentType}
-	}
-
-	return
-}
-
-func typeHeader(contentType string) (h textproto.MIMEHeader) {
 	// Choose a default content type here.
 	//
 	// The GCS documentation for resumable uploads (http://goo.gl/hw4T7d) implies
@@ -494,100 +457,9 @@ func typeHeader(contentType string) (h textproto.MIMEHeader) {
 	// specify the content type of the destination object".
 	//
 	// Sigh, whatever. Do the defensive thing.
-	//
-	// TODO(jacobsa): Move this to the caller.
+	contentType := req.ContentType
 	if contentType == "" {
 		contentType = "application/octet-stream"
-	}
-
-	h = make(textproto.MIMEHeader)
-	h.Set("Content-Type", contentType)
-
-	return
-}
-
-func writeMetadata(
-	w io.Writer,
-	bucketName string,
-	attrs *storage.ObjectAttrs) (err error) {
-	// Convert to something we can serialize to JSON.
-	rawObject, err := toRawObject(bucketName, attrs)
-	if err != nil {
-		err = fmt.Errorf("toRawObject: %v", err)
-		return
-	}
-
-	// Serialize to JSON.
-	err = json.NewEncoder(w).Encode(rawObject)
-	if err != nil {
-		err = fmt.Errorf("Encode: %v", err)
-		return
-	}
-
-	return
-}
-
-func writeContent(
-	w io.Writer,
-	req *CreateObjectRequest) (err error) {
-	_, err = io.Copy(w, req.Contents)
-	if err != nil {
-		err = fmt.Errorf("Copy: %v", err)
-		return
-	}
-
-	return
-}
-
-// Write the HTTP request body to the supplied multipart writer, without
-// closing it.
-//
-// TODO(jacobsa): Audit the code cleanliness of this and the other helpers.
-// TODO(jacobsa): Refactor and do this with a multipart reader.
-func writeBody(
-	mpw *multipart.Writer,
-	bucketName string,
-	req *CreateObjectRequest) (err error) {
-	var w io.Writer
-
-	// Write the metadata.
-	w, err = mpw.CreatePart(typeHeader("application/json"))
-	if err != nil {
-		err = fmt.Errorf("CreatePart: %v", err)
-		return
-	}
-
-	err = writeMetadata(w, bucketName, &req.Attrs)
-	if err != nil {
-		err = fmt.Errorf("writeMetadata: %v", err)
-		return
-	}
-
-	// Write the content.
-	w, err = mpw.CreatePart(typeHeader(req.Attrs.ContentType))
-	if err != nil {
-		err = fmt.Errorf("CreatePart: %v", err)
-		return
-	}
-
-	err = writeContent(w, req)
-	if err != nil {
-		err = fmt.Errorf("writeContent: %v", err)
-		return
-	}
-
-	return
-}
-
-func (b *bucket) CreateObject(
-	ctx context.Context,
-	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
-	if !utf8.ValidString(req.Attrs.Name) {
-		err = errors.New("Invalid object name: not valid UTF-8")
-		return
 	}
 
 	// Construct an appropriate URL.
@@ -616,6 +488,21 @@ func (b *bucket) CreateObject(
 			"&ifGenerationMatch=%v",
 			*req.GenerationPrecondition)
 	}
+
+	// Set up a reader for the multipart body.
+	httpBody := httputil.NewMultipartReader([]httputil.ContentTypedReader{
+		// A GCS "object resource" describing the object to be created, minus contents.
+		httputil.ContentTypedReader{
+			ContentType: "application/json",
+			makeMetadataReader(b.Name(), &req.Attrs),
+		},
+
+		// The contents of the object.
+		httputil.ContentTypedReader{
+			ContentType: contentType,
+			req.Contents,
+		},
+	})
 
 	// Set up a pipe from which the body can be read.
 	pr, pw := io.Pipe()
