@@ -15,6 +15,7 @@
 package gcs
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -430,9 +431,9 @@ func toRawObject(
 	return
 }
 
-func makeMetadataReader(
+func serializeMetadata(
 	bucketName string,
-	attrs *storage.ObjectAttrs) (r io.Reader)
+	attrs *storage.ObjectAttrs) (json []byte, err error)
 
 func (b *bucket) CreateObject(
 	ctx context.Context,
@@ -488,12 +489,20 @@ func (b *bucket) CreateObject(
 			*req.GenerationPrecondition)
 	}
 
+	// Serialize the object metadata to JSON, for the request body.
+	metadataJson, err := serializeMetadata(b.Name(), &req.Attrs)
+	if err != nil {
+		err = fmt.Errorf("serializeMetadata: %v", err)
+		return
+	}
+
 	// Set up a reader for the multipart body.
 	httpBody := httputil.NewMultipartReader([]httputil.ContentTypedReader{
-		// A GCS "object resource" describing the object to be created, minus contents.
+		// A GCS "object resource" describing the object to be created, minus
+		// contents.
 		httputil.ContentTypedReader{
 			ContentType: "application/json",
-			Reader:      makeMetadataReader(b.Name(), &req.Attrs),
+			Reader:      bytes.NewReader(metadataJson),
 		},
 
 		// The contents of the object.
@@ -612,7 +621,10 @@ func (b *bucket) UpdateObject(
 	urlParams.Set("projection", "full")
 
 	// Set up the URL with a tempalte that we will later expand.
-	url := googleapi.ResolveRelative(b.rawService.BasePath, "b/{bucket}/o/{object}")
+	url := googleapi.ResolveRelative(
+		b.rawService.BasePath,
+		"b/{bucket}/o/{object}")
+
 	url += "?" + urlParams.Encode()
 
 	// Create an HTTP request using NewRequest, which parses the URL string.
