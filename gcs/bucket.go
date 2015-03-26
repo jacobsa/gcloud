@@ -539,23 +539,16 @@ func writeContent(
 	return
 }
 
-func (b *bucket) CreateObject(
-	ctx context.Context,
-	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
-	if !utf8.ValidString(req.Attrs.Name) {
-		err = errors.New("Invalid object name: not valid UTF-8")
-		return
-	}
-
-	// TODO(jacobsa): Refactor and do this in a streaming fashion.
-	var body bytes.Buffer
-
-	// Create a multipart writer, for writing each part of the request.
-	mpw := multipart.NewWriter(&body)
-	var w io.Writer
+// Write the HTTP request body to the supplied writer.
+//
+// TODO(jacobsa): Audit the code cleanliness of this and the other helpers.
+// TODO(jacobsa): Refactor and do this with a multipart reader.
+func writeBody(
+	w io.Writer,
+	bucketName string,
+	req *CreateObjectRequest) (multipartBoundary string, err error) {
+	mpw := multipart.NewWriter(w)
+	multipartBoundary = mpw.Boundary()
 
 	// Write the metadata.
 	w, err = mpw.CreatePart(typeHeader("application/json"))
@@ -564,7 +557,7 @@ func (b *bucket) CreateObject(
 		return
 	}
 
-	err = writeMetadata(w, b.Name(), &req.Attrs)
+	err = writeMetadata(w, bucketName, &req.Attrs)
 	if err != nil {
 		err = fmt.Errorf("writeMetadata: %v", err)
 		return
@@ -587,6 +580,31 @@ func (b *bucket) CreateObject(
 	err = mpw.Close()
 	if err != nil {
 		err = fmt.Errorf("mpw.Close: %v", err)
+		return
+	}
+
+	return
+}
+
+func (b *bucket) CreateObject(
+	ctx context.Context,
+	req *CreateObjectRequest) (o *storage.Object, err error) {
+	// We encode using json.NewEncoder, which is documented to silently transform
+	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
+	// to detect this for us.
+	if !utf8.ValidString(req.Attrs.Name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
+	}
+
+	// Create the body.
+	//
+	// TODO(jacobsa): Refactor and do this in a streaming fashion.
+	var body bytes.Buffer
+
+	multipartBoundary, err := writeBody(&body, b.Name(), req)
+	if err != nil {
+		err = fmt.Errorf("writeBody: %v", err)
 		return
 	}
 
@@ -627,7 +645,7 @@ func (b *bucket) CreateObject(
 	// Set up HTTP request headers.
 	httpReq.Header.Set(
 		"Content-Type",
-		fmt.Sprintf("multipart/related; boundary=%s", mpw.Boundary()))
+		fmt.Sprintf("multipart/related; boundary=%s", multipartBoundary))
 
 	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
 
