@@ -17,6 +17,7 @@ package main
 
 import (
 	"crypto/rand"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/jacobsa/fuse/fsutil"
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcloud/oauthutil"
 	"golang.org/x/net/context"
 	"google.golang.org/cloud/storage"
 )
@@ -32,7 +34,39 @@ var fBucket = flag.String("bucket", "", "Name of bucket.")
 var fKeyFile = flag.String("key_file", "", "Path to JSON key file.")
 var fSize = flag.Int64("size", 1<<26, "Size of content to write.")
 
-func createBucket() (bucket gcs.Bucket, err error)
+func createBucket() (bucket gcs.Bucket, err error) {
+	// Create an authenticated HTTP client.
+	if *fKeyFile == "" {
+		err = errors.New("You must set --key_file.")
+		return
+	}
+
+	httpClient, err := oauthutil.NewJWTHttpClient(
+		*fKeyFile,
+		[]string{storage.ScopeFullControl})
+
+	if err != nil {
+		err = fmt.Errorf("NewJWTHttpClient: %v", err)
+		return
+	}
+
+	// Use that to create a connection.
+	conn, err := gcs.NewConn("", httpClient)
+	if err != nil {
+		err = fmt.Errorf("NewConn: %v", err)
+		return
+	}
+
+	// Extract the bucket.
+	if *fBucket == "" {
+		err = errors.New("You must set --bucket.")
+		return
+	}
+
+	bucket = conn.GetBucket(*fBucket)
+
+	return
+}
 
 func run() (err error) {
 	bucket, err := createBucket()
