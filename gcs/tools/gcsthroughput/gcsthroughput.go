@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/jacobsa/fuse/fsutil"
@@ -34,6 +35,7 @@ import (
 var fBucket = flag.String("bucket", "", "Name of bucket.")
 var fKeyFile = flag.String("key_file", "", "Path to JSON key file.")
 var fSize = flag.Int64("size", 1<<26, "Size of content to write.")
+var fFile = flag.String("file", "", "If set, use pre-existing contents.")
 
 func createBucket() (bucket gcs.Bucket, err error) {
 	// Create an authenticated HTTP client.
@@ -69,15 +71,20 @@ func createBucket() (bucket gcs.Bucket, err error) {
 	return
 }
 
-func run() (err error) {
-	bucket, err := createBucket()
-	if err != nil {
-		err = fmt.Errorf("createBucket: %v", err)
+func getFile() (f *os.File, err error) {
+	// Is there a pre-set file?
+	if *fFile != "" {
+		f, err = os.OpenFile(*fFile, os.O_RDONLY, 0)
+		if err != nil {
+			err = fmt.Errorf("OpenFile: %v", err)
+			return
+		}
+
 		return
 	}
 
 	// Create a temporary file to hold random contents.
-	f, err := fsutil.AnonymousFile("")
+	f, err = fsutil.AnonymousFile("")
 	if err != nil {
 		err = fmt.Errorf("AnonymousFile: %v", err)
 		return
@@ -91,10 +98,27 @@ func run() (err error) {
 		return
 	}
 
-	// Seek back to the start for consumption below.
+	// Seek back to the start for consumption.
 	_, err = f.Seek(0, 0)
 	if err != nil {
 		err = fmt.Errorf("Seek: %v", err)
+		return
+	}
+
+	return
+}
+
+func run() (err error) {
+	bucket, err := createBucket()
+	if err != nil {
+		err = fmt.Errorf("createBucket: %v", err)
+		return
+	}
+
+	// Get an appropriate file.
+	f, err := getFile()
+	if err != nil {
+		err = fmt.Errorf("getFile: %v", err)
 		return
 	}
 
