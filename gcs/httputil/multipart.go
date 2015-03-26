@@ -24,4 +24,8 @@ type ContentTypedReader struct {
 // Create a reader that streams an HTTP multipart body (see RFC 2388) composed
 // of the contents of each component reader in sequence, each with a
 // Content-Type header as specified.
+//
+// Unlike multipart.Writer from the standard library, this can be used directly
+// as http.Request.Body without bending over backwards to convert an io.Writer
+// to an io.Reader.
 func NewMultipartReader(readers []ContentTypedReader) io.Reader
