@@ -523,6 +523,7 @@ func (b *bucket) CreateObject(
 	// Set up HTTP request headers.
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
+	httpReq.Header.Set("X-Upload-Content-Type", contentType)
 
 	// Execute the HTTP request.
 	httpRes, err := b.client.Do(httpReq)
