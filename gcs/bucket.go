@@ -15,16 +15,13 @@
 package gcs
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
-	"unicode/utf8"
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
@@ -318,18 +315,6 @@ func (b *bucket) NewReader(
 	return
 }
 
-func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
-	out := make([]*storagev1.ObjectAccessControl, len(in))
-	for i, rule := range in {
-		out[i] = &storagev1.ObjectAccessControl{
-			Entity: string(rule.Entity),
-			Role:   string(rule.Role),
-		}
-	}
-
-	return out
-}
-
 func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule {
 	out := make([]storage.ACLRule, len(in))
 	for i, rule := range in {
@@ -413,154 +398,10 @@ func fromRawObject(
 	return
 }
 
-func toRawObject(
-	bucketName string,
-	in *storage.ObjectAttrs) (out *storagev1.Object, err error) {
-	out = &storagev1.Object{
-		Bucket:          bucketName,
-		Name:            in.Name,
-		ContentType:     in.ContentType,
-		ContentLanguage: in.ContentLanguage,
-		ContentEncoding: in.ContentEncoding,
-		CacheControl:    in.CacheControl,
-		Acl:             toRawAcls(in.ACL),
-		Metadata:        in.Metadata,
-	}
-
-	return
-}
-
-// Create the JSON for an "object resource", for use in an Objects.insert body.
-func serializeMetadata(
-	bucketName string,
-	attrs *storage.ObjectAttrs) (out []byte, err error) {
-	// Convert to storagev1.Object.
-	rawObject, err := toRawObject(bucketName, attrs)
-	if err != nil {
-		err = fmt.Errorf("toRawObject: %v", err)
-		return
-	}
-
-	// Serialize.
-	out, err = json.Marshal(rawObject)
-	if err != nil {
-		err = fmt.Errorf("json.Marshal: %v", err)
-		return
-	}
-
-	return
-}
-
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *storage.Object, err error) {
-	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
-	if !utf8.ValidString(req.Attrs.Name) {
-		err = errors.New("Invalid object name: not valid UTF-8")
-		return
-	}
-
-	// Construct an appropriate URL.
-	//
-	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
-	// is supposed to work. As of 2015-03-26, it simply gives an example:
-	//
-	//     POST https://www.googleapis.com/upload/storage/v1/b/<bucket>/o
-	//
-	// In Google-internal bug 19718068, it was clarified that the intent is that
-	// the bucket name be encoded into a single path segment, as defined by RFC
-	// 3986.
-	bucketSegment := encodePathSegment(b.name)
-	opaque := fmt.Sprintf(
-		"//www.googleapis.com/upload/storage/v1/b/%s/o",
-		bucketSegment)
-
-	url := &url.URL{
-		Scheme:   "https",
-		Opaque:   opaque,
-		RawQuery: "uploadType=resumable&projection=full",
-	}
-
-	if req.GenerationPrecondition != nil {
-		url.RawQuery = fmt.Sprintf(
-			"%s&ifGenerationMatch=%v",
-			url.RawQuery,
-			*req.GenerationPrecondition)
-	}
-
-	// Serialize the object metadata to JSON, for the request body.
-	metadataJson, err := serializeMetadata(b.Name(), &req.Attrs)
-	if err != nil {
-		err = fmt.Errorf("serializeMetadata: %v", err)
-		return
-	}
-
-	// Create the HTTP request.
-	httpReq, err := http.NewRequest("POST", url.String(), bytes.NewReader(metadataJson))
-	if err != nil {
-		err = fmt.Errorf("http.NewRequest: %v", err)
-		return
-	}
-
-	// Set up HTTP request headers.
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
-	httpReq.Header.Set("X-Upload-Content-Type", req.Attrs.ContentType)
-
-	// Execute the HTTP request.
-	httpRes, err := b.client.Do(httpReq)
-	if err != nil {
-		return
-	}
-
-	defer googleapi.CloseBody(httpRes)
-
-	if err = googleapi.CheckResponse(httpRes); err != nil {
-		return
-	}
-
-	// Extract the Location header.
-	location := httpRes.Header.Get("Location")
-	if location == "" {
-		err = fmt.Errorf("Expected location.")
-		return
-	}
-
-	// Make a follow-up request to the new location.
-	httpReq, err = http.NewRequest("PUT", location, req.Contents)
-	httpReq.Header.Set("Content-Type", req.Attrs.ContentType)
-
-	httpRes, err = b.client.Do(httpReq)
-	if err != nil {
-		return
-	}
-
-	defer googleapi.CloseBody(httpRes)
-
-	if err = googleapi.CheckResponse(httpRes); err != nil {
-		// Special case: handle precondition errors.
-		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code == http.StatusPreconditionFailed {
-				err = &PreconditionError{Err: typed}
-			}
-		}
-
-		return
-	}
-
-	// Parse the response.
-	var rawObject *storagev1.Object
-	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
-		return
-	}
-
-	// Convert the response.
-	if o, err = fromRawObject(b.Name(), rawObject); err != nil {
-		return
-	}
-
+	o, err = createObject(b.client, b.Name(), ctx, req)
 	return
 }
 
