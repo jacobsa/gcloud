@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	storagev1 "google.golang.org/api/storage/v1"
 	"google.golang.org/cloud/storage"
 )
 
