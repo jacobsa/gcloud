@@ -23,15 +23,12 @@ import (
 func CreateEmptyObjects(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	names []string) ([]*Object, error) {
-	// Set up a list of ObjectInfo structs.
-	infoStructs := make([]*ObjectInfo, len(names))
-	for i, name := range names {
-		infoStructs[i] = &ObjectInfo{
-			Name: name,
-		}
+	names []string) (err error) {
+	m := make(map[string]string)
+	for _, name := range names {
+		m[name] = ""
 	}
 
-	// Defer to CreateObjects.
-	return CreateObjects(ctx, bucket, infoStructs)
+	err = CreateObjects(ctx, bucket, m)
+	return
 }
