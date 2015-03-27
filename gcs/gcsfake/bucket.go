@@ -216,9 +216,9 @@ func (b *bucket) ListObjects(
 
 				// Save the result, but only if it's not a duplicate.
 				resultPrefix := name[:resultPrefixLimit]
-				if len(listing.Prefixes) == 0 ||
-					listing.Prefixes[len(listing.Prefixes)-1] != resultPrefix {
-					listing.Prefixes = append(listing.Prefixes, resultPrefix)
+				if len(listing.CollapsedRuns) == 0 ||
+					listing.CollapsedRuns[len(listing.CollapsedRuns)-1] != resultPrefix {
+					listing.CollapsedRuns = append(listing.CollapsedRuns, resultPrefix)
 				}
 
 				lastResultWasPrefix = true
@@ -231,18 +231,18 @@ func (b *bucket) ListObjects(
 		// Otherwise, return as an object result. Make a copy to avoid handing back
 		// internal state.
 		var oCopy gcs.Object = o.entry
-		listing.Results = append(listing.Results, &oCopy)
+		listing.Objects = append(listing.Objects, &oCopy)
 	}
 
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
 	// results.
 	if indexLimit < prefixLimit {
 		// If the final object we visited was returned as an element in
-		// listing.Prefixes, we want to skip all other objects that would result in
-		// the same so we don't return duplicate elements in listing.Prefixes
-		// accross requests.
+		// listing.CollapsedRuns, we want to skip all other objects that would
+		// result in the same so we don't return duplicate elements in
+		// listing.CollapsedRuns accross requests.
 		if lastResultWasPrefix {
-			lastResultPrefix := listing.Prefixes[len(listing.Prefixes)-1]
+			lastResultPrefix := listing.CollapsedRuns[len(listing.CollapsedRuns)-1]
 			listing.ContinuationToken = prefixSuccessor(lastResultPrefix)
 
 			// Check an assumption: prefixSuccessor cannot result in the empty string
@@ -299,7 +299,7 @@ func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
 	// Check that the object name is legal.
-	name := req.Attrs.Name
+	name := req.Name
 	if len(name) == 0 || len(name) > 1024 {
 		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
 	}
@@ -454,22 +454,21 @@ func (b *bucket) DeleteObject(
 //
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
-	attrs *gcs.ObjectAttrs,
+	req *gcs.CreateObjectRequest,
 	contents string) (o fakeObject) {
 	// Set up basic info.
 	b.prevGeneration++
 	o.entry = gcs.Object{
-		Bucket:          b.Name(),
-		Name:            attrs.Name,
-		ContentType:     attrs.ContentType,
-		ContentLanguage: attrs.ContentLanguage,
-		CacheControl:    attrs.CacheControl,
+		Name:            req.Name,
+		ContentType:     req.ContentType,
+		ContentLanguage: req.ContentLanguage,
+		CacheControl:    req.CacheControl,
 		Owner:           "user-fake",
 		Size:            int64(len(contents)),
-		ContentEncoding: attrs.ContentEncoding,
+		ContentEncoding: req.ContentEncoding,
 		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),
-		MediaLink:       "http://localhost/download/storage/fake/" + attrs.Name,
-		Metadata:        attrs.Metadata,
+		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
+		Metadata:        req.Metadata,
 		Generation:      b.prevGeneration,
 		MetaGeneration:  1,
 		StorageClass:    "STANDARD",
@@ -498,7 +497,7 @@ func (b *bucket) addObjectLocked(
 	req *gcs.CreateObjectRequest,
 	contents string) (entry gcs.Object, err error) {
 	// Find any existing record for this name.
-	existingIndex := b.objects.find(req.Attrs.Name)
+	existingIndex := b.objects.find(req.Name)
 
 	var existingRecord *fakeObject
 	if existingIndex < len(b.objects) {
@@ -538,7 +537,7 @@ func (b *bucket) addObjectLocked(
 	}
 
 	// Create an object record from the given attributes.
-	var o fakeObject = b.mintObject(&req.Attrs, contents)
+	var o fakeObject = b.mintObject(req, contents)
 
 	// Replace an entry in or add an entry to our list of objects.
 	if existingIndex < len(b.objects) {
