@@ -359,11 +359,7 @@ func (t *createTest) Overwrite() {
 func (t *createTest) ObjectAttributes_Default() {
 	// Create an object with default attributes aside from the name.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 
 	// Ensure the time below doesn't match exactly.
@@ -1009,11 +1005,7 @@ func (t *statTest) NonExistentObject() {
 func (t *statTest) StatAfterCreating() {
 	// Create an object.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 	AssertThat(orig.Updated, t.matchesStartTime(createTime))
 
@@ -1038,11 +1030,7 @@ func (t *statTest) StatAfterCreating() {
 
 func (t *statTest) StatAfterOverwriting() {
 	// Create an object.
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 
 	// Ensure the time below doesn't match exactly.
@@ -1050,7 +1038,7 @@ func (t *statTest) StatAfterOverwriting() {
 
 	// Overwrite it.
 	overwriteTime := t.clock.Now()
-	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "burrito")
+	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "burrito")
 	AssertEq(nil, err)
 	AssertThat(o2.Updated, t.matchesStartTime(overwriteTime))
 
@@ -1076,11 +1064,7 @@ func (t *statTest) StatAfterOverwriting() {
 func (t *statTest) StatAfterUpdating() {
 	// Create an object.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 	AssertThat(orig.Updated, t.matchesStartTime(createTime))
 
@@ -1318,12 +1302,7 @@ func (t *updateTest) MixedModificationsToFields() {
 
 func (t *updateTest) AddUserMetadata() {
 	// Create an object with no user metadata.
-	attrs := &storage.ObjectAttrs{
-		Name:     "foo",
-		Metadata: nil,
-	}
-
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 
 	AssertEq(nil, orig.Metadata)
@@ -1422,11 +1401,7 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 func (t *updateTest) DoesntAffectUpdateTime() {
 	// Create an object.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "")
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "")
 	AssertEq(nil, err)
 	AssertThat(o.Updated, t.matchesStartTime(createTime))
 
