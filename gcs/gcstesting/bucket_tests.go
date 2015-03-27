@@ -1830,11 +1830,11 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 		listing, err := t.bucket.ListObjects(t.ctx, req)
 		AssertEq(nil, err)
 
-		for _, o := range res.Objects {
+		for _, o := range listing.Objects {
 			objects = append(objects, o.Name)
 		}
 
-		for _, p := range res.CollapsedRuns {
+		for _, p := range listing.CollapsedRuns {
 			runs = append(runs, p)
 		}
 
@@ -1900,14 +1900,14 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 	var runs []string
 
 	for {
-		res, err := t.bucket.ListObjects(t.ctx, req)
+		listing, err := t.bucket.ListObjects(t.ctx, req)
 		AssertEq(nil, err)
 
-		for _, o := range res.Objects {
+		for _, o := range listing.Objects {
 			objects = append(objects, o.Name)
 		}
 
-		for _, p := range res.CollapsedRuns {
+		for _, p := range listing.CollapsedRuns {
 			runs = append(runs, p)
 		}
 
