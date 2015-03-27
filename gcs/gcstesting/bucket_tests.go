@@ -366,7 +366,6 @@ func (t *createTest) ObjectAttributes_Default() {
 	t.advanceTime()
 
 	// Check the Object struct.
-	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("application/octet-stream", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
@@ -398,7 +397,7 @@ func (t *createTest) ObjectAttributes_Default() {
 func (t *createTest) ObjectAttributes_Explicit() {
 	// Create an object with explicit attributes set.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
+	req := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentLanguage: "fr",
@@ -408,16 +407,17 @@ func (t *createTest) ObjectAttributes_Explicit() {
 			"foo": "bar",
 			"baz": "qux",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	o, err := t.bucket.CreateObject(t.ctx, req)
 	AssertEq(nil, err)
 
 	// Ensure the time below doesn't match exactly.
 	t.advanceTime()
 
 	// Check the Object struct.
-	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("image/png", o.ContentType)
 	ExpectEq("fr", o.ContentLanguage)
@@ -428,7 +428,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(req.Metadata))
 	ExpectLt(0, o.Generation)
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
@@ -1127,12 +1127,13 @@ func (t *updateTest) NonExistentObject() {
 
 func (t *updateTest) RemoveContentType() {
 	// Create an object.
-	attrs := &storage.ObjectAttrs{
+	req := &storage.ObjectAttrs{
 		Name:        "foo",
 		ContentType: "image/png",
+		Contents:    strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, req)
 	AssertEq(nil, err)
 
 	// Attempt to remove the content type field.
@@ -1149,7 +1150,7 @@ func (t *updateTest) RemoveContentType() {
 
 func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
-	attrs := &storage.ObjectAttrs{
+	req := &storage.ObjectAttrs{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1158,9 +1159,11 @@ func (t *updateTest) RemoveAllFields() {
 		Metadata: map[string]string{
 			"foo": "bar",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, req)
 	AssertEq(nil, err)
 
 	// Remove all of the fields that were set, aside from user metadata and
@@ -1185,7 +1188,7 @@ func (t *updateTest) RemoveAllFields() {
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(req.Metadata))
 
 	// Check that a listing agrees.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -1200,7 +1203,7 @@ func (t *updateTest) RemoveAllFields() {
 
 func (t *updateTest) ModifyAllFields() {
 	// Create an object with explicit attributes set.
-	attrs := &storage.ObjectAttrs{
+	createReq := &storage.ObjectAttrs{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1209,9 +1212,11 @@ func (t *updateTest) ModifyAllFields() {
 		Metadata: map[string]string{
 			"foo": "bar",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Modify all of the fields that were set, aside from user metadata.
@@ -1236,7 +1241,7 @@ func (t *updateTest) ModifyAllFields() {
 	ExpectEq("de", o.ContentLanguage)
 	ExpectEq("private", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -1251,7 +1256,7 @@ func (t *updateTest) ModifyAllFields() {
 
 func (t *updateTest) MixedModificationsToFields() {
 	// Create an object with some explicit attributes set.
-	attrs := &storage.ObjectAttrs{
+	createReq := &storage.ObjectAttrs{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1259,9 +1264,11 @@ func (t *updateTest) MixedModificationsToFields() {
 		Metadata: map[string]string{
 			"foo": "bar",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Leave one field unmodified, delete one field, modify an existing field,
@@ -1287,7 +1294,7 @@ func (t *updateTest) MixedModificationsToFields() {
 	ExpectEq("de", o.ContentLanguage)
 	ExpectEq("private", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
@@ -1345,19 +1352,21 @@ func (t *updateTest) AddUserMetadata() {
 
 func (t *updateTest) MixedModificationsToUserMetadata() {
 	// Create an object with some user metadata.
-	attrs := &storage.ObjectAttrs{
+	createReq := &storage.ObjectAttrs{
 		Name: "foo",
 		Metadata: map[string]string{
 			"0": "taco",
 			"2": "enchilada",
 			"3": "queso",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
-	AssertThat(orig.Metadata, DeepEquals(attrs.Metadata))
+	AssertThat(orig.Metadata, DeepEquals(createReq.Metadata))
 
 	// Leave an existing field untouched, add a new field, remove an existing
 	// field, and modify an existing field.
@@ -1498,7 +1507,6 @@ func (t *listTest) NewlyCreatedObject() {
 	// a
 	o = listing.Objects[0]
 	AssertEq("a", o.Name)
-	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq(len("taco"), o.Size)
 }
 
