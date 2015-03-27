@@ -27,24 +27,11 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
-	"google.golang.org/cloud/storage"
 )
-
-func toRawAcls(in []storage.ACLRule) []*storagev1.ObjectAccessControl {
-	out := make([]*storagev1.ObjectAccessControl, len(in))
-	for i, rule := range in {
-		out[i] = &storagev1.ObjectAccessControl{
-			Entity: string(rule.Entity),
-			Role:   string(rule.Role),
-		}
-	}
-
-	return out
-}
 
 func toRawObject(
 	bucketName string,
-	in *storage.ObjectAttrs) (out *storagev1.Object, err error) {
+	in *CreateObjectRequest) (out *storagev1.Object, err error) {
 	out = &storagev1.Object{
 		Bucket:          bucketName,
 		Name:            in.Name,
@@ -52,7 +39,6 @@ func toRawObject(
 		ContentLanguage: in.ContentLanguage,
 		ContentEncoding: in.ContentEncoding,
 		CacheControl:    in.CacheControl,
-		Acl:             toRawAcls(in.ACL),
 		Metadata:        in.Metadata,
 	}
 
@@ -62,9 +48,9 @@ func toRawObject(
 // Create the JSON for an "object resource", for use in an Objects.insert body.
 func serializeMetadata(
 	bucketName string,
-	attrs *storage.ObjectAttrs) (out []byte, err error) {
+	req *CreateObjectRequest) (out []byte, err error) {
 	// Convert to storagev1.Object.
-	rawObject, err := toRawObject(bucketName, attrs)
+	rawObject, err := toRawObject(bucketName, req)
 	if err != nil {
 		err = fmt.Errorf("toRawObject: %v", err)
 		return
@@ -114,7 +100,7 @@ func startResumableUpload(
 	}
 
 	// Serialize the object metadata to JSON, for the request body.
-	metadataJson, err := serializeMetadata(bucketName, &req.Attrs)
+	metadataJson, err := serializeMetadata(bucketName, req)
 	if err != nil {
 		err = fmt.Errorf("serializeMetadata: %v", err)
 		return
@@ -134,7 +120,7 @@ func startResumableUpload(
 	// Set up HTTP request headers.
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
-	httpReq.Header.Set("X-Upload-Content-Type", req.Attrs.ContentType)
+	httpReq.Header.Set("X-Upload-Content-Type", req.ContentType)
 
 	// Execute the HTTP request.
 	httpRes, err := httpClient.Do(httpReq)
@@ -163,11 +149,11 @@ func createObject(
 	httpClient *http.Client,
 	bucketName string,
 	ctx context.Context,
-	req *CreateObjectRequest) (o *storage.Object, err error) {
+	req *CreateObjectRequest) (o *Object, err error) {
 	// We encode using json.NewEncoder, which is documented to silently transform
 	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
 	// to detect this for us.
-	if !utf8.ValidString(req.Attrs.Name) {
+	if !utf8.ValidString(req.Name) {
 		err = errors.New("Invalid object name: not valid UTF-8")
 		return
 	}
@@ -185,7 +171,7 @@ func createObject(
 
 	// Make a follow-up request to the upload URL.
 	httpReq, err := http.NewRequest("PUT", uploadURL, req.Contents)
-	httpReq.Header.Set("Content-Type", req.Attrs.ContentType)
+	httpReq.Header.Set("Content-Type", req.ContentType)
 
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil {
@@ -213,7 +199,7 @@ func createObject(
 	}
 
 	// Convert the response.
-	if o, err = fromRawObject(bucketName, rawObject); err != nil {
+	if o, err = fromRawObject(rawObject); err != nil {
 		return
 	}
 

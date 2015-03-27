@@ -19,18 +19,17 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
-// Create an object with the supplied contents in the given bucket. attrs.Name
-// must be set; all other fields are optional.
+// Create an object with the supplied contents in the given bucket with the
+// given name.
 func CreateObject(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	attrs *storage.ObjectAttrs,
-	contents string) (*storage.Object, error) {
+	name string,
+	contents string) (*gcs.Object, error) {
 	req := &gcs.CreateObjectRequest{
-		Attrs:    *attrs,
+		Name:     name,
 		Contents: strings.NewReader(contents),
 	}
 

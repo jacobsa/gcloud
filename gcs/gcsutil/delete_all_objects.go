@@ -18,7 +18,6 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 // List all object names in the bucket into the supplied channel.
@@ -26,15 +25,19 @@ import (
 func listIntoChannel(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	objectNames chan<- string) error {
-	query := &storage.Query{}
-	for query != nil {
-		objects, err := bucket.ListObjects(ctx, query)
+	objectNames chan<- string) (err error) {
+	req := &gcs.ListObjectsRequest{}
+	for {
+		// Call the bucket.
+		var listing *gcs.Listing
+
+		listing, err = bucket.ListObjects(ctx, req)
 		if err != nil {
-			return err
+			return
 		}
 
-		for _, obj := range objects.Results {
+		// Send the names down the channel.
+		for _, obj := range listing.Objects {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -42,10 +45,15 @@ func listIntoChannel(
 			}
 		}
 
-		query = objects.Next
+		// Are we done?
+		if listing.ContinuationToken == "" {
+			break
+		}
+
+		req.ContinuationToken = listing.ContinuationToken
 	}
 
-	return nil
+	return
 }
 
 // Delete all objects from the supplied bucket. Results are undefined if the

@@ -17,24 +17,18 @@ package gcsutil
 import (
 	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 // Create empty objects with default attributes for all of the supplied names.
 func CreateEmptyObjects(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	names []string) ([]*storage.Object, error) {
-	// Set up a list of ObjectInfo structs.
-	infoStructs := make([]*ObjectInfo, len(names))
-	for i, name := range names {
-		infoStructs[i] = &ObjectInfo{
-			Attrs: storage.ObjectAttrs{
-				Name: name,
-			},
-		}
+	names []string) (err error) {
+	m := make(map[string]string)
+	for _, name := range names {
+		m[name] = ""
 	}
 
-	// Defer to CreateObjects.
-	return CreateObjects(ctx, bucket, infoStructs)
+	err = CreateObjects(ctx, bucket, m)
+	return
 }

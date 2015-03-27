@@ -35,7 +35,6 @@ import (
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -46,11 +45,11 @@ func createEmpty(
 	ctx context.Context,
 	bucket gcs.Bucket,
 	objectNames []string) error {
-	_, err := gcsutil.CreateEmptyObjects(ctx, bucket, objectNames)
+	err := gcsutil.CreateEmptyObjects(ctx, bucket, objectNames)
 	return err
 }
 
-// Convert from [16]byte to the slice type used by storage.Object.
+// Convert from [16]byte to the slice type used by gcs.Object.
 func md5Sum(s string) []byte {
 	array := md5.Sum([]byte(s))
 	return array[:]
@@ -229,7 +228,7 @@ func (t *bucketTest) createObject(name string, contents string) error {
 	_, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: name},
+		name,
 		contents)
 
 	return err
@@ -301,14 +300,14 @@ func (t *createTest) EmptyObject() {
 	AssertEq(nil, t.createObject("foo", ""))
 
 	// Ensure it shows up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	AssertEq(1, len(listing.Objects))
+	o := listing.Objects[0]
 
 	AssertEq("foo", o.Name)
 	ExpectEq(0, o.Size)
@@ -319,14 +318,14 @@ func (t *createTest) NonEmptyObject() {
 	AssertEq(nil, t.createObject("foo", "taco"))
 
 	// Ensure it shows up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	AssertEq(1, len(listing.Objects))
+	o := listing.Objects[0]
 
 	AssertEq("foo", o.Name)
 	ExpectEq(len("taco"), o.Size)
@@ -338,14 +337,14 @@ func (t *createTest) Overwrite() {
 	AssertEq(nil, t.createObject("foo", "burrito"))
 
 	// The second version should show up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	AssertEq(1, len(listing.Objects))
+	o := listing.Objects[0]
 
 	AssertEq("foo", o.Name)
 	ExpectEq(len("burrito"), o.Size)
@@ -359,18 +358,13 @@ func (t *createTest) Overwrite() {
 func (t *createTest) ObjectAttributes_Default() {
 	// Create an object with default attributes aside from the name.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 
 	// Ensure the time below doesn't match exactly.
 	t.advanceTime()
 
 	// Check the Object struct.
-	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("application/octet-stream", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
@@ -389,20 +383,20 @@ func (t *createTest) ObjectAttributes_Default() {
 	ExpectThat(o.Updated, t.matchesStartTime(createTime))
 
 	// Make sure it matches what is in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *createTest) ObjectAttributes_Explicit() {
 	// Create an object with explicit attributes set.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
+	req := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentLanguage: "fr",
@@ -412,16 +406,17 @@ func (t *createTest) ObjectAttributes_Explicit() {
 			"foo": "bar",
 			"baz": "qux",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	o, err := t.bucket.CreateObject(t.ctx, req)
 	AssertEq(nil, err)
 
 	// Ensure the time below doesn't match exactly.
 	t.advanceTime()
 
 	// Check the Object struct.
-	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq("foo", o.Name)
 	ExpectEq("image/png", o.ContentType)
 	ExpectEq("fr", o.ContentLanguage)
@@ -432,7 +427,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(req.Metadata))
 	ExpectLt(0, o.Generation)
 	ExpectEq(1, o.MetaGeneration)
 	ExpectEq("STANDARD", o.StorageClass)
@@ -441,14 +436,14 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectThat(o.Updated, t.matchesStartTime(createTime))
 
 	// Make sure it matches what is in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *createTest) ErrorAfterPartialContents() {
@@ -456,9 +451,7 @@ func (t *createTest) ErrorAfterPartialContents() {
 
 	// Set up a reader that will return some successful data, then an error.
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name: "foo",
 		Contents: iotest.TimeoutReader(
 			iotest.OneByteReader(
 				strings.NewReader(contents))),
@@ -471,13 +464,13 @@ func (t *createTest) ErrorAfterPartialContents() {
 	ExpectThat(err, Error(HasSubstr("timeout")))
 
 	// The object should not show up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	ExpectThat(objects.Results, ElementsAre())
+	ExpectThat(listing.Objects, ElementsAre())
 }
 
 func (t *createTest) InterestingNames() {
@@ -530,14 +523,14 @@ func (t *createTest) InterestingNames() {
 	})
 
 	// Grab a listing and extract the names.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
 	var listingNames []string
-	for _, o := range objects.Results {
+	for _, o := range listing.Objects {
 		listingNames = append(listingNames, o.Name)
 	}
 
@@ -605,12 +598,12 @@ func (t *createTest) IllegalNames() {
 	}
 
 	// No objects should have been created.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-	ExpectThat(objects.Results, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+	ExpectThat(listing.Objects, ElementsAre())
 }
 
 func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
@@ -618,16 +611,14 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	// Request to create another version of the object, with a precondition
 	// saying it shouldn't exist. The request should fail.
 	var gen int64 = 0
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -638,16 +629,16 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	ExpectThat(err, Error(MatchesRegexp("object exists|googleapi.*412")))
 
 	// The old version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	AssertEq("foo", listing.Results[0].Name)
-	ExpectEq(o.Generation, listing.Results[0].Generation)
-	ExpectEq(len("taco"), listing.Results[0].Size)
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(len("taco"), listing.Objects[0].Size)
 
 	// We should see the old contents when we read.
 	contents, err := t.readObject("foo")
@@ -660,9 +651,7 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	// The request should succeed.
 	var gen int64 = 0
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -674,16 +663,16 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	ExpectNe(0, o.Generation)
 
 	// The object should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	AssertEq("foo", listing.Results[0].Name)
-	ExpectEq(o.Generation, listing.Results[0].Generation)
-	ExpectEq(len("burrito"), listing.Results[0].Size)
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(len("burrito"), listing.Objects[0].Size)
 
 	// We should see the new contents when we read.
 	contents, err := t.readObject("foo")
@@ -696,9 +685,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	// should already exist with some generation number. The request should fail.
 	var gen int64 = 17
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -709,12 +696,12 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	ExpectThat(err, Error(MatchesRegexp("object doesn't exist|googleapi.*412")))
 
 	// Nothing should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
-	ExpectEq(0, len(listing.Results))
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+	ExpectEq(0, len(listing.Objects))
 }
 
 func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
@@ -722,16 +709,14 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	// Request to create another version of the object, with a precondition for
 	// the wrong generation. The request should fail.
 	var gen int64 = o.Generation + 1
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -742,16 +727,16 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	ExpectThat(err, Error(MatchesRegexp("generation|googleapi.*412")))
 
 	// The old version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	AssertEq("foo", listing.Results[0].Name)
-	ExpectEq(o.Generation, listing.Results[0].Generation)
-	ExpectEq(len("taco"), listing.Results[0].Size)
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(len("taco"), listing.Objects[0].Size)
 
 	// We should see the old contents when we read.
 	contents, err := t.readObject("foo")
@@ -764,7 +749,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	orig, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	// Request to create another version of the object, with a precondition
@@ -772,9 +757,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	// should succeed.
 	var gen int64 = orig.Generation
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -786,16 +769,16 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	ExpectNe(orig.Generation, o.Generation)
 
 	// The new version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	AssertEq("foo", listing.Results[0].Name)
-	ExpectEq(o.Generation, listing.Results[0].Generation)
-	ExpectEq(len("burrito"), listing.Results[0].Size)
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(len("burrito"), listing.Objects[0].Size)
 
 	// We should see the new contents when we read.
 	contents, err := t.readObject("foo")
@@ -867,7 +850,7 @@ func (t *readTest) ParticularGeneration_NeverExisted() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"")
 
 	AssertEq(nil, err)
@@ -890,7 +873,7 @@ func (t *readTest) ParticularGeneration_HasBeenDeleted() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"")
 
 	AssertEq(nil, err)
@@ -917,7 +900,7 @@ func (t *readTest) ParticularGeneration_Exists() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	AssertEq(nil, err)
@@ -945,7 +928,7 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	AssertEq(nil, err)
@@ -955,7 +938,7 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	o2, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"burrito")
 
 	AssertEq(nil, err)
@@ -1009,11 +992,7 @@ func (t *statTest) NonExistentObject() {
 func (t *statTest) StatAfterCreating() {
 	// Create an object.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 	AssertThat(orig.Updated, t.matchesStartTime(createTime))
 
@@ -1038,11 +1017,7 @@ func (t *statTest) StatAfterCreating() {
 
 func (t *statTest) StatAfterOverwriting() {
 	// Create an object.
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 
 	// Ensure the time below doesn't match exactly.
@@ -1050,7 +1025,7 @@ func (t *statTest) StatAfterOverwriting() {
 
 	// Overwrite it.
 	overwriteTime := t.clock.Now()
-	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "burrito")
+	o2, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "burrito")
 	AssertEq(nil, err)
 	AssertThat(o2.Updated, t.matchesStartTime(overwriteTime))
 
@@ -1076,11 +1051,7 @@ func (t *statTest) StatAfterOverwriting() {
 func (t *statTest) StatAfterUpdating() {
 	// Create an object.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 	AssertThat(orig.Updated, t.matchesStartTime(createTime))
 
@@ -1143,12 +1114,13 @@ func (t *updateTest) NonExistentObject() {
 
 func (t *updateTest) RemoveContentType() {
 	// Create an object.
-	attrs := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name:        "foo",
 		ContentType: "image/png",
+		Contents:    strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Attempt to remove the content type field.
@@ -1165,7 +1137,7 @@ func (t *updateTest) RemoveContentType() {
 
 func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
-	attrs := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1174,9 +1146,11 @@ func (t *updateTest) RemoveAllFields() {
 		Metadata: map[string]string{
 			"foo": "bar",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Remove all of the fields that were set, aside from user metadata and
@@ -1201,22 +1175,22 @@ func (t *updateTest) RemoveAllFields() {
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *updateTest) ModifyAllFields() {
 	// Create an object with explicit attributes set.
-	attrs := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1225,9 +1199,11 @@ func (t *updateTest) ModifyAllFields() {
 		Metadata: map[string]string{
 			"foo": "bar",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Modify all of the fields that were set, aside from user metadata.
@@ -1252,22 +1228,22 @@ func (t *updateTest) ModifyAllFields() {
 	ExpectEq("de", o.ContentLanguage)
 	ExpectEq("private", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *updateTest) MixedModificationsToFields() {
 	// Create an object with some explicit attributes set.
-	attrs := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1275,9 +1251,11 @@ func (t *updateTest) MixedModificationsToFields() {
 		Metadata: map[string]string{
 			"foo": "bar",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Leave one field unmodified, delete one field, modify an existing field,
@@ -1303,27 +1281,22 @@ func (t *updateTest) MixedModificationsToFields() {
 	ExpectEq("de", o.ContentLanguage)
 	ExpectEq("private", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(attrs.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *updateTest) AddUserMetadata() {
 	// Create an object with no user metadata.
-	attrs := &storage.ObjectAttrs{
-		Name:     "foo",
-		Metadata: nil,
-	}
-
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "taco")
 	AssertEq(nil, err)
 
 	AssertEq(nil, orig.Metadata)
@@ -1354,31 +1327,33 @@ func (t *updateTest) AddUserMetadata() {
 			}))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *updateTest) MixedModificationsToUserMetadata() {
 	// Create an object with some user metadata.
-	attrs := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name: "foo",
 		Metadata: map[string]string{
 			"0": "taco",
 			"2": "enchilada",
 			"3": "queso",
 		},
+
+		Contents: strings.NewReader("taco"),
 	}
 
-	orig, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "taco")
+	orig, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
-	AssertThat(orig.Metadata, DeepEquals(attrs.Metadata))
+	AssertThat(orig.Metadata, DeepEquals(createReq.Metadata))
 
 	// Leave an existing field untouched, add a new field, remove an existing
 	// field, and modify an existing field.
@@ -1409,24 +1384,20 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 			}))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	AssertEq(1, len(listing.Results))
-	ExpectThat(listing.Results[0], DeepEquals(o))
+	AssertEq(1, len(listing.Objects))
+	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
 func (t *updateTest) DoesntAffectUpdateTime() {
 	// Create an object.
 	createTime := t.clock.Now()
-	attrs := &storage.ObjectAttrs{
-		Name: "foo",
-	}
-
-	o, err := gcsutil.CreateObject(t.ctx, t.bucket, attrs, "")
+	o, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", "")
 	AssertEq(nil, err)
 	AssertThat(o.Updated, t.matchesStartTime(createTime))
 
@@ -1470,13 +1441,13 @@ func (t *deleteTest) Successful() {
 	AssertEq(nil, t.bucket.DeleteObject(t.ctx, "a"))
 
 	// It shouldn't show up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-	ExpectThat(objects.Results, ElementsAre())
+	AssertNe(nil, listing)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+	ExpectThat(listing.Objects, ElementsAre())
 
 	// It shouldn't be readable.
 	req := &gcs.ReadObjectRequest{
@@ -1496,13 +1467,13 @@ type listTest struct {
 }
 
 func (t *listTest) EmptyBucket() {
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	ExpectThat(objects.Results, ElementsAre())
-	ExpectThat(objects.Prefixes, ElementsAre())
-	ExpectEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	ExpectThat(listing.Objects, ElementsAre())
+	ExpectThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 }
 
 func (t *listTest) NewlyCreatedObject() {
@@ -1510,20 +1481,19 @@ func (t *listTest) NewlyCreatedObject() {
 	AssertEq(nil, t.createObject("a", "taco"))
 
 	// List all objects in the bucket.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	var o *storage.Object
-	AssertEq(1, len(objects.Results))
+	var o *gcs.Object
+	AssertEq(1, len(listing.Objects))
 
 	// a
-	o = objects.Results[0]
+	o = listing.Objects[0]
 	AssertEq("a", o.Name)
-	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq(len("taco"), o.Size)
 }
 
@@ -1534,28 +1504,28 @@ func (t *listTest) TrivialQuery() {
 	AssertEq(nil, t.createObject("c", "enchilada"))
 
 	// List all objects in the bucket.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
 
-	var o *storage.Object
-	AssertEq(3, len(objects.Results))
+	var o *gcs.Object
+	AssertEq(3, len(listing.Objects))
 
 	// a
-	o = objects.Results[0]
+	o = listing.Objects[0]
 	AssertEq("a", o.Name)
 	ExpectEq(len("taco"), o.Size)
 
 	// b
-	o = objects.Results[1]
+	o = listing.Objects[1]
 	AssertEq("b", o.Name)
 	ExpectEq(len("burrito"), o.Size)
 
 	// c
-	o = objects.Results[2]
+	o = listing.Objects[2]
 	AssertEq("c", o.Name)
 	ExpectEq(len("enchilada"), o.Size)
 }
@@ -1581,24 +1551,24 @@ func (t *listTest) Delimiter_SingleRune() {
 			}))
 
 	// List with the delimiter "!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Delimiter: "!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq("", listing.ContinuationToken)
 
-	// Prefixes
-	ExpectThat(objects.Prefixes, ElementsAre("!", "b!", "c!", "d!"))
+	// Collapsed runs
+	ExpectThat(listing.CollapsedRuns, ElementsAre("!", "b!", "c!", "d!"))
 
 	// Objects
-	AssertEq(3, len(objects.Results))
+	AssertEq(3, len(listing.Objects))
 
-	ExpectEq("a", objects.Results[0].Name)
-	ExpectEq("b", objects.Results[1].Name)
-	ExpectEq("e", objects.Results[2].Name)
+	ExpectEq("a", listing.Objects[0].Name)
+	ExpectEq("b", listing.Objects[1].Name)
+	ExpectEq("e", listing.Objects[2].Name)
 }
 
 func (t *listTest) Delimiter_MultiRune() {
@@ -1631,27 +1601,27 @@ func (t *listTest) Delimiter_MultiRune() {
 			}))
 
 	// List with the delimiter "!!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Delimiter: "!!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq("", listing.ContinuationToken)
 
-	// Prefixes
-	ExpectThat(objects.Prefixes, ElementsAre("!!", "b!!", "c!!", "d!!"))
+	// Collapsed runs
+	ExpectThat(listing.CollapsedRuns, ElementsAre("!!", "b!!", "c!!", "d!!"))
 
 	// Objects
-	AssertEq(6, len(objects.Results))
+	AssertEq(6, len(listing.Objects))
 
-	ExpectEq("!", objects.Results[0].Name)
-	ExpectEq("a", objects.Results[1].Name)
-	ExpectEq("b", objects.Results[2].Name)
-	ExpectEq("b!", objects.Results[3].Name)
-	ExpectEq("b!foo", objects.Results[4].Name)
-	ExpectEq("e", objects.Results[5].Name)
+	ExpectEq("!", listing.Objects[0].Name)
+	ExpectEq("a", listing.Objects[1].Name)
+	ExpectEq("b", listing.Objects[2].Name)
+	ExpectEq("b!", listing.Objects[3].Name)
+	ExpectEq("b!foo", listing.Objects[4].Name)
+	ExpectEq("e", listing.Objects[5].Name)
 }
 
 func (t *listTest) Prefix() {
@@ -1672,23 +1642,23 @@ func (t *listTest) Prefix() {
 			}))
 
 	// List with the prefix "b".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Prefix: "b",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
-	AssertThat(objects.Prefixes, ElementsAre())
+	AssertNe(nil, listing)
+	AssertEq("", listing.ContinuationToken)
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 
 	// Objects
-	AssertEq(4, len(objects.Results))
+	AssertEq(4, len(listing.Objects))
 
-	ExpectEq("b", objects.Results[0].Name)
-	ExpectEq("b\x00", objects.Results[1].Name)
-	ExpectEq("b\x01", objects.Results[2].Name)
-	ExpectEq("b타코", objects.Results[3].Name)
+	ExpectEq("b", listing.Objects[0].Name)
+	ExpectEq("b\x00", listing.Objects[1].Name)
+	ExpectEq("b\x01", listing.Objects[2].Name)
+	ExpectEq("b타코", listing.Objects[3].Name)
 }
 
 func (t *listTest) PrefixAndDelimiter_SingleRune() {
@@ -1723,19 +1693,19 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 			}))
 
 	// List with the prefix "blah!b" and the delimiter "!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Prefix:    "blah!b",
 		Delimiter: "!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq("", listing.ContinuationToken)
 
-	// Prefixes
+	// Collapsed runs
 	ExpectThat(
-		objects.Prefixes,
+		listing.CollapsedRuns,
 		ElementsAre(
 			"blah!b\x00!",
 			"blah!b\x01!",
@@ -1744,12 +1714,12 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 		))
 
 	// Objects
-	AssertEq(4, len(objects.Results))
+	AssertEq(4, len(listing.Objects))
 
-	ExpectEq("blah!b", objects.Results[0].Name)
-	ExpectEq("blah!b\x00", objects.Results[1].Name)
-	ExpectEq("blah!b\x01", objects.Results[2].Name)
-	ExpectEq("blah!b타코", objects.Results[3].Name)
+	ExpectEq("blah!b", listing.Objects[0].Name)
+	ExpectEq("blah!b\x00", listing.Objects[1].Name)
+	ExpectEq("blah!b\x01", listing.Objects[2].Name)
+	ExpectEq("blah!b타코", listing.Objects[3].Name)
 }
 
 func (t *listTest) PrefixAndDelimiter_MultiRune() {
@@ -1788,19 +1758,19 @@ func (t *listTest) PrefixAndDelimiter_MultiRune() {
 			}))
 
 	// List with the prefix "blah!b" and the delimiter "!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Prefix:    "blah!!b",
 		Delimiter: "!!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq("", listing.ContinuationToken)
 
-	// Prefixes
+	// Collapsed runs
 	ExpectThat(
-		objects.Prefixes,
+		listing.CollapsedRuns,
 		ElementsAre(
 			"blah!!b\x00!!",
 			"blah!!b\x01!!",
@@ -1809,16 +1779,16 @@ func (t *listTest) PrefixAndDelimiter_MultiRune() {
 		))
 
 	// Objects
-	AssertEq(8, len(objects.Results))
+	AssertEq(8, len(listing.Objects))
 
-	ExpectEq("blah!!b", objects.Results[0].Name)
-	ExpectEq("blah!!b\x00", objects.Results[1].Name)
-	ExpectEq("blah!!b\x00!", objects.Results[2].Name)
-	ExpectEq("blah!!b\x01", objects.Results[3].Name)
-	ExpectEq("blah!!b\x01!", objects.Results[4].Name)
-	ExpectEq("blah!!b!", objects.Results[5].Name)
-	ExpectEq("blah!!b타코", objects.Results[6].Name)
-	ExpectEq("blah!!b타코!", objects.Results[7].Name)
+	ExpectEq("blah!!b", listing.Objects[0].Name)
+	ExpectEq("blah!!b\x00", listing.Objects[1].Name)
+	ExpectEq("blah!!b\x00!", listing.Objects[2].Name)
+	ExpectEq("blah!!b\x01", listing.Objects[3].Name)
+	ExpectEq("blah!!b\x01!", listing.Objects[4].Name)
+	ExpectEq("blah!!b!", listing.Objects[5].Name)
+	ExpectEq("blah!!b타코", listing.Objects[6].Name)
+	ExpectEq("blah!!b타코!", listing.Objects[7].Name)
 }
 
 func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
@@ -1847,28 +1817,32 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 			}))
 
 	// List repeatedly with a small value for MaxResults. Keep track of all of
-	// the objects and prefixes we find.
-	query := &storage.Query{
+	// the objects and runs we find.
+	req := &gcs.ListObjectsRequest{
 		Delimiter:  "!",
 		MaxResults: 2,
 	}
 
 	var objects []string
-	var prefixes []string
+	var runs []string
 
-	for query != nil {
-		res, err := t.bucket.ListObjects(t.ctx, query)
+	for {
+		listing, err := t.bucket.ListObjects(t.ctx, req)
 		AssertEq(nil, err)
 
-		for _, o := range res.Results {
+		for _, o := range listing.Objects {
 			objects = append(objects, o.Name)
 		}
 
-		for _, p := range res.Prefixes {
-			prefixes = append(prefixes, p)
+		for _, p := range listing.CollapsedRuns {
+			runs = append(runs, p)
 		}
 
-		query = res.Next
+		if listing.ContinuationToken == "" {
+			break
+		}
+
+		req.ContinuationToken = listing.ContinuationToken
 	}
 
 	// Check the results.
@@ -1883,7 +1857,7 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 		))
 
 	ExpectThat(
-		prefixes,
+		runs,
 		ElementsAre(
 			"c!",
 			"d!",
@@ -1916,28 +1890,32 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 			}))
 
 	// List repeatedly with a small value for MaxResults. Keep track of all of
-	// the objects and prefixes we find.
-	query := &storage.Query{
+	// the objects and runs we find.
+	req := &gcs.ListObjectsRequest{
 		Delimiter:  "!",
 		MaxResults: 2,
 	}
 
 	var objects []string
-	var prefixes []string
+	var runs []string
 
-	for query != nil {
-		res, err := t.bucket.ListObjects(t.ctx, query)
+	for {
+		listing, err := t.bucket.ListObjects(t.ctx, req)
 		AssertEq(nil, err)
 
-		for _, o := range res.Results {
+		for _, o := range listing.Objects {
 			objects = append(objects, o.Name)
 		}
 
-		for _, p := range res.Prefixes {
-			prefixes = append(prefixes, p)
+		for _, p := range listing.CollapsedRuns {
+			runs = append(runs, p)
 		}
 
-		query = res.Next
+		if listing.ContinuationToken == "" {
+			break
+		}
+
+		req.ContinuationToken = listing.ContinuationToken
 	}
 
 	// Check the results.
@@ -1950,7 +1928,7 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 		))
 
 	ExpectThat(
-		prefixes,
+		runs,
 		ElementsAre(
 			"c!",
 			"d!",

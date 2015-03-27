@@ -18,52 +18,45 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
-type ObjectInfo struct {
-	Attrs    storage.ObjectAttrs
-	Contents string
-}
-
-// Create multiple objects with some parallelism, returning corresponding
-// storage.Object records for the objects created.
+// Create multiple objects with some parallelism, with contents according to
+// the supplied map from name to contents.
 func CreateObjects(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	input []*ObjectInfo) (objects []*storage.Object, err error) {
+	input map[string]string) (err error) {
 	bundle := syncutil.NewBundle(ctx)
-
-	// Size the output slice.
-	objects = make([]*storage.Object, len(input))
 
 	// Feed ObjectInfo records into a channel.
 	type record struct {
-		index      int
-		objectInfo *ObjectInfo
+		name     string
+		contents string
 	}
 
 	recordChan := make(chan record, len(input))
-	for i, o := range input {
-		recordChan <- record{i, o}
+	for name, contents := range input {
+		recordChan <- record{name, contents}
 	}
 
 	close(recordChan)
 
-	// Create the objects in parallel, writing to the output slice as we go.
+	// Create the objects in parallel.
 	const parallelism = 64
 	for i := 0; i < 10; i++ {
-		bundle.Add(func(ctx context.Context) error {
+		bundle.Add(func(ctx context.Context) (err error) {
 			for r := range recordChan {
-				o, err := CreateObject(ctx, bucket, &r.objectInfo.Attrs, r.objectInfo.Contents)
-				if err != nil {
-					return err
-				}
+				_, err = CreateObject(
+					ctx, bucket,
+					r.name,
+					r.contents)
 
-				objects[r.index] = o
+				if err != nil {
+					return
+				}
 			}
 
-			return nil
+			return
 		})
 	}
 

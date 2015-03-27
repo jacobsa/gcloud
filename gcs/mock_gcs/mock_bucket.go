@@ -11,7 +11,6 @@ import (
 	gcs "github.com/jacobsa/gcloud/gcs"
 	oglemock "github.com/jacobsa/oglemock"
 	context "golang.org/x/net/context"
-	storage "google.golang.org/cloud/storage"
 	io "io"
 	runtime "runtime"
 	unsafe "unsafe"
@@ -44,7 +43,7 @@ func (m *mockBucket) Oglemock_Description() string {
 	return m.description
 }
 
-func (m *mockBucket) CreateObject(p0 context.Context, p1 *gcs.CreateObjectRequest) (o0 *storage.Object, o1 error) {
+func (m *mockBucket) CreateObject(p0 context.Context, p1 *gcs.CreateObjectRequest) (o0 *gcs.Object, o1 error) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
 
@@ -60,9 +59,9 @@ func (m *mockBucket) CreateObject(p0 context.Context, p1 *gcs.CreateObjectReques
 		panic(fmt.Sprintf("mockBucket.CreateObject: invalid return values: %v", retVals))
 	}
 
-	// o0 *storage.Object
+	// o0 *gcs.Object
 	if retVals[0] != nil {
-		o0 = retVals[0].(*storage.Object)
+		o0 = retVals[0].(*gcs.Object)
 	}
 
 	// o1 error
@@ -97,7 +96,7 @@ func (m *mockBucket) DeleteObject(p0 context.Context, p1 string) (o0 error) {
 	return
 }
 
-func (m *mockBucket) ListObjects(p0 context.Context, p1 *storage.Query) (o0 *storage.Objects, o1 error) {
+func (m *mockBucket) ListObjects(p0 context.Context, p1 *gcs.ListObjectsRequest) (o0 *gcs.Listing, o1 error) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
 
@@ -113,9 +112,9 @@ func (m *mockBucket) ListObjects(p0 context.Context, p1 *storage.Query) (o0 *sto
 		panic(fmt.Sprintf("mockBucket.ListObjects: invalid return values: %v", retVals))
 	}
 
-	// o0 *storage.Objects
+	// o0 *gcs.Listing
 	if retVals[0] != nil {
-		o0 = retVals[0].(*storage.Objects)
+		o0 = retVals[0].(*gcs.Listing)
 	}
 
 	// o1 error
@@ -179,7 +178,7 @@ func (m *mockBucket) NewReader(p0 context.Context, p1 *gcs.ReadObjectRequest) (o
 	return
 }
 
-func (m *mockBucket) StatObject(p0 context.Context, p1 *gcs.StatObjectRequest) (o0 *storage.Object, o1 error) {
+func (m *mockBucket) StatObject(p0 context.Context, p1 *gcs.StatObjectRequest) (o0 *gcs.Object, o1 error) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
 
@@ -195,9 +194,9 @@ func (m *mockBucket) StatObject(p0 context.Context, p1 *gcs.StatObjectRequest) (
 		panic(fmt.Sprintf("mockBucket.StatObject: invalid return values: %v", retVals))
 	}
 
-	// o0 *storage.Object
+	// o0 *gcs.Object
 	if retVals[0] != nil {
-		o0 = retVals[0].(*storage.Object)
+		o0 = retVals[0].(*gcs.Object)
 	}
 
 	// o1 error
@@ -208,7 +207,7 @@ func (m *mockBucket) StatObject(p0 context.Context, p1 *gcs.StatObjectRequest) (
 	return
 }
 
-func (m *mockBucket) UpdateObject(p0 context.Context, p1 *gcs.UpdateObjectRequest) (o0 *storage.Object, o1 error) {
+func (m *mockBucket) UpdateObject(p0 context.Context, p1 *gcs.UpdateObjectRequest) (o0 *gcs.Object, o1 error) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
 
@@ -224,9 +223,9 @@ func (m *mockBucket) UpdateObject(p0 context.Context, p1 *gcs.UpdateObjectReques
 		panic(fmt.Sprintf("mockBucket.UpdateObject: invalid return values: %v", retVals))
 	}
 
-	// o0 *storage.Object
+	// o0 *gcs.Object
 	if retVals[0] != nil {
-		o0 = retVals[0].(*storage.Object)
+		o0 = retVals[0].(*gcs.Object)
 	}
 
 	// o1 error

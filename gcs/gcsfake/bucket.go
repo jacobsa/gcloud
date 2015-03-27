@@ -30,7 +30,6 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 var crc32Table = crc32.MakeTable(crc32.Castagnoli)
@@ -44,8 +43,8 @@ func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 }
 
 type fakeObject struct {
-	// A storage.Object representing a GCS entry for this object.
-	entry storage.Object
+	// An Object representing a GCS entry for this object.
+	entry gcs.Object
 
 	// The contents of the object. These never change.
 	contents string
@@ -170,33 +169,28 @@ func (b *bucket) Name() string {
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) ListObjects(
 	ctx context.Context,
-	query *storage.Query) (listing *storage.Objects, err error) {
+	req *gcs.ListObjectsRequest) (listing *gcs.Listing, err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	// Set up the result object.
-	listing = new(storage.Objects)
-
-	// Handle nil queries.
-	if query == nil {
-		query = &storage.Query{}
-	}
+	listing = new(gcs.Listing)
 
 	// Handle defaults.
-	maxResults := query.MaxResults
+	maxResults := req.MaxResults
 	if maxResults == 0 {
 		maxResults = 1000
 	}
 
 	// Find where in the space of object names to start.
-	nameStart := query.Prefix
-	if query.Cursor != "" && query.Cursor > nameStart {
-		nameStart = query.Cursor
+	nameStart := req.Prefix
+	if req.ContinuationToken != "" && req.ContinuationToken > nameStart {
+		nameStart = req.ContinuationToken
 	}
 
 	// Find the range of indexes within the array to scan.
 	indexStart := b.objects.lowerBound(nameStart)
-	prefixLimit := b.objects.prefixUpperBound(query.Prefix)
+	prefixLimit := b.objects.prefixUpperBound(req.Prefix)
 	indexLimit := minInt(indexStart+maxResults, prefixLimit)
 
 	// Scan the array.
@@ -206,25 +200,25 @@ func (b *bucket) ListObjects(
 		name := o.entry.Name
 
 		// Search for a delimiter if necessary.
-		if query.Delimiter != "" {
+		if req.Delimiter != "" {
 			// Search only in the part after the prefix.
-			nameMinusQueryPrefix := name[len(query.Prefix):]
+			nameMinusQueryPrefix := name[len(req.Prefix):]
 
-			delimiterIndex := strings.Index(nameMinusQueryPrefix, query.Delimiter)
+			delimiterIndex := strings.Index(nameMinusQueryPrefix, req.Delimiter)
 			if delimiterIndex >= 0 {
 				resultPrefixLimit := delimiterIndex
 
 				// Transform to an index within name.
-				resultPrefixLimit += len(query.Prefix)
+				resultPrefixLimit += len(req.Prefix)
 
 				// Include the delimiter in the result.
-				resultPrefixLimit += len(query.Delimiter)
+				resultPrefixLimit += len(req.Delimiter)
 
 				// Save the result, but only if it's not a duplicate.
 				resultPrefix := name[:resultPrefixLimit]
-				if len(listing.Prefixes) == 0 ||
-					listing.Prefixes[len(listing.Prefixes)-1] != resultPrefix {
-					listing.Prefixes = append(listing.Prefixes, resultPrefix)
+				if len(listing.CollapsedRuns) == 0 ||
+					listing.CollapsedRuns[len(listing.CollapsedRuns)-1] != resultPrefix {
+					listing.CollapsedRuns = append(listing.CollapsedRuns, resultPrefix)
 				}
 
 				lastResultWasPrefix = true
@@ -236,35 +230,32 @@ func (b *bucket) ListObjects(
 
 		// Otherwise, return as an object result. Make a copy to avoid handing back
 		// internal state.
-		var oCopy storage.Object = o.entry
-		listing.Results = append(listing.Results, &oCopy)
+		var oCopy gcs.Object = o.entry
+		listing.Objects = append(listing.Objects, &oCopy)
 	}
 
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
 	// results.
 	if indexLimit < prefixLimit {
-		listing.Next = &storage.Query{}
-		*listing.Next = *query
-
-		// Ion is if the final object we visited was returned as an element in
-		// listing.Prefixes, we want to skip all other objects that would result in
-		// the same so we don't return duplicate elements in listing.Prefixes
-		// accross requests.
+		// If the final object we visited was returned as an element in
+		// listing.CollapsedRuns, we want to skip all other objects that would
+		// result in the same so we don't return duplicate elements in
+		// listing.CollapsedRuns accross requests.
 		if lastResultWasPrefix {
-			lastResultPrefix := listing.Prefixes[len(listing.Prefixes)-1]
-			listing.Next.Cursor = prefixSuccessor(lastResultPrefix)
+			lastResultPrefix := listing.CollapsedRuns[len(listing.CollapsedRuns)-1]
+			listing.ContinuationToken = prefixSuccessor(lastResultPrefix)
 
 			// Check an assumption: prefixSuccessor cannot result in the empty string
 			// above because object names must be non-empty UTF-8 strings, and there
 			// is no valid non-empty UTF-8 string that consists of entirely 0xff
 			// bytes.
-			if listing.Next.Cursor == "" {
+			if listing.ContinuationToken == "" {
 				err = errors.New("Unexpected empty string from prefixSuccessor")
 				return
 			}
 		} else {
 			// Otherwise, we'll start scanning at the next object.
-			listing.Next.Cursor = b.objects[indexLimit].entry.Name
+			listing.ContinuationToken = b.objects[indexLimit].entry.Name
 		}
 	}
 
@@ -306,9 +297,9 @@ func (b *bucket) NewReader(
 
 func (b *bucket) CreateObject(
 	ctx context.Context,
-	req *gcs.CreateObjectRequest) (o *storage.Object, err error) {
+	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
 	// Check that the object name is legal.
-	name := req.Attrs.Name
+	name := req.Name
 	if len(name) == 0 || len(name) > 1024 {
 		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
 	}
@@ -347,7 +338,7 @@ func (b *bucket) CreateObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) StatObject(
 	ctx context.Context,
-	req *gcs.StatObjectRequest) (o *storage.Object, err error) {
+	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -362,7 +353,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Make a copy to avoid handing back internal state.
-	var objCopy storage.Object = b.objects[index].entry
+	var objCopy gcs.Object = b.objects[index].entry
 	o = &objCopy
 
 	return
@@ -371,7 +362,7 @@ func (b *bucket) StatObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) UpdateObject(
 	ctx context.Context,
-	req *gcs.UpdateObjectRequest) (o *storage.Object, err error) {
+	req *gcs.UpdateObjectRequest) (o *gcs.Object, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -391,7 +382,7 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	var obj *storage.Object = &b.objects[index].entry
+	var obj *gcs.Object = &b.objects[index].entry
 
 	// Update the entry's basic fields according to the request.
 	if req.ContentType != nil {
@@ -430,7 +421,7 @@ func (b *bucket) UpdateObject(
 	obj.MetaGeneration++
 
 	// Make a copy to avoid handing back internal state.
-	var objCopy storage.Object = *obj
+	var objCopy gcs.Object = *obj
 	o = &objCopy
 
 	return
@@ -463,22 +454,21 @@ func (b *bucket) DeleteObject(
 //
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
-	attrs *storage.ObjectAttrs,
+	req *gcs.CreateObjectRequest,
 	contents string) (o fakeObject) {
 	// Set up basic info.
 	b.prevGeneration++
-	o.entry = storage.Object{
-		Bucket:          b.Name(),
-		Name:            attrs.Name,
-		ContentType:     attrs.ContentType,
-		ContentLanguage: attrs.ContentLanguage,
-		CacheControl:    attrs.CacheControl,
+	o.entry = gcs.Object{
+		Name:            req.Name,
+		ContentType:     req.ContentType,
+		ContentLanguage: req.ContentLanguage,
+		CacheControl:    req.CacheControl,
 		Owner:           "user-fake",
 		Size:            int64(len(contents)),
-		ContentEncoding: attrs.ContentEncoding,
+		ContentEncoding: req.ContentEncoding,
 		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),
-		MediaLink:       "http://localhost/download/storage/fake/" + attrs.Name,
-		Metadata:        attrs.Metadata,
+		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
+		Metadata:        req.Metadata,
 		Generation:      b.prevGeneration,
 		MetaGeneration:  1,
 		StorageClass:    "STANDARD",
@@ -505,9 +495,9 @@ func (b *bucket) mintObject(
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) addObjectLocked(
 	req *gcs.CreateObjectRequest,
-	contents string) (entry storage.Object, err error) {
+	contents string) (entry gcs.Object, err error) {
 	// Find any existing record for this name.
-	existingIndex := b.objects.find(req.Attrs.Name)
+	existingIndex := b.objects.find(req.Name)
 
 	var existingRecord *fakeObject
 	if existingIndex < len(b.objects) {
@@ -547,7 +537,7 @@ func (b *bucket) addObjectLocked(
 	}
 
 	// Create an object record from the given attributes.
-	var o fakeObject = b.mintObject(&req.Attrs, contents)
+	var o fakeObject = b.mintObject(req, contents)
 
 	// Replace an entry in or add an entry to our list of objects.
 	if existingIndex < len(b.objects) {
