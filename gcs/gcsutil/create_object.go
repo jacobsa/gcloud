@@ -27,7 +27,7 @@ func CreateObject(
 	ctx context.Context,
 	bucket gcs.Bucket,
 	name string,
-	contents string) (*Object, error) {
+	contents string) (*gcs.Object, error) {
 	req := &gcs.CreateObjectRequest{
 		Name:     name,
 		Contents: strings.NewReader(contents),
