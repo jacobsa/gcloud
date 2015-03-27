@@ -17,6 +17,7 @@ package gcs
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,8 +28,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
-	"google.golang.org/cloud"
-	"google.golang.org/cloud/storage"
 )
 
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
@@ -45,7 +44,7 @@ type Bucket interface {
 	// a cursor for retrieving the next portion of the larger set of results.
 	ListObjects(
 		ctx context.Context,
-		query *storage.Query) (*storage.Objects, error)
+		req *ListObjectsRequest) (*Listing, error)
 
 	// Create a reader for the contents of a particular generation of an object.
 	// The caller must arrange for the reader to be closed when it is no longer
@@ -65,14 +64,14 @@ type Bucket interface {
 	// be of type *PreconditionError.
 	CreateObject(
 		ctx context.Context,
-		req *CreateObjectRequest) (*storage.Object, error)
+		req *CreateObjectRequest) (*Object, error)
 
 	// Return current information about the object with the given name.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.
 	StatObject(
 		ctx context.Context,
-		req *StatObjectRequest) (*storage.Object, error)
+		req *StatObjectRequest) (*Object, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
@@ -80,7 +79,7 @@ type Bucket interface {
 	// If the object doesn't exist, err will be of type *NotFoundError.
 	UpdateObject(
 		ctx context.Context,
-		req *UpdateObjectRequest) (*storage.Object, error)
+		req *UpdateObjectRequest) (*Object, error)
 
 	// Delete the object with the given name.
 	//
@@ -101,9 +100,9 @@ func (b *bucket) Name() string {
 
 func (b *bucket) ListObjects(
 	ctx context.Context,
-	query *storage.Query) (*storage.Objects, error) {
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	return storage.ListObjects(authContext, b.name, query)
+	req *ListObjectsRequest) (*Listing, error) {
+	err = errors.New("TODO: ListObjects")
+	return
 }
 
 func (b *bucket) NewReader(
@@ -164,18 +163,6 @@ func (b *bucket) NewReader(
 	return
 }
 
-func fromRawAcls(in []*storagev1.ObjectAccessControl) []storage.ACLRule {
-	out := make([]storage.ACLRule, len(in))
-	for i, rule := range in {
-		out[i] = storage.ACLRule{
-			Entity: storage.ACLEntity(rule.Entity),
-			Role:   storage.ACLRole(rule.Role),
-		}
-	}
-
-	return out
-}
-
 func fromRfc3339(s string) (t time.Time, err error) {
 	if s != "" {
 		t, err = time.Parse(time.RFC3339, s)
@@ -186,15 +173,14 @@ func fromRfc3339(s string) (t time.Time, err error) {
 
 func fromRawObject(
 	bucketName string,
-	in *storagev1.Object) (out *storage.Object, err error) {
+	in *storagev1.Object) (out *Object, err error) {
 	// Convert the easy fields.
-	out = &storage.Object{
+	out = &Object{
 		Bucket:          bucketName,
 		Name:            in.Name,
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
-		ACL:             fromRawAcls(in.Acl),
 		ContentEncoding: in.ContentEncoding,
 		Size:            int64(in.Size),
 		MediaLink:       in.MediaLink,
@@ -249,32 +235,21 @@ func fromRawObject(
 
 func (b *bucket) CreateObject(
 	ctx context.Context,
-	req *CreateObjectRequest) (o *storage.Object, err error) {
+	req *CreateObjectRequest) (o *Object, err error) {
 	o, err = createObject(b.client, b.Name(), ctx, req)
 	return
 }
 
 func (b *bucket) StatObject(
 	ctx context.Context,
-	req *StatObjectRequest) (o *storage.Object, err error) {
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	o, err = storage.StatObject(authContext, b.name, req.Name)
-
-	// Transform errors.
-	if err == storage.ErrObjectNotExist {
-		err = &NotFoundError{
-			Err: err,
-		}
-
-		return
-	}
-
+	req *StatObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO: StatObject")
 	return
 }
 
 func (b *bucket) UpdateObject(
 	ctx context.Context,
-	req *UpdateObjectRequest) (o *storage.Object, err error) {
+	req *UpdateObjectRequest) (o *Object, err error) {
 	// Set up a map representing the JSON object we want to send to GCS. For now,
 	// we don't treat empty strings specially.
 	jsonMap := make(map[string]interface{})
@@ -378,25 +353,7 @@ func (b *bucket) UpdateObject(
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
-	// Call the wrapped package.
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	err = storage.DeleteObject(authContext, b.name, name)
-
-	// Transform errors.
-	if err == storage.ErrObjectNotExist {
-		err = &NotFoundError{
-			Err: err,
-		}
-	}
-
-	// Handle the fact that as of 2015-03-12, the wrapped package does not
-	// correctly return ErrObjectNotExist here.
-	if typed, ok := err.(*googleapi.Error); ok {
-		if typed.Code == http.StatusNotFound {
-			err = &NotFoundError{Err: typed}
-		}
-	}
-
+	err = errors.New("TODO: DeleteObject")
 	return
 }
 
