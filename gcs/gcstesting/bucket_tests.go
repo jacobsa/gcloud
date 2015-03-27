@@ -452,9 +452,7 @@ func (t *createTest) ErrorAfterPartialContents() {
 
 	// Set up a reader that will return some successful data, then an error.
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name: "foo",
 		Contents: iotest.TimeoutReader(
 			iotest.OneByteReader(
 				strings.NewReader(contents))),
@@ -621,9 +619,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	// saying it shouldn't exist. The request should fail.
 	var gen int64 = 0
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -656,9 +652,7 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	// The request should succeed.
 	var gen int64 = 0
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -692,9 +686,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	// should already exist with some generation number. The request should fail.
 	var gen int64 = 17
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -725,9 +717,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	// the wrong generation. The request should fail.
 	var gen int64 = o.Generation + 1
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
@@ -768,9 +758,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	// should succeed.
 	var gen int64 = orig.Generation
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:                   "foo",
 		Contents:               strings.NewReader("burrito"),
 		GenerationPrecondition: &gen,
 	}
