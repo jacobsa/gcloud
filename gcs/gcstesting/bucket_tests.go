@@ -304,7 +304,7 @@ func (t *createTest) EmptyObject() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -322,7 +322,7 @@ func (t *createTest) NonEmptyObject() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -341,7 +341,7 @@ func (t *createTest) Overwrite() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -392,7 +392,7 @@ func (t *createTest) ObjectAttributes_Default() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -444,7 +444,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -474,7 +474,7 @@ func (t *createTest) ErrorAfterPartialContents() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	ExpectThat(listing.Results, ElementsAre())
@@ -533,7 +533,7 @@ func (t *createTest) InterestingNames() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	var listingNames []string
@@ -608,7 +608,7 @@ func (t *createTest) IllegalNames() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 	ExpectThat(listing.Results, ElementsAre())
 }
@@ -641,7 +641,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -677,7 +677,7 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -712,7 +712,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 	ExpectEq(0, len(listing.Results))
 }
@@ -745,7 +745,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -789,7 +789,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -1207,7 +1207,7 @@ func (t *updateTest) RemoveAllFields() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -1258,7 +1258,7 @@ func (t *updateTest) ModifyAllFields() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -1309,7 +1309,7 @@ func (t *updateTest) MixedModificationsToFields() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -1357,7 +1357,7 @@ func (t *updateTest) AddUserMetadata() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -1412,7 +1412,7 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	AssertEq(1, len(listing.Results))
@@ -1474,7 +1474,7 @@ func (t *deleteTest) Successful() {
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 	ExpectThat(listing.Results, ElementsAre())
 
@@ -1501,7 +1501,7 @@ func (t *listTest) EmptyBucket() {
 
 	AssertNe(nil, listing)
 	ExpectThat(listing.Results, ElementsAre())
-	ExpectThat(listing.Prefixes, ElementsAre())
+	ExpectThat(listing.CollapsedRuns, ElementsAre())
 	ExpectEq(nil, listing.Next)
 }
 
@@ -1514,7 +1514,7 @@ func (t *listTest) NewlyCreatedObject() {
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	var o *gcs.Object
@@ -1538,7 +1538,7 @@ func (t *listTest) TrivialQuery() {
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 	AssertEq(nil, listing.Next)
 
 	var o *gcs.Object
@@ -1590,8 +1590,8 @@ func (t *listTest) Delimiter_SingleRune() {
 	AssertNe(nil, listing)
 	AssertEq(nil, listing.Next)
 
-	// Prefixes
-	ExpectThat(listing.Prefixes, ElementsAre("!", "b!", "c!", "d!"))
+	// Collapsed runs
+	ExpectThat(listing.CollapsedRuns, ElementsAre("!", "b!", "c!", "d!"))
 
 	// Objects
 	AssertEq(3, len(listing.Results))
@@ -1640,8 +1640,8 @@ func (t *listTest) Delimiter_MultiRune() {
 	AssertNe(nil, listing)
 	AssertEq(nil, listing.Next)
 
-	// Prefixes
-	ExpectThat(listing.Prefixes, ElementsAre("!!", "b!!", "c!!", "d!!"))
+	// Collapsed runs
+	ExpectThat(listing.CollapsedRuns, ElementsAre("!!", "b!!", "c!!", "d!!"))
 
 	// Objects
 	AssertEq(6, len(listing.Results))
@@ -1680,7 +1680,7 @@ func (t *listTest) Prefix() {
 	AssertEq(nil, err)
 	AssertNe(nil, listing)
 	AssertEq(nil, listing.Next)
-	AssertThat(listing.Prefixes, ElementsAre())
+	AssertThat(listing.CollapsedRuns, ElementsAre())
 
 	// Objects
 	AssertEq(4, len(listing.Results))
@@ -1733,9 +1733,9 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 	AssertNe(nil, listing)
 	AssertEq(nil, listing.Next)
 
-	// Prefixes
+	// Collapsed runs
 	ExpectThat(
-		listing.Prefixes,
+		listing.CollapsedRuns,
 		ElementsAre(
 			"blah!b\x00!",
 			"blah!b\x01!",
@@ -1798,9 +1798,9 @@ func (t *listTest) PrefixAndDelimiter_MultiRune() {
 	AssertNe(nil, listing)
 	AssertEq(nil, listing.Next)
 
-	// Prefixes
+	// Collapsed runs
 	ExpectThat(
-		listing.Prefixes,
+		listing.CollapsedRuns,
 		ElementsAre(
 			"blah!!b\x00!!",
 			"blah!!b\x01!!",
@@ -1847,14 +1847,14 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 			}))
 
 	// List repeatedly with a small value for MaxResults. Keep track of all of
-	// the objects and prefixes we find.
+	// the objects and runs we find.
 	req := &gcs.ListObjectsRequest{
 		Delimiter:  "!",
 		MaxResults: 2,
 	}
 
 	var objects []string
-	var prefixes []string
+	var runs []string
 
 	for query != nil {
 		res, err := t.bucket.ListObjects(t.ctx, query)
@@ -1864,8 +1864,8 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 			objects = append(objects, o.Name)
 		}
 
-		for _, p := range res.Prefixes {
-			prefixes = append(prefixes, p)
+		for _, p := range res.CollapsedRuns {
+			runs = append(runs, p)
 		}
 
 		query = res.Next
@@ -1883,7 +1883,7 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 		))
 
 	ExpectThat(
-		prefixes,
+		runs,
 		ElementsAre(
 			"c!",
 			"d!",
@@ -1916,14 +1916,14 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 			}))
 
 	// List repeatedly with a small value for MaxResults. Keep track of all of
-	// the objects and prefixes we find.
+	// the objects and runs we find.
 	req := &gcs.ListObjectsRequest{
 		Delimiter:  "!",
 		MaxResults: 2,
 	}
 
 	var objects []string
-	var prefixes []string
+	var runs []string
 
 	for query != nil {
 		res, err := t.bucket.ListObjects(t.ctx, query)
@@ -1933,8 +1933,8 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 			objects = append(objects, o.Name)
 		}
 
-		for _, p := range res.Prefixes {
-			prefixes = append(prefixes, p)
+		for _, p := range res.CollapsedRuns {
+			runs = append(runs, p)
 		}
 
 		query = res.Next
@@ -1950,7 +1950,7 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 		))
 
 	ExpectThat(
-		prefixes,
+		runs,
 		ElementsAre(
 			"c!",
 			"d!",
