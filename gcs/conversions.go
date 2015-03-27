@@ -61,8 +61,7 @@ func toListing(in *storagev1.Objects) (out *Listing, err error) {
 	return
 }
 
-func fromRawObject(
-	in *storagev1.Object) (out *Object, err error) {
+func toObject(in *storagev1.Object) (out *Object, err error) {
 	// Convert the easy fields.
 	out = &Object{
 		Name:            in.Name,
@@ -117,70 +116,6 @@ func fromRawObject(
 			uint32(crc32cString[1])<<16 |
 			uint32(crc32cString[2])<<8 |
 			uint32(crc32cString[3])<<0
-
-	return
-}
-
-func toObject(in *storagev1.Object) (out *Object, err error) {
-	out = &Object{
-		Name:            in.Name,
-		ContentType:     in.ContentType,
-		ContentLanguage: in.ContentLanguage,
-		CacheControl:    in.CacheControl,
-		ContentEncoding: in.ContentEncoding,
-		// TODO(jacobsa): Switch to uint64, matching underlying JSON interface.
-		// Cf. https://cloud.google.com/storage/docs/json_api/v1/objects
-		Size:           int64(in.Size),
-		MediaLink:      in.MediaLink,
-		Metadata:       in.Metadata,
-		Generation:     in.Generation,
-		MetaGeneration: in.Metageneration,
-		StorageClass:   in.StorageClass,
-	}
-
-	if in.Owner != nil {
-		out.Owner = in.Owner.Entity
-	}
-
-	// Convert the MD5 field.
-	//
-	// TODO(jacobsa): Switch to [16]byte like the md5 package.
-	out.MD5, err = base64.StdEncoding.DecodeString(in.Md5Hash)
-	if err != nil {
-		err = fmt.Errorf("base64.DecodeString: %v", err)
-		return
-	}
-
-	// Convert the CRC32C field.
-	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)
-	if err != nil {
-		err = fmt.Errorf("base64.DecodeString: %v", err)
-		return
-	}
-
-	if len(crc32cString) != 4 {
-		err = fmt.Errorf("Short Crc32c field: %v", in.Crc32c)
-		return
-	}
-
-	out.CRC32C = uint32(crc32cString[0])<<24 +
-		uint32(crc32cString[1])<<16 +
-		uint32(crc32cString[2])<<8 +
-		uint32(crc32cString[3])
-
-	// Convert the Deleted field.
-	out.Deleted, err = fromRfc3339(in.TimeDeleted)
-	if err != nil {
-		err = fmt.Errorf("fromRfc3339: %v", err)
-		return
-	}
-
-	// Convert the Updated field.
-	out.Updated, err = fromRfc3339(in.Updated)
-	if err != nil {
-		err = fmt.Errorf("fromRfc3339: %v", err)
-		return
-	}
 
 	return
 }

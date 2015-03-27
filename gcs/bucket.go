@@ -372,7 +372,8 @@ func (b *bucket) UpdateObject(
 	}
 
 	// Convert the response.
-	if o, err = fromRawObject(rawObject); err != nil {
+	if o, err = toObject(rawObject); err != nil {
+		err = fmt.Errorf("toObject: %v", err)
 		return
 	}
 

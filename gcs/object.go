@@ -29,15 +29,18 @@ type Object struct {
 	ContentLanguage string
 	CacheControl    string
 	Owner           string
+	// TODO(jacobsa): Switch to uint64, matching underlying JSON interface.
+	// Cf. https://cloud.google.com/storage/docs/json_api/v1/objects
 	Size            int64
 	ContentEncoding string
-	MD5             []byte
-	CRC32C          uint32
-	MediaLink       string
-	Metadata        map[string]string
-	Generation      int64
-	MetaGeneration  int64
-	StorageClass    string
-	Deleted         time.Time
-	Updated         time.Time
+	// TODO(jacobsa): Switch to [16]byte like the md5 package.
+	MD5            []byte
+	CRC32C         uint32
+	MediaLink      string
+	Metadata       map[string]string
+	Generation     int64
+	MetaGeneration int64
+	StorageClass   string
+	Deleted        time.Time
+	Updated        time.Time
 }
