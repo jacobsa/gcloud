@@ -180,7 +180,6 @@ func createObject(
 		req)
 
 	if err != nil {
-		err = fmt.Errorf("startResumableUpload: %v", err)
 		return
 	}
 
