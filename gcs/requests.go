@@ -14,16 +14,11 @@
 
 package gcs
 
-import (
-	"io"
-
-	"google.golang.org/cloud/storage"
-)
+import "io"
 
 // A request to create an object, accepted by Bucket.CreateObject.
 type CreateObjectRequest struct {
-	// Attributes with which the object should be created. The Name field must be
-	// set; other zero-valued fields are ignored.
+	// The name with which to create the object. This field must be set.
 	//
 	// Object names must:
 	//
@@ -35,7 +30,18 @@ type CreateObjectRequest struct {
 	//
 	// See here for authoritative documentation:
 	//     https://cloud.google.com/storage/docs/bucket-naming#objectnames
-	Attrs storage.ObjectAttrs
+	Name string
+
+	// Optional information with which to create the object. See here for more
+	// information:
+	//
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects#resource
+	//
+	ContentType     string
+	ContentLanguage string
+	ContentEncoding string
+	CacheControl    string
+	Metadata        map[string]string
 
 	// A reader from which to obtain the contents of the object. Must be non-nil.
 	Contents io.Reader
