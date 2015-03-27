@@ -136,18 +136,59 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
-		Owner:           in.Owner,
 		ContentEncoding: in.ContentEncoding,
-		MD5:             in.MD5,
-		CRC32C:          in.CRC32C,
-		Size:            in.Size,
-		MediaLink:       in.MediaLink,
-		Metadata:        in.Metadata,
-		Generation:      in.Generation,
-		MetaGeneration:  in.MetaGeneration,
-		StorageClass:    in.StorageClass,
-		Deleted:         in.Deleted,
-		Updated:         in.Updated,
+		// TODO(jacobsa): Switch to uint64, matching underlying JSON interface.
+		// Cf. https://cloud.google.com/storage/docs/json_api/v1/objects
+		Size:           int64(in.Size),
+		MediaLink:      in.MediaLink,
+		Metadata:       in.Metadata,
+		Generation:     in.Generation,
+		MetaGeneration: in.Metageneration,
+		StorageClass:   in.StorageClass,
+	}
+
+	if in.Owner != nil {
+		out.Owner = in.Owner.Entity
+	}
+
+	// Convert the MD5 field.
+	//
+	// TODO(jacobsa): Switch to [16]byte like the md5 package.
+	out.MD5, err = base64.StdEncoding.DecodeString(in.Md5Hash)
+	if err != nil {
+		err = fmt.Errorf("base64.DecodeString: %v", err)
+		return
+	}
+
+	// Convert the CRC32C field.
+	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)
+	if err != nil {
+		err = fmt.Errorf("base64.DecodeString: %v", err)
+		return
+	}
+
+	if len(crc32cString) != 4 {
+		err = fmt.Errorf("Short Crc32c field: %v", in.Crc32c)
+		return
+	}
+
+	out.CRC32C = uint32(crc32cString[0])<<24 +
+		uint32(crc32cString[1])<<16 +
+		uint32(crc32cString[2])<<8 +
+		uint32(crc32cString[3])
+
+	// Convert the Deleted field.
+	out.Deleted, err = fromRfc3339(in.TimeDeleted)
+	if err != nil {
+		err = fmt.Errorf("fromRfc3339: %v", err)
+		return
+	}
+
+	// Convert the Updated field.
+	out.Updated, err = fromRfc3339(in.Updated)
+	if err != nil {
+		err = fmt.Errorf("fromRfc3339: %v", err)
+		return
 	}
 
 	return
@@ -157,7 +198,7 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 func toObjects(in []*storagev1.Object) (out []*Object, err error) {
 	for _, rawObject := range in {
 		var o *Object
-		o, err = toObject(o)
+		o, err = toObject(rawObject)
 		if err != nil {
 			err = fmt.Errorf("toObject: %v", err)
 			return
@@ -170,11 +211,16 @@ func toObjects(in []*storagev1.Object) (out []*Object, err error) {
 }
 
 // TODO(jacobsa): Delete this when possible. See issue #4.
-func toListing(in *storagev1.Objects) (out *Listing) {
+func toListing(in *storagev1.Objects) (out *Listing, err error) {
 	out = &Listing{
-		Objects:           toObjects(in.Items),
 		CollapsedRuns:     in.Prefixes,
 		ContinuationToken: in.NextPageToken,
+	}
+
+	out.Objects, err = toObjects(in.Items)
+	if err != nil {
+		err = fmt.Errorf("toObjects: %v", err)
+		return
 	}
 
 	return
@@ -199,7 +245,7 @@ func (b *bucket) ListObjects(
 		query.Set("pageToken", req.ContinuationToken)
 	}
 
-	if req.MaxResults != "" {
+	if req.MaxResults != 0 {
 		query.Set("maxResults", fmt.Sprintf("%v", req.MaxResults))
 	}
 
@@ -242,7 +288,7 @@ func (b *bucket) ListObjects(
 	}
 
 	// Convert the response.
-	if o, err = toListing(rawObjects); err != nil {
+	if listing, err = toListing(rawListing); err != nil {
 		return
 	}
 
@@ -399,7 +445,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Transform the object.
-	o = toObject(wrappedObj)
+	o, err = toWrappedObj(wrappedObj)
 
 	return
 }
