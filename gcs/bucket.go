@@ -28,6 +28,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
+	"google.golang.org/cloud"
+	"google.golang.org/cloud/storage"
 )
 
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
@@ -118,10 +120,71 @@ func (b *bucket) Name() string {
 	return b.name
 }
 
+// TODO(jacobsa): Delete this when possible. See issue #4.
+func toQuery(in *ListObjectsRequest) *storage.Query {
+	return &storage.Query{
+		Delimiter:  in.Delimiter,
+		Prefix:     in.Prefix,
+		Cursor:     in.ContinuationToken,
+		MaxResults: in.MaxResults,
+	}
+}
+
+// TODO(jacobsa): Delete this when possible. See issue #4.
+func toObject(in *storage.Object) (out *Object) {
+	out = &Object{
+		Name:            in.Name,
+		ContentType:     in.ContentType,
+		ContentLanguage: in.ContentLanguage,
+		CacheControl:    in.CacheControl,
+		ContentEncoding: in.ContentEncoding,
+		Size:            in.Size,
+		MediaLink:       in.MediaLink,
+		Metadata:        in.Metadata,
+		Generation:      in.Generation,
+		MetaGeneration:  in.MetaGeneration,
+		StorageClass:    in.StorageClass,
+	}
+
+	return
+}
+
+// TODO(jacobsa): Delete this when possible. See issue #4.
+func toObjects(in []*storage.Object) (out []*Object) {
+	for _, o := range in {
+		out = append(out, toObject(o))
+	}
+
+	return
+}
+
+// TODO(jacobsa): Delete this when possible. See issue #4.
+func toListing(in *storage.Objects) (out *Listing) {
+	out = &Listing{
+		Objects:       toObjects(in.Results),
+		CollapsedRuns: in.Prefixes,
+	}
+
+	if in.Next != nil {
+		out.ContinuationToken = in.Next.Cursor
+	}
+
+	return
+}
+
 func (b *bucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	err = errors.New("TODO: ListObjects")
+	// Call the storage package.
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	objects, err := storage.ListObjects(authContext, b.name, toQuery(req))
+	if err != nil {
+		return
+	}
+
+	// Convert.
+	listing = toListing(objects)
+
 	return
 }
 
