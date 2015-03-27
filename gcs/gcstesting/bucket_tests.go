@@ -1175,7 +1175,7 @@ func (t *updateTest) RemoveAllFields() {
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 
-	ExpectThat(o.Metadata, DeepEquals(req.Metadata))
+	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
