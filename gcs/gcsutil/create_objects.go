@@ -46,7 +46,7 @@ func CreateObjects(
 	for i := 0; i < 10; i++ {
 		bundle.Add(func(ctx context.Context) (err error) {
 			for r := range recordChan {
-				_, err := CreateObject(
+				_, err = CreateObject(
 					ctx, bucket,
 					r.name,
 					r.contents)
