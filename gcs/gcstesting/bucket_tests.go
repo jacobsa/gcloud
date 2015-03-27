@@ -1114,13 +1114,13 @@ func (t *updateTest) NonExistentObject() {
 
 func (t *updateTest) RemoveContentType() {
 	// Create an object.
-	req := &gcs.CreateObjectRequest{
+	createReq := &gcs.CreateObjectRequest{
 		Name:        "foo",
 		ContentType: "image/png",
 		Contents:    strings.NewReader("taco"),
 	}
 
-	_, err := t.bucket.CreateObject(t.ctx, req)
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Attempt to remove the content type field.
@@ -1137,7 +1137,7 @@ func (t *updateTest) RemoveContentType() {
 
 func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
-	req := &gcs.CreateObjectRequest{
+	createReq := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1150,7 +1150,7 @@ func (t *updateTest) RemoveAllFields() {
 		Contents: strings.NewReader("taco"),
 	}
 
-	_, err := t.bucket.CreateObject(t.ctx, req)
+	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
 	// Remove all of the fields that were set, aside from user metadata and
@@ -1473,7 +1473,7 @@ func (t *listTest) EmptyBucket() {
 	AssertNe(nil, listing)
 	ExpectThat(listing.Objects, ElementsAre())
 	ExpectThat(listing.CollapsedRuns, ElementsAre())
-	ExpectEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 }
 
 func (t *listTest) NewlyCreatedObject() {
@@ -1826,8 +1826,8 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 	var objects []string
 	var runs []string
 
-	for query != nil {
-		res, err := t.bucket.ListObjects(t.ctx, query)
+	for {
+		listing, err := t.bucket.ListObjects(t.ctx, req)
 		AssertEq(nil, err)
 
 		for _, o := range res.Objects {
@@ -1838,7 +1838,11 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 			runs = append(runs, p)
 		}
 
-		query = res.Next
+		if listing.ContinuationToken == "" {
+			break
+		}
+
+		req.ContinuationToken = listing.ContinuationToken
 	}
 
 	// Check the results.
@@ -1895,8 +1899,8 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 	var objects []string
 	var runs []string
 
-	for query != nil {
-		res, err := t.bucket.ListObjects(t.ctx, query)
+	for {
+		res, err := t.bucket.ListObjects(t.ctx, req)
 		AssertEq(nil, err)
 
 		for _, o := range res.Objects {
@@ -1907,7 +1911,11 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 			runs = append(runs, p)
 		}
 
-		query = res.Next
+		if listing.ContinuationToken == "" {
+			break
+		}
+
+		req.ContinuationToken = listing.ContinuationToken
 	}
 
 	// Check the results.
