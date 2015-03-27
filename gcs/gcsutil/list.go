@@ -17,28 +17,36 @@ package gcsutil
 import (
 	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 // Repeatedly call bucket.ListObjects until there is nothing further to list,
-// returning all objects and prefixes encountered.
+// returning all objects and collapsed runs encountered.
+//
+// May modify *req.
 func List(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	q *storage.Query) (objects []*storage.Object, prefixes []string, err error) {
-	for q != nil {
+	req *gcs.ListObjectsRequest) (
+	objects []*gcs.Object,
+	runs []string,
+	err error) {
+	for {
 		// Grab one set of results.
-		var listing *storage.Objects
-		if listing, err = bucket.ListObjects(ctx, q); err != nil {
+		var listing *gcs.Listing
+		if listing, err = bucket.ListObjects(ctx, req); err != nil {
 			return
 		}
 
 		// Accumulate the results.
-		objects = append(objects, listing.Results...)
-		prefixes = append(prefixes, listing.Prefixes...)
+		objects = append(objects, listing.Objects...)
+		runs = append(runs, listing.CollapsedRuns...)
 
-		// Move on to the next query, if necessary.
-		q = listing.Next
+		// Are we done?
+		if listing.ContinuationToken == "" {
+			break
+		}
+
+		req.ContinuationToken = listing.ContinuationToken
 	}
 
 	return
