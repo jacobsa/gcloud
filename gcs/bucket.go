@@ -17,7 +17,6 @@ package gcs
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -329,7 +328,22 @@ func (b *bucket) CreateObject(
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	err = errors.New("TODO: StatObject")
+	// Call the wrapped package.
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	wrappedObj, err := storage.StatObject(authContext, b.name, req.Name)
+
+	// Transform errors.
+	if err == storage.ErrObjectNotExist {
+		err = &NotFoundError{
+			Err: err,
+		}
+
+		return
+	}
+
+	// Transform the object.
+	o = toObject(wrappedObj)
+
 	return
 }
 
