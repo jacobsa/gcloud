@@ -119,58 +119,98 @@ func (b *bucket) Name() string {
 	return b.name
 }
 
-// TODO(jacobsa): Delete this when possible. See issue #4.
-func toQuery(in *ListObjectsRequest) *storage.Query {
-	return &storage.Query{
-		Delimiter:  in.Delimiter,
-		Prefix:     in.Prefix,
-		Cursor:     in.ContinuationToken,
-		MaxResults: in.MaxResults,
-	}
-}
-
-// TODO(jacobsa): Delete this when possible. See issue #4.
-func toObject(in *storage.Object) (out *Object) {
+// TODO(jacobsa): Move me to a conversions.go file.
+func toObject(in *storagev1.Object) (out *Object, err error) {
 	out = &Object{
 		Name:            in.Name,
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
-		Owner:           in.Owner,
 		ContentEncoding: in.ContentEncoding,
-		MD5:             in.MD5,
-		CRC32C:          in.CRC32C,
-		Size:            in.Size,
-		MediaLink:       in.MediaLink,
-		Metadata:        in.Metadata,
-		Generation:      in.Generation,
-		MetaGeneration:  in.MetaGeneration,
-		StorageClass:    in.StorageClass,
-		Deleted:         in.Deleted,
-		Updated:         in.Updated,
+		// TODO(jacobsa): Switch to uint64, matching underlying JSON interface.
+		// Cf. https://cloud.google.com/storage/docs/json_api/v1/objects
+		Size:           int64(in.Size),
+		MediaLink:      in.MediaLink,
+		Metadata:       in.Metadata,
+		Generation:     in.Generation,
+		MetaGeneration: in.Metageneration,
+		StorageClass:   in.StorageClass,
+	}
+
+	if in.Owner != nil {
+		out.Owner = in.Owner.Entity
+	}
+
+	// Convert the MD5 field.
+	//
+	// TODO(jacobsa): Switch to [16]byte like the md5 package.
+	out.MD5, err = base64.StdEncoding.DecodeString(in.Md5Hash)
+	if err != nil {
+		err = fmt.Errorf("base64.DecodeString: %v", err)
+		return
+	}
+
+	// Convert the CRC32C field.
+	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)
+	if err != nil {
+		err = fmt.Errorf("base64.DecodeString: %v", err)
+		return
+	}
+
+	if len(crc32cString) != 4 {
+		err = fmt.Errorf("Short Crc32c field: %v", in.Crc32c)
+		return
+	}
+
+	out.CRC32C = uint32(crc32cString[0])<<24 +
+		uint32(crc32cString[1])<<16 +
+		uint32(crc32cString[2])<<8 +
+		uint32(crc32cString[3])
+
+	// Convert the Deleted field.
+	out.Deleted, err = fromRfc3339(in.TimeDeleted)
+	if err != nil {
+		err = fmt.Errorf("fromRfc3339: %v", err)
+		return
+	}
+
+	// Convert the Updated field.
+	out.Updated, err = fromRfc3339(in.Updated)
+	if err != nil {
+		err = fmt.Errorf("fromRfc3339: %v", err)
+		return
 	}
 
 	return
 }
 
-// TODO(jacobsa): Delete this when possible. See issue #4.
-func toObjects(in []*storage.Object) (out []*Object) {
-	for _, o := range in {
-		out = append(out, toObject(o))
+// TODO(jacobsa): Move me to a conversions.go file.
+func toObjects(in []*storagev1.Object) (out []*Object, err error) {
+	for _, rawObject := range in {
+		var o *Object
+		o, err = toObject(rawObject)
+		if err != nil {
+			err = fmt.Errorf("toObject: %v", err)
+			return
+		}
+
+		out = append(out, o)
 	}
 
 	return
 }
 
-// TODO(jacobsa): Delete this when possible. See issue #4.
-func toListing(in *storage.Objects) (out *Listing) {
+// TODO(jacobsa): Move me to a conversions.go file.
+func toListing(in *storagev1.Objects) (out *Listing, err error) {
 	out = &Listing{
-		Objects:       toObjects(in.Results),
-		CollapsedRuns: in.Prefixes,
+		CollapsedRuns:     in.Prefixes,
+		ContinuationToken: in.NextPageToken,
 	}
 
-	if in.Next != nil {
-		out.ContinuationToken = in.Next.Cursor
+	out.Objects, err = toObjects(in.Items)
+	if err != nil {
+		err = fmt.Errorf("toObjects: %v", err)
+		return
 	}
 
 	return
@@ -179,15 +219,68 @@ func toListing(in *storage.Objects) (out *Listing) {
 func (b *bucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	// Call the storage package.
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	objects, err := storage.ListObjects(authContext, b.name, toQuery(req))
+	// Set up the query for the URL.
+	query := make(url.Values)
+	query.Set("projection", "full")
+
+	if req.Prefix != "" {
+		query.Set("prefix", req.Prefix)
+	}
+
+	if req.Delimiter != "" {
+		query.Set("delimiter", req.Delimiter)
+	}
+
+	if req.ContinuationToken != "" {
+		query.Set("pageToken", req.ContinuationToken)
+	}
+
+	if req.MaxResults != 0 {
+		query.Set("maxResults", fmt.Sprintf("%v", req.MaxResults))
+	}
+
+	// Construct an appropriate URL (cf. http://goo.gl/aVSAhT).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o",
+		httputil.EncodePathSegment(b.Name()))
+
+	url := &url.URL{
+		Scheme:   "https",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
+	}
+
+	// Call the server.
+	httpRes, err := b.client.Get(url.String())
 	if err != nil {
+		err = fmt.Errorf("Get: %v", err)
 		return
 	}
 
-	// Convert.
-	listing = toListing(objects)
+	defer googleapi.CloseBody(httpRes)
+
+	// Check for HTTP-level errors.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
+		}
+
+		return
+	}
+
+	// Parse the response.
+	var rawListing *storagev1.Objects
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawListing); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if listing, err = toListing(rawListing); err != nil {
+		return
+	}
 
 	return
 }
@@ -325,6 +418,30 @@ func (b *bucket) CreateObject(
 	return
 }
 
+// TODO(jacobsa): Delete this when possible. See issue #4.
+func fromWrappedObject(in *storage.Object) (out *Object) {
+	out = &Object{
+		Name:            in.Name,
+		ContentType:     in.ContentType,
+		ContentLanguage: in.ContentLanguage,
+		CacheControl:    in.CacheControl,
+		Owner:           in.Owner,
+		ContentEncoding: in.ContentEncoding,
+		MD5:             in.MD5,
+		CRC32C:          in.CRC32C,
+		Size:            in.Size,
+		MediaLink:       in.MediaLink,
+		Metadata:        in.Metadata,
+		Generation:      in.Generation,
+		MetaGeneration:  in.MetaGeneration,
+		StorageClass:    in.StorageClass,
+		Deleted:         in.Deleted,
+		Updated:         in.Updated,
+	}
+
+	return
+}
+
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
@@ -342,7 +459,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Transform the object.
-	o = toObject(wrappedObj)
+	o = fromWrappedObject(wrappedObj)
 
 	return
 }
@@ -427,6 +544,7 @@ func (b *bucket) UpdateObject(
 
 	defer googleapi.CloseBody(httpRes)
 
+	// Check for HTTP-level errors.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
 		// Special case: handle not found errors.
 		if typed, ok := err.(*googleapi.Error); ok {
