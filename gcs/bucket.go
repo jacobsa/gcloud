@@ -119,17 +119,7 @@ func (b *bucket) Name() string {
 	return b.name
 }
 
-// TODO(jacobsa): Delete this when possible. See issue #4.
-func toQuery(in *ListObjectsRequest) *storage.Query {
-	return &storage.Query{
-		Delimiter:  in.Delimiter,
-		Prefix:     in.Prefix,
-		Cursor:     in.ContinuationToken,
-		MaxResults: in.MaxResults,
-	}
-}
-
-// TODO(jacobsa): Delete this when possible. See issue #4.
+// TODO(jacobsa): Move me to a conversions.go file.
 func toObject(in *storagev1.Object) (out *Object, err error) {
 	out = &Object{
 		Name:            in.Name,
@@ -194,7 +184,7 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 	return
 }
 
-// TODO(jacobsa): Delete this when possible. See issue #4.
+// TODO(jacobsa): Move me to a conversions.go file.
 func toObjects(in []*storagev1.Object) (out []*Object, err error) {
 	for _, rawObject := range in {
 		var o *Object
@@ -210,7 +200,7 @@ func toObjects(in []*storagev1.Object) (out []*Object, err error) {
 	return
 }
 
-// TODO(jacobsa): Delete this when possible. See issue #4.
+// TODO(jacobsa): Move me to a conversions.go file.
 func toListing(in *storagev1.Objects) (out *Listing, err error) {
 	out = &Listing{
 		CollapsedRuns:     in.Prefixes,
@@ -428,6 +418,30 @@ func (b *bucket) CreateObject(
 	return
 }
 
+// TODO(jacobsa): Delete this when possible. See issue #4.
+func fromWrappedObject(in *storage.Object) (out *Object) {
+	out = &Object{
+		Name:            in.Name,
+		ContentType:     in.ContentType,
+		ContentLanguage: in.ContentLanguage,
+		CacheControl:    in.CacheControl,
+		Owner:           in.Owner,
+		ContentEncoding: in.ContentEncoding,
+		MD5:             in.MD5,
+		CRC32C:          in.CRC32C,
+		Size:            in.Size,
+		MediaLink:       in.MediaLink,
+		Metadata:        in.Metadata,
+		Generation:      in.Generation,
+		MetaGeneration:  in.MetaGeneration,
+		StorageClass:    in.StorageClass,
+		Deleted:         in.Deleted,
+		Updated:         in.Updated,
+	}
+
+	return
+}
+
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
@@ -445,7 +459,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Transform the object.
-	o, err = toWrappedObj(wrappedObj)
+	o = fromWrappedObject(wrappedObj)
 
 	return
 }
