@@ -300,7 +300,7 @@ func (t *createTest) EmptyObject() {
 	AssertEq(nil, t.createObject("foo", ""))
 
 	// Ensure it shows up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -318,7 +318,7 @@ func (t *createTest) NonEmptyObject() {
 	AssertEq(nil, t.createObject("foo", "taco"))
 
 	// Ensure it shows up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -337,7 +337,7 @@ func (t *createTest) Overwrite() {
 	AssertEq(nil, t.createObject("foo", "burrito"))
 
 	// The second version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -383,7 +383,7 @@ func (t *createTest) ObjectAttributes_Default() {
 	ExpectThat(o.Updated, t.matchesStartTime(createTime))
 
 	// Make sure it matches what is in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -436,7 +436,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectThat(o.Updated, t.matchesStartTime(createTime))
 
 	// Make sure it matches what is in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -464,7 +464,7 @@ func (t *createTest) ErrorAfterPartialContents() {
 	ExpectThat(err, Error(HasSubstr("timeout")))
 
 	// The object should not show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -523,7 +523,7 @@ func (t *createTest) InterestingNames() {
 	})
 
 	// Grab a listing and extract the names.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -598,7 +598,7 @@ func (t *createTest) IllegalNames() {
 	}
 
 	// No objects should have been created.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -629,7 +629,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	ExpectThat(err, Error(MatchesRegexp("object exists|googleapi.*412")))
 
 	// The old version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -663,7 +663,7 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	ExpectNe(0, o.Generation)
 
 	// The object should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -696,7 +696,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	ExpectThat(err, Error(MatchesRegexp("object doesn't exist|googleapi.*412")))
 
 	// Nothing should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -727,7 +727,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	ExpectThat(err, Error(MatchesRegexp("generation|googleapi.*412")))
 
 	// The old version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -769,7 +769,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	ExpectNe(orig.Generation, o.Generation)
 
 	// The new version should show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -1178,7 +1178,7 @@ func (t *updateTest) RemoveAllFields() {
 	ExpectThat(o.Metadata, DeepEquals(req.Metadata))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -1231,7 +1231,7 @@ func (t *updateTest) ModifyAllFields() {
 	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -1284,7 +1284,7 @@ func (t *updateTest) MixedModificationsToFields() {
 	ExpectThat(o.Metadata, DeepEquals(createReq.Metadata))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -1327,7 +1327,7 @@ func (t *updateTest) AddUserMetadata() {
 			}))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -1384,7 +1384,7 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 			}))
 
 	// Check that a listing agrees.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
@@ -1441,7 +1441,7 @@ func (t *deleteTest) Successful() {
 	AssertEq(nil, t.bucket.DeleteObject(t.ctx, "a"))
 
 	// It shouldn't show up in a listing.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
@@ -1467,7 +1467,7 @@ type listTest struct {
 }
 
 func (t *listTest) EmptyBucket() {
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
@@ -1481,7 +1481,7 @@ func (t *listTest) NewlyCreatedObject() {
 	AssertEq(nil, t.createObject("a", "taco"))
 
 	// List all objects in the bucket.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
@@ -1504,7 +1504,7 @@ func (t *listTest) TrivialQuery() {
 	AssertEq(nil, t.createObject("c", "enchilada"))
 
 	// List all objects in the bucket.
-	listing, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
 	AssertEq(nil, err)
 
 	AssertNe(nil, listing)
