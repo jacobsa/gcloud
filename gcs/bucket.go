@@ -434,7 +434,25 @@ func (b *bucket) UpdateObject(
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
-	err = errors.New("TODO: DeleteObject")
+	// Call the wrapped package.
+	authContext := cloud.WithContext(ctx, b.projID, b.client)
+	err = storage.DeleteObject(authContext, b.name, name)
+
+	// Transform errors.
+	if err == storage.ErrObjectNotExist {
+		err = &NotFoundError{
+			Err: err,
+		}
+	}
+
+	// Handle the fact that as of 2015-03-12, the wrapped package does not
+	// correctly return ErrObjectNotExist here.
+	if typed, ok := err.(*googleapi.Error); ok {
+		if typed.Code == http.StatusNotFound {
+			err = &NotFoundError{Err: typed}
+		}
+	}
+
 	return
 }
 
