@@ -66,6 +66,10 @@ type StatObjectRequest struct {
 	Name string
 }
 
+type ListObjectsRequest struct {
+	// TODO
+}
+
 // A request to update the metadata of an object, accepted by
 // Bucket.UpdateObject.
 type UpdateObjectRequest struct {

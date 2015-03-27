@@ -39,18 +39,14 @@ import (
 type Bucket interface {
 	Name() string
 
-	// List the objects in the bucket that meet the criteria defined by the
-	// query, returning a result object that contains the results and potentially
-	// a cursor for retrieving the next portion of the larger set of results.
-	ListObjects(
-		ctx context.Context,
-		req *ListObjectsRequest) (*Listing, error)
-
 	// Create a reader for the contents of a particular generation of an object.
 	// The caller must arrange for the reader to be closed when it is no longer
 	// needed.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/get
 	NewReader(
 		ctx context.Context,
 		req *ReadObjectRequest) (io.ReadCloser, error)
@@ -62,6 +58,10 @@ type Bucket interface {
 	//
 	// If the request fails due to a precondition not being met, the error will
 	// be of type *PreconditionError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/insert
+	//     https://cloud.google.com/storage/docs/json_api/v1/how-tos/upload
 	CreateObject(
 		ctx context.Context,
 		req *CreateObjectRequest) (*Object, error)
@@ -69,14 +69,31 @@ type Bucket interface {
 	// Return current information about the object with the given name.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/get
 	StatObject(
 		ctx context.Context,
 		req *StatObjectRequest) (*Object, error)
+
+	// List the objects in the bucket that meet the criteria defined by the
+	// request, returning a result object that contains the results and
+	// potentially a cursor for retrieving the next portion of the larger set of
+	// results.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/list
+	ListObjects(
+		ctx context.Context,
+		req *ListObjectsRequest) (*Listing, error)
 
 	// Update the object specified by newAttrs.Name, patching using the non-zero
 	// fields of newAttrs.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/patch
 	UpdateObject(
 		ctx context.Context,
 		req *UpdateObjectRequest) (*Object, error)
@@ -84,6 +101,9 @@ type Bucket interface {
 	// Delete the object with the given name.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/delete
 	DeleteObject(ctx context.Context, name string) error
 }
 
