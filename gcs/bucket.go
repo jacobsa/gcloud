@@ -130,7 +130,7 @@ func toQuery(in *ListObjectsRequest) *storage.Query {
 }
 
 // TODO(jacobsa): Delete this when possible. See issue #4.
-func toObject(in *storage.Object) (out *Object) {
+func toObject(in *storagev1.Object) (out *Object, err error) {
 	out = &Object{
 		Name:            in.Name,
 		ContentType:     in.ContentType,
@@ -154,23 +154,27 @@ func toObject(in *storage.Object) (out *Object) {
 }
 
 // TODO(jacobsa): Delete this when possible. See issue #4.
-func toObjects(in []*storage.Object) (out []*Object) {
-	for _, o := range in {
-		out = append(out, toObject(o))
+func toObjects(in []*storagev1.Object) (out []*Object, err error) {
+	for _, rawObject := range in {
+		var o *Object
+		o, err = toObject(o)
+		if err != nil {
+			err = fmt.Errorf("toObject: %v", err)
+			return
+		}
+
+		out = append(out, o)
 	}
 
 	return
 }
 
 // TODO(jacobsa): Delete this when possible. See issue #4.
-func toListing(in *storage.Objects) (out *Listing) {
+func toListing(in *storagev1.Objects) (out *Listing) {
 	out = &Listing{
-		Objects:       toObjects(in.Results),
-		CollapsedRuns: in.Prefixes,
-	}
-
-	if in.Next != nil {
-		out.ContinuationToken = in.Next.Cursor
+		Objects:           toObjects(in.Items),
+		CollapsedRuns:     in.Prefixes,
+		ContinuationToken: in.NextPageToken,
 	}
 
 	return
@@ -179,15 +183,68 @@ func toListing(in *storage.Objects) (out *Listing) {
 func (b *bucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	// Call the storage package.
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	objects, err := storage.ListObjects(authContext, b.name, toQuery(req))
+	// Set up the query for the URL.
+	query := make(url.Values)
+	query.Set("projection", "full")
+
+	if req.Prefix != "" {
+		query.Set("prefix", req.Prefix)
+	}
+
+	if req.Delimiter != "" {
+		query.Set("delimiter", req.Delimiter)
+	}
+
+	if req.ContinuationToken != "" {
+		query.Set("pageToken", req.ContinuationToken)
+	}
+
+	if req.MaxResults != "" {
+		query.Set("maxResults", fmt.Sprintf("%v", req.MaxResults))
+	}
+
+	// Construct an appropriate URL (cf. http://goo.gl/aVSAhT).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o",
+		httputil.EncodePathSegment(b.Name()))
+
+	url := &url.URL{
+		Scheme:   "https",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
+	}
+
+	// Call the server.
+	httpRes, err := b.client.Get(url.String())
 	if err != nil {
+		err = fmt.Errorf("Get: %v", err)
 		return
 	}
 
-	// Convert.
-	listing = toListing(objects)
+	defer googleapi.CloseBody(httpRes)
+
+	// Check for HTTP-level errors.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
+		}
+
+		return
+	}
+
+	// Parse the response.
+	var rawListing *storagev1.Objects
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawListing); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = toListing(rawObjects); err != nil {
+		return
+	}
 
 	return
 }
@@ -427,6 +484,7 @@ func (b *bucket) UpdateObject(
 
 	defer googleapi.CloseBody(httpRes)
 
+	// Check for HTTP-level errors.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
 		// Special case: handle not found errors.
 		if typed, ok := err.(*googleapi.Error); ok {
