@@ -137,6 +137,7 @@ func toObject(in *storage.Object) (out *Object) {
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
+		Owner:           in.Owner,
 		ContentEncoding: in.ContentEncoding,
 		Size:            in.Size,
 		MediaLink:       in.MediaLink,
