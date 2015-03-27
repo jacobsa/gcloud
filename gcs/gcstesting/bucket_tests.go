@@ -305,7 +305,7 @@ func (t *createTest) EmptyObject() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	o := listing.Results[0]
@@ -323,7 +323,7 @@ func (t *createTest) NonEmptyObject() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	o := listing.Results[0]
@@ -342,7 +342,7 @@ func (t *createTest) Overwrite() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	o := listing.Results[0]
@@ -393,7 +393,7 @@ func (t *createTest) ObjectAttributes_Default() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -445,7 +445,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -475,7 +475,7 @@ func (t *createTest) ErrorAfterPartialContents() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	ExpectThat(listing.Results, ElementsAre())
 }
@@ -534,7 +534,7 @@ func (t *createTest) InterestingNames() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	var listingNames []string
 	for _, o := range listing.Results {
@@ -609,7 +609,7 @@ func (t *createTest) IllegalNames() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 	ExpectThat(listing.Results, ElementsAre())
 }
 
@@ -642,7 +642,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	AssertEq("foo", listing.Results[0].Name)
@@ -678,7 +678,7 @@ func (t *createTest) GenerationPrecondition_Zero_Satisfied() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	AssertEq("foo", listing.Results[0].Name)
@@ -713,7 +713,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Missing() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 	ExpectEq(0, len(listing.Results))
 }
 
@@ -746,7 +746,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	AssertEq("foo", listing.Results[0].Name)
@@ -790,7 +790,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	AssertEq("foo", listing.Results[0].Name)
@@ -1208,7 +1208,7 @@ func (t *updateTest) RemoveAllFields() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -1259,7 +1259,7 @@ func (t *updateTest) ModifyAllFields() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -1310,7 +1310,7 @@ func (t *updateTest) MixedModificationsToFields() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -1358,7 +1358,7 @@ func (t *updateTest) AddUserMetadata() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -1413,7 +1413,7 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 	AssertEq(nil, err)
 
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	AssertEq(1, len(listing.Results))
 	ExpectThat(listing.Results[0], DeepEquals(o))
@@ -1475,7 +1475,7 @@ func (t *deleteTest) Successful() {
 
 	AssertNe(nil, listing)
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 	ExpectThat(listing.Results, ElementsAre())
 
 	// It shouldn't be readable.
@@ -1515,7 +1515,7 @@ func (t *listTest) NewlyCreatedObject() {
 
 	AssertNe(nil, listing)
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	var o *gcs.Object
 	AssertEq(1, len(listing.Results))
@@ -1539,7 +1539,7 @@ func (t *listTest) TrivialQuery() {
 
 	AssertNe(nil, listing)
 	AssertThat(listing.CollapsedRuns, ElementsAre())
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	var o *gcs.Object
 	AssertEq(3, len(listing.Results))
@@ -1588,7 +1588,7 @@ func (t *listTest) Delimiter_SingleRune() {
 	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
 	AssertNe(nil, listing)
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	// Collapsed runs
 	ExpectThat(listing.CollapsedRuns, ElementsAre("!", "b!", "c!", "d!"))
@@ -1638,7 +1638,7 @@ func (t *listTest) Delimiter_MultiRune() {
 	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
 	AssertNe(nil, listing)
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	// Collapsed runs
 	ExpectThat(listing.CollapsedRuns, ElementsAre("!!", "b!!", "c!!", "d!!"))
@@ -1679,7 +1679,7 @@ func (t *listTest) Prefix() {
 	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
 	AssertNe(nil, listing)
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 	AssertThat(listing.CollapsedRuns, ElementsAre())
 
 	// Objects
@@ -1731,7 +1731,7 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
 	AssertNe(nil, listing)
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	// Collapsed runs
 	ExpectThat(
@@ -1796,7 +1796,7 @@ func (t *listTest) PrefixAndDelimiter_MultiRune() {
 	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
 	AssertNe(nil, listing)
-	AssertEq(nil, listing.Next)
+	AssertEq("", listing.ContinuationToken)
 
 	// Collapsed runs
 	ExpectThat(
