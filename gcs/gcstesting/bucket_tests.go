@@ -35,7 +35,6 @@ import (
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -612,7 +611,7 @@ func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	// Request to create another version of the object, with a precondition
@@ -710,7 +709,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Unsatisfied_Present() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	// Request to create another version of the object, with a precondition for
@@ -750,7 +749,7 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	orig, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	// Request to create another version of the object, with a precondition
@@ -851,7 +850,7 @@ func (t *readTest) ParticularGeneration_NeverExisted() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"")
 
 	AssertEq(nil, err)
@@ -874,7 +873,7 @@ func (t *readTest) ParticularGeneration_HasBeenDeleted() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"")
 
 	AssertEq(nil, err)
@@ -901,7 +900,7 @@ func (t *readTest) ParticularGeneration_Exists() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	AssertEq(nil, err)
@@ -929,7 +928,7 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	o, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"taco")
 
 	AssertEq(nil, err)
@@ -939,7 +938,7 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	o2, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: "foo"},
+		"foo",
 		"burrito")
 
 	AssertEq(nil, err)
@@ -1115,7 +1114,7 @@ func (t *updateTest) NonExistentObject() {
 
 func (t *updateTest) RemoveContentType() {
 	// Create an object.
-	req := &storage.ObjectAttrs{
+	req := &gcs.CreateObjectRequest{
 		Name:        "foo",
 		ContentType: "image/png",
 		Contents:    strings.NewReader("taco"),
@@ -1138,7 +1137,7 @@ func (t *updateTest) RemoveContentType() {
 
 func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
-	req := &storage.ObjectAttrs{
+	req := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1191,7 +1190,7 @@ func (t *updateTest) RemoveAllFields() {
 
 func (t *updateTest) ModifyAllFields() {
 	// Create an object with explicit attributes set.
-	createReq := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1244,7 +1243,7 @@ func (t *updateTest) ModifyAllFields() {
 
 func (t *updateTest) MixedModificationsToFields() {
 	// Create an object with some explicit attributes set.
-	createReq := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name:            "foo",
 		ContentType:     "image/png",
 		ContentEncoding: "gzip",
@@ -1340,7 +1339,7 @@ func (t *updateTest) AddUserMetadata() {
 
 func (t *updateTest) MixedModificationsToUserMetadata() {
 	// Create an object with some user metadata.
-	createReq := &storage.ObjectAttrs{
+	createReq := &gcs.CreateObjectRequest{
 		Name: "foo",
 		Metadata: map[string]string{
 			"0": "taco",
