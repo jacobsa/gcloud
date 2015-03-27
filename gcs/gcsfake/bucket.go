@@ -30,7 +30,6 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 var crc32Table = crc32.MakeTable(crc32.Castagnoli)
@@ -231,7 +230,7 @@ func (b *bucket) ListObjects(
 
 		// Otherwise, return as an object result. Make a copy to avoid handing back
 		// internal state.
-		var oCopy storage.Object = o.entry
+		var oCopy gcs.Object = o.entry
 		listing.Results = append(listing.Results, &oCopy)
 	}
 
@@ -298,7 +297,7 @@ func (b *bucket) NewReader(
 
 func (b *bucket) CreateObject(
 	ctx context.Context,
-	req *gcs.CreateObjectRequest) (o *storage.Object, err error) {
+	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
 	// Check that the object name is legal.
 	name := req.Attrs.Name
 	if len(name) == 0 || len(name) > 1024 {
@@ -339,7 +338,7 @@ func (b *bucket) CreateObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) StatObject(
 	ctx context.Context,
-	req *gcs.StatObjectRequest) (o *storage.Object, err error) {
+	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -354,7 +353,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Make a copy to avoid handing back internal state.
-	var objCopy storage.Object = b.objects[index].entry
+	var objCopy gcs.Object = b.objects[index].entry
 	o = &objCopy
 
 	return
@@ -363,7 +362,7 @@ func (b *bucket) StatObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) UpdateObject(
 	ctx context.Context,
-	req *gcs.UpdateObjectRequest) (o *storage.Object, err error) {
+	req *gcs.UpdateObjectRequest) (o *gcs.Object, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -383,7 +382,7 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	var obj *storage.Object = &b.objects[index].entry
+	var obj *gcs.Object = &b.objects[index].entry
 
 	// Update the entry's basic fields according to the request.
 	if req.ContentType != nil {
@@ -422,7 +421,7 @@ func (b *bucket) UpdateObject(
 	obj.MetaGeneration++
 
 	// Make a copy to avoid handing back internal state.
-	var objCopy storage.Object = *obj
+	var objCopy gcs.Object = *obj
 	o = &objCopy
 
 	return
@@ -455,11 +454,11 @@ func (b *bucket) DeleteObject(
 //
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
-	attrs *storage.ObjectAttrs,
+	attrs *gcs.ObjectAttrs,
 	contents string) (o fakeObject) {
 	// Set up basic info.
 	b.prevGeneration++
-	o.entry = storage.Object{
+	o.entry = gcs.Object{
 		Bucket:          b.Name(),
 		Name:            attrs.Name,
 		ContentType:     attrs.ContentType,
@@ -497,7 +496,7 @@ func (b *bucket) mintObject(
 // EXCLUSIVE_LOCKS_REQUIRED(b.mu)
 func (b *bucket) addObjectLocked(
 	req *gcs.CreateObjectRequest,
-	contents string) (entry storage.Object, err error) {
+	contents string) (entry gcs.Object, err error) {
 	// Find any existing record for this name.
 	existingIndex := b.objects.find(req.Attrs.Name)
 
