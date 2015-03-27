@@ -139,12 +139,16 @@ func toObject(in *storage.Object) (out *Object) {
 		CacheControl:    in.CacheControl,
 		Owner:           in.Owner,
 		ContentEncoding: in.ContentEncoding,
+		MD5:             in.MD5,
+		CRC32C:          in.CRC32C,
 		Size:            in.Size,
 		MediaLink:       in.MediaLink,
 		Metadata:        in.Metadata,
 		Generation:      in.Generation,
 		MetaGeneration:  in.MetaGeneration,
 		StorageClass:    in.StorageClass,
+		Deleted:         in.Deleted,
+		Updated:         in.Updated,
 	}
 
 	return
