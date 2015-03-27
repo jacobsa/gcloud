@@ -120,7 +120,7 @@ func (b *bucket) Name() string {
 
 func (b *bucket) ListObjects(
 	ctx context.Context,
-	req *ListObjectsRequest) (*Listing, error) {
+	req *ListObjectsRequest) (listing *Listing, err error) {
 	err = errors.New("TODO: ListObjects")
 	return
 }
@@ -192,11 +192,9 @@ func fromRfc3339(s string) (t time.Time, err error) {
 }
 
 func fromRawObject(
-	bucketName string,
 	in *storagev1.Object) (out *Object, err error) {
 	// Convert the easy fields.
 	out = &Object{
-		Bucket:          bucketName,
 		Name:            in.Name,
 		ContentType:     in.ContentType,
 		ContentLanguage: in.ContentLanguage,
@@ -365,7 +363,7 @@ func (b *bucket) UpdateObject(
 	}
 
 	// Convert the response.
-	if o, err = fromRawObject(b.Name(), rawObject); err != nil {
+	if o, err = fromRawObject(rawObject); err != nil {
 		return
 	}
 
