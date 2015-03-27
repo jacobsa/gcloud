@@ -44,8 +44,8 @@ func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 }
 
 type fakeObject struct {
-	// A storage.Object representing a GCS entry for this object.
-	entry storage.Object
+	// An Object representing a GCS entry for this object.
+	entry gcs.Object
 
 	// The contents of the object. These never change.
 	contents string
@@ -170,33 +170,28 @@ func (b *bucket) Name() string {
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) ListObjects(
 	ctx context.Context,
-	query *storage.Query) (listing *storage.Objects, err error) {
+	req *gcs.ListObjectsRequest) (listing *gcs.Listing, err error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	// Set up the result object.
-	listing = new(storage.Objects)
-
-	// Handle nil queries.
-	if query == nil {
-		query = &storage.Query{}
-	}
+	listing = new(gcs.Listing)
 
 	// Handle defaults.
-	maxResults := query.MaxResults
+	maxResults := req.MaxResults
 	if maxResults == 0 {
 		maxResults = 1000
 	}
 
 	// Find where in the space of object names to start.
-	nameStart := query.Prefix
-	if query.Cursor != "" && query.Cursor > nameStart {
-		nameStart = query.Cursor
+	nameStart := req.Prefix
+	if req.ContinuationToken != "" && req.ContinuationToken > nameStart {
+		nameStart = req.ContinuationToken
 	}
 
 	// Find the range of indexes within the array to scan.
 	indexStart := b.objects.lowerBound(nameStart)
-	prefixLimit := b.objects.prefixUpperBound(query.Prefix)
+	prefixLimit := b.objects.prefixUpperBound(req.Prefix)
 	indexLimit := minInt(indexStart+maxResults, prefixLimit)
 
 	// Scan the array.
@@ -206,19 +201,19 @@ func (b *bucket) ListObjects(
 		name := o.entry.Name
 
 		// Search for a delimiter if necessary.
-		if query.Delimiter != "" {
+		if req.Delimiter != "" {
 			// Search only in the part after the prefix.
-			nameMinusQueryPrefix := name[len(query.Prefix):]
+			nameMinusQueryPrefix := name[len(req.Prefix):]
 
-			delimiterIndex := strings.Index(nameMinusQueryPrefix, query.Delimiter)
+			delimiterIndex := strings.Index(nameMinusQueryPrefix, req.Delimiter)
 			if delimiterIndex >= 0 {
 				resultPrefixLimit := delimiterIndex
 
 				// Transform to an index within name.
-				resultPrefixLimit += len(query.Prefix)
+				resultPrefixLimit += len(req.Prefix)
 
 				// Include the delimiter in the result.
-				resultPrefixLimit += len(query.Delimiter)
+				resultPrefixLimit += len(req.Delimiter)
 
 				// Save the result, but only if it's not a duplicate.
 				resultPrefix := name[:resultPrefixLimit]
@@ -243,28 +238,25 @@ func (b *bucket) ListObjects(
 	// Set up a cursor for where to start the next scan if we didn't exhaust the
 	// results.
 	if indexLimit < prefixLimit {
-		listing.Next = &storage.Query{}
-		*listing.Next = *query
-
-		// Ion is if the final object we visited was returned as an element in
+		// If the final object we visited was returned as an element in
 		// listing.Prefixes, we want to skip all other objects that would result in
 		// the same so we don't return duplicate elements in listing.Prefixes
 		// accross requests.
 		if lastResultWasPrefix {
 			lastResultPrefix := listing.Prefixes[len(listing.Prefixes)-1]
-			listing.Next.Cursor = prefixSuccessor(lastResultPrefix)
+			listing.ContinuationToken = prefixSuccessor(lastResultPrefix)
 
 			// Check an assumption: prefixSuccessor cannot result in the empty string
 			// above because object names must be non-empty UTF-8 strings, and there
 			// is no valid non-empty UTF-8 string that consists of entirely 0xff
 			// bytes.
-			if listing.Next.Cursor == "" {
+			if listing.ContinuationToken == "" {
 				err = errors.New("Unexpected empty string from prefixSuccessor")
 				return
 			}
 		} else {
 			// Otherwise, we'll start scanning at the next object.
-			listing.Next.Cursor = b.objects[indexLimit].entry.Name
+			listing.ContinuationToken = b.objects[indexLimit].entry.Name
 		}
 	}
 
