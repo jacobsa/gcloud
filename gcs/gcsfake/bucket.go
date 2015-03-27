@@ -22,14 +22,13 @@ import (
 	"hash/crc32"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
-	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"golang.org/x/net/context"
 	"google.golang.org/cloud/storage"
 )
@@ -493,10 +492,9 @@ func (b *bucket) mintObject(
 	// Set up contents.
 	o.contents = contents
 
-	// Match the real GCS client library's behavior of sniffing content types
-	// when not explicitly specified.
+	// Support the same default content type as GCS.
 	if o.entry.ContentType == "" {
-		o.entry.ContentType = http.DetectContentType([]byte(contents))
+		o.entry.ContentType = "application/octet-stream"
 	}
 
 	return
