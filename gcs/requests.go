@@ -67,7 +67,33 @@ type StatObjectRequest struct {
 }
 
 type ListObjectsRequest struct {
-	// TODO
+	// List only objects whose names begin with this prefix.
+	Prefix string
+
+	// Collapse results based on a delimiter.
+	//
+	// If non-empty, enable the following behavior. For each run of one or more
+	// objects whose names are of the form:
+	//
+	//     <Prefix><S><Delimiter><...>
+	//
+	// where <S> is a string that doesn't itself contain Delimiter and <...> is
+	// anything, return a single Collaped entry in the listing consisting of
+	//
+	//     <Prefix><S><Delimiter>
+	//
+	// instead of one Object record per object. If a collapsed entry consists of
+	// a large number of objects, this may be more efficient.
+	Delimiter string
+
+	// Used to continue a listing where a previous one left off. See
+	// Listing.Token for more information.
+	Token string
+
+	// The maximum number of objects and collapsed results to return. Fewer than
+	// this number may actually be returned. If this is zero, a sensible default
+	// is used.
+	MaxResults int
 }
 
 // A request to update the metadata of an object, accepted by
