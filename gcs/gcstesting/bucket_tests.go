@@ -46,11 +46,11 @@ func createEmpty(
 	ctx context.Context,
 	bucket gcs.Bucket,
 	objectNames []string) error {
-	_, err := gcsutil.CreateEmptyObjects(ctx, bucket, objectNames)
+	err := gcsutil.CreateEmptyObjects(ctx, bucket, objectNames)
 	return err
 }
 
-// Convert from [16]byte to the slice type used by storage.Object.
+// Convert from [16]byte to the slice type used by gcs.Object.
 func md5Sum(s string) []byte {
 	array := md5.Sum([]byte(s))
 	return array[:]
@@ -229,7 +229,7 @@ func (t *bucketTest) createObject(name string, contents string) error {
 	_, err := gcsutil.CreateObject(
 		t.ctx,
 		t.bucket,
-		&storage.ObjectAttrs{Name: name},
+		name,
 		contents)
 
 	return err
@@ -301,14 +301,14 @@ func (t *createTest) EmptyObject() {
 	AssertEq(nil, t.createObject("foo", ""))
 
 	// Ensure it shows up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	AssertEq(1, len(listing.Results))
+	o := listing.Results[0]
 
 	AssertEq("foo", o.Name)
 	ExpectEq(0, o.Size)
@@ -319,14 +319,14 @@ func (t *createTest) NonEmptyObject() {
 	AssertEq(nil, t.createObject("foo", "taco"))
 
 	// Ensure it shows up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	AssertEq(1, len(listing.Results))
+	o := listing.Results[0]
 
 	AssertEq("foo", o.Name)
 	ExpectEq(len("taco"), o.Size)
@@ -338,14 +338,14 @@ func (t *createTest) Overwrite() {
 	AssertEq(nil, t.createObject("foo", "burrito"))
 
 	// The second version should show up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
-	AssertEq(1, len(objects.Results))
-	o := objects.Results[0]
+	AssertEq(1, len(listing.Results))
+	o := listing.Results[0]
 
 	AssertEq("foo", o.Name)
 	ExpectEq(len("burrito"), o.Size)
@@ -471,13 +471,13 @@ func (t *createTest) ErrorAfterPartialContents() {
 	ExpectThat(err, Error(HasSubstr("timeout")))
 
 	// The object should not show up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
-	ExpectThat(objects.Results, ElementsAre())
+	ExpectThat(listing.Results, ElementsAre())
 }
 
 func (t *createTest) InterestingNames() {
@@ -530,14 +530,14 @@ func (t *createTest) InterestingNames() {
 	})
 
 	// Grab a listing and extract the names.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
 	var listingNames []string
-	for _, o := range objects.Results {
+	for _, o := range listing.Results {
 		listingNames = append(listingNames, o.Name)
 	}
 
@@ -605,12 +605,12 @@ func (t *createTest) IllegalNames() {
 	}
 
 	// No objects should have been created.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-	ExpectThat(objects.Results, ElementsAre())
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+	ExpectThat(listing.Results, ElementsAre())
 }
 
 func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
@@ -1470,13 +1470,13 @@ func (t *deleteTest) Successful() {
 	AssertEq(nil, t.bucket.DeleteObject(t.ctx, "a"))
 
 	// It shouldn't show up in a listing.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
-	ExpectThat(objects.Results, ElementsAre())
+	AssertNe(nil, listing)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
+	ExpectThat(listing.Results, ElementsAre())
 
 	// It shouldn't be readable.
 	req := &gcs.ReadObjectRequest{
@@ -1496,13 +1496,13 @@ type listTest struct {
 }
 
 func (t *listTest) EmptyBucket() {
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	ExpectThat(objects.Results, ElementsAre())
-	ExpectThat(objects.Prefixes, ElementsAre())
-	ExpectEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	ExpectThat(listing.Results, ElementsAre())
+	ExpectThat(listing.Prefixes, ElementsAre())
+	ExpectEq(nil, listing.Next)
 }
 
 func (t *listTest) NewlyCreatedObject() {
@@ -1510,18 +1510,18 @@ func (t *listTest) NewlyCreatedObject() {
 	AssertEq(nil, t.createObject("a", "taco"))
 
 	// List all objects in the bucket.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
-	var o *storage.Object
-	AssertEq(1, len(objects.Results))
+	var o *gcs.Object
+	AssertEq(1, len(listing.Results))
 
 	// a
-	o = objects.Results[0]
+	o = listing.Results[0]
 	AssertEq("a", o.Name)
 	ExpectEq(t.bucket.Name(), o.Bucket)
 	ExpectEq(len("taco"), o.Size)
@@ -1534,28 +1534,28 @@ func (t *listTest) TrivialQuery() {
 	AssertEq(nil, t.createObject("c", "enchilada"))
 
 	// List all objects in the bucket.
-	objects, err := t.bucket.ListObjects(t.ctx, nil)
+	listing, err := t.bucket.ListObjects(t.ctx, nil)
 	AssertEq(nil, err)
 
-	AssertNe(nil, objects)
-	AssertThat(objects.Prefixes, ElementsAre())
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertThat(listing.Prefixes, ElementsAre())
+	AssertEq(nil, listing.Next)
 
-	var o *storage.Object
-	AssertEq(3, len(objects.Results))
+	var o *gcs.Object
+	AssertEq(3, len(listing.Results))
 
 	// a
-	o = objects.Results[0]
+	o = listing.Results[0]
 	AssertEq("a", o.Name)
 	ExpectEq(len("taco"), o.Size)
 
 	// b
-	o = objects.Results[1]
+	o = listing.Results[1]
 	AssertEq("b", o.Name)
 	ExpectEq(len("burrito"), o.Size)
 
 	// c
-	o = objects.Results[2]
+	o = listing.Results[2]
 	AssertEq("c", o.Name)
 	ExpectEq(len("enchilada"), o.Size)
 }
@@ -1581,24 +1581,24 @@ func (t *listTest) Delimiter_SingleRune() {
 			}))
 
 	// List with the delimiter "!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Delimiter: "!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq(nil, listing.Next)
 
 	// Prefixes
-	ExpectThat(objects.Prefixes, ElementsAre("!", "b!", "c!", "d!"))
+	ExpectThat(listing.Prefixes, ElementsAre("!", "b!", "c!", "d!"))
 
 	// Objects
-	AssertEq(3, len(objects.Results))
+	AssertEq(3, len(listing.Results))
 
-	ExpectEq("a", objects.Results[0].Name)
-	ExpectEq("b", objects.Results[1].Name)
-	ExpectEq("e", objects.Results[2].Name)
+	ExpectEq("a", listing.Results[0].Name)
+	ExpectEq("b", listing.Results[1].Name)
+	ExpectEq("e", listing.Results[2].Name)
 }
 
 func (t *listTest) Delimiter_MultiRune() {
@@ -1631,27 +1631,27 @@ func (t *listTest) Delimiter_MultiRune() {
 			}))
 
 	// List with the delimiter "!!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Delimiter: "!!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq(nil, listing.Next)
 
 	// Prefixes
-	ExpectThat(objects.Prefixes, ElementsAre("!!", "b!!", "c!!", "d!!"))
+	ExpectThat(listing.Prefixes, ElementsAre("!!", "b!!", "c!!", "d!!"))
 
 	// Objects
-	AssertEq(6, len(objects.Results))
+	AssertEq(6, len(listing.Results))
 
-	ExpectEq("!", objects.Results[0].Name)
-	ExpectEq("a", objects.Results[1].Name)
-	ExpectEq("b", objects.Results[2].Name)
-	ExpectEq("b!", objects.Results[3].Name)
-	ExpectEq("b!foo", objects.Results[4].Name)
-	ExpectEq("e", objects.Results[5].Name)
+	ExpectEq("!", listing.Results[0].Name)
+	ExpectEq("a", listing.Results[1].Name)
+	ExpectEq("b", listing.Results[2].Name)
+	ExpectEq("b!", listing.Results[3].Name)
+	ExpectEq("b!foo", listing.Results[4].Name)
+	ExpectEq("e", listing.Results[5].Name)
 }
 
 func (t *listTest) Prefix() {
@@ -1672,23 +1672,23 @@ func (t *listTest) Prefix() {
 			}))
 
 	// List with the prefix "b".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Prefix: "b",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
-	AssertThat(objects.Prefixes, ElementsAre())
+	AssertNe(nil, listing)
+	AssertEq(nil, listing.Next)
+	AssertThat(listing.Prefixes, ElementsAre())
 
 	// Objects
-	AssertEq(4, len(objects.Results))
+	AssertEq(4, len(listing.Results))
 
-	ExpectEq("b", objects.Results[0].Name)
-	ExpectEq("b\x00", objects.Results[1].Name)
-	ExpectEq("b\x01", objects.Results[2].Name)
-	ExpectEq("b타코", objects.Results[3].Name)
+	ExpectEq("b", listing.Results[0].Name)
+	ExpectEq("b\x00", listing.Results[1].Name)
+	ExpectEq("b\x01", listing.Results[2].Name)
+	ExpectEq("b타코", listing.Results[3].Name)
 }
 
 func (t *listTest) PrefixAndDelimiter_SingleRune() {
@@ -1723,19 +1723,19 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 			}))
 
 	// List with the prefix "blah!b" and the delimiter "!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Prefix:    "blah!b",
 		Delimiter: "!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq(nil, listing.Next)
 
 	// Prefixes
 	ExpectThat(
-		objects.Prefixes,
+		listing.Prefixes,
 		ElementsAre(
 			"blah!b\x00!",
 			"blah!b\x01!",
@@ -1744,12 +1744,12 @@ func (t *listTest) PrefixAndDelimiter_SingleRune() {
 		))
 
 	// Objects
-	AssertEq(4, len(objects.Results))
+	AssertEq(4, len(listing.Results))
 
-	ExpectEq("blah!b", objects.Results[0].Name)
-	ExpectEq("blah!b\x00", objects.Results[1].Name)
-	ExpectEq("blah!b\x01", objects.Results[2].Name)
-	ExpectEq("blah!b타코", objects.Results[3].Name)
+	ExpectEq("blah!b", listing.Results[0].Name)
+	ExpectEq("blah!b\x00", listing.Results[1].Name)
+	ExpectEq("blah!b\x01", listing.Results[2].Name)
+	ExpectEq("blah!b타코", listing.Results[3].Name)
 }
 
 func (t *listTest) PrefixAndDelimiter_MultiRune() {
@@ -1788,19 +1788,19 @@ func (t *listTest) PrefixAndDelimiter_MultiRune() {
 			}))
 
 	// List with the prefix "blah!b" and the delimiter "!".
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Prefix:    "blah!!b",
 		Delimiter: "!!",
 	}
 
-	objects, err := t.bucket.ListObjects(t.ctx, query)
+	listing, err := t.bucket.ListObjects(t.ctx, req)
 	AssertEq(nil, err)
-	AssertNe(nil, objects)
-	AssertEq(nil, objects.Next)
+	AssertNe(nil, listing)
+	AssertEq(nil, listing.Next)
 
 	// Prefixes
 	ExpectThat(
-		objects.Prefixes,
+		listing.Prefixes,
 		ElementsAre(
 			"blah!!b\x00!!",
 			"blah!!b\x01!!",
@@ -1809,16 +1809,16 @@ func (t *listTest) PrefixAndDelimiter_MultiRune() {
 		))
 
 	// Objects
-	AssertEq(8, len(objects.Results))
+	AssertEq(8, len(listing.Results))
 
-	ExpectEq("blah!!b", objects.Results[0].Name)
-	ExpectEq("blah!!b\x00", objects.Results[1].Name)
-	ExpectEq("blah!!b\x00!", objects.Results[2].Name)
-	ExpectEq("blah!!b\x01", objects.Results[3].Name)
-	ExpectEq("blah!!b\x01!", objects.Results[4].Name)
-	ExpectEq("blah!!b!", objects.Results[5].Name)
-	ExpectEq("blah!!b타코", objects.Results[6].Name)
-	ExpectEq("blah!!b타코!", objects.Results[7].Name)
+	ExpectEq("blah!!b", listing.Results[0].Name)
+	ExpectEq("blah!!b\x00", listing.Results[1].Name)
+	ExpectEq("blah!!b\x00!", listing.Results[2].Name)
+	ExpectEq("blah!!b\x01", listing.Results[3].Name)
+	ExpectEq("blah!!b\x01!", listing.Results[4].Name)
+	ExpectEq("blah!!b!", listing.Results[5].Name)
+	ExpectEq("blah!!b타코", listing.Results[6].Name)
+	ExpectEq("blah!!b타코!", listing.Results[7].Name)
 }
 
 func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
@@ -1848,7 +1848,7 @@ func (t *listTest) Cursor_BucketEndsWithRunOfIndividualObjects() {
 
 	// List repeatedly with a small value for MaxResults. Keep track of all of
 	// the objects and prefixes we find.
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Delimiter:  "!",
 		MaxResults: 2,
 	}
@@ -1917,7 +1917,7 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 
 	// List repeatedly with a small value for MaxResults. Keep track of all of
 	// the objects and prefixes we find.
-	query := &storage.Query{
+	req := &gcs.ListObjectsRequest{
 		Delimiter:  "!",
 		MaxResults: 2,
 	}
