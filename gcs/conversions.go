@@ -20,7 +20,6 @@ import (
 	"time"
 
 	storagev1 "google.golang.org/api/storage/v1"
-	"google.golang.org/cloud/storage"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -120,30 +119,6 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 			uint32(crc32cString[1])<<16 |
 			uint32(crc32cString[2])<<8 |
 			uint32(crc32cString[3])<<0
-
-	return
-}
-
-// TODO(jacobsa): Delete this when possible. See issue #4.
-func fromWrappedObject(in *storage.Object) (out *Object) {
-	out = &Object{
-		Name:            in.Name,
-		ContentType:     in.ContentType,
-		ContentLanguage: in.ContentLanguage,
-		CacheControl:    in.CacheControl,
-		Owner:           in.Owner,
-		ContentEncoding: in.ContentEncoding,
-		MD5:             in.MD5,
-		CRC32C:          in.CRC32C,
-		Size:            in.Size,
-		MediaLink:       in.MediaLink,
-		Metadata:        in.Metadata,
-		Generation:      in.Generation,
-		MetaGeneration:  in.MetaGeneration,
-		StorageClass:    in.StorageClass,
-		Deleted:         in.Deleted,
-		Updated:         in.Updated,
-	}
 
 	return
 }

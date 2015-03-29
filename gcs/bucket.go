@@ -269,21 +269,59 @@ func (b *bucket) CreateObject(
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	// Call the wrapped package.
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	wrappedObj, err := storage.StatObject(authContext, b.name, req.Name)
+	// Construct an appropriate URL (cf. http://goo.gl/MoITmB).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o/%s",
+		httputil.EncodePathSegment(b.Name()),
+		httputil.EncodePathSegment(req.Name))
 
-	// Transform errors.
-	if err == storage.ErrObjectNotExist {
-		err = &NotFoundError{
-			Err: err,
+	query := make(url.Values)
+	query.Set("projection", "full")
+
+	url := &url.URL{
+		Scheme:   "https",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
+	}
+
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
+	if err != nil {
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Execute the HTTP request.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	// Check for HTTP-level errors.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
 		}
 
 		return
 	}
 
-	// Transform the object.
-	o = fromWrappedObject(wrappedObj)
+	// Parse the response.
+	var rawObject *storagev1.Object
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = toObject(rawObject); err != nil {
+		err = fmt.Errorf("toObject: %v", err)
+		return
+	}
 
 	return
 }
