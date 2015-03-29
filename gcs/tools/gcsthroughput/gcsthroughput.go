@@ -189,9 +189,7 @@ func run() (err error) {
 	// Create an object using the repeated contents.
 	log.Println("Creating object.")
 	req := &gcs.CreateObjectRequest{
-		Attrs: storage.ObjectAttrs{
-			Name: "foo",
-		},
+		Name:     "foo",
 		Contents: reader,
 	}
 
