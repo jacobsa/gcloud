@@ -240,10 +240,15 @@ func (b *bucket) NewReader(
 		return
 	}
 
+	// Close the body if we haven't handed it over to the user.
+	defer func() {
+		if rc == nil {
+			googleapi.CloseBody(httpRes)
+		}
+	}()
+
 	// Check for HTTP error statuses.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
-		googleapi.CloseBody(httpRes)
-
 		// Special case: handle not found errors.
 		if typed, ok := err.(*googleapi.Error); ok {
 			if typed.Code == http.StatusNotFound {
