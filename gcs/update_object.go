@@ -17,6 +17,7 @@ package gcs
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -26,11 +27,9 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
-func updateObject(
-	httpClient *http.Client,
+func makeUpdateObjectBody(
 	bucketName string,
-	ctx context.Context,
-	req *UpdateObjectRequest) (o *Object, err error) {
+	req *UpdateObjectRequest) (r io.Reader, err error) {
 	// Set up a map representing the JSON object we want to send to GCS. For now,
 	// we don't treat empty strings specially.
 	jsonMap := make(map[string]interface{})
@@ -64,12 +63,21 @@ func updateObject(
 		jsonMap["metadata"] = req.Metadata
 	}
 
-	// Set up a reader for the JSON object.
-	body, err := googleapi.WithoutDataWrapper.JSONReader(jsonMap)
+	// Set up a reader.
+	r, err = googleapi.WithoutDataWrapper.JSONReader(jsonMap)
 	if err != nil {
+		err = fmt.Errorf("JSONReader", err)
 		return
 	}
 
+	return
+}
+
+func updateObject(
+	httpClient *http.Client,
+	bucketName string,
+	ctx context.Context,
+	req *UpdateObjectRequest) (o *Object, err error) {
 	// Construct an appropriate URL (cf. http://goo.gl/B46IDy).
 	opaque := fmt.Sprintf(
 		"//www.googleapis.com/storage/v1/b/%s/o/%s",
@@ -83,6 +91,13 @@ func updateObject(
 		Scheme:   "https",
 		Opaque:   opaque,
 		RawQuery: query.Encode(),
+	}
+
+	// Set up the request body.
+	body, err := makeUpdateObjectBody(bucketName, req)
+	if err != nil {
+		err = fmt.Errorf("makeUpdateObjectBody: %v", err)
+		return
 	}
 
 	// Create an HTTP request.
