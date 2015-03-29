@@ -153,10 +153,17 @@ func (b *bucket) ListObjects(
 		RawQuery: query.Encode(),
 	}
 
-	// Call the server.
-	httpRes, err := b.client.Get(url.String())
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
 	if err != nil {
-		err = fmt.Errorf("Get: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Call the server.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		err = fmt.Errorf("HTTP client: %v", err)
 		return
 	}
 
@@ -219,10 +226,17 @@ func (b *bucket) NewReader(
 		url.RawQuery = fmt.Sprintf("generation=%v", req.Generation)
 	}
 
-	// Call the server.
-	httpRes, err := b.client.Get(url.String())
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
 	if err != nil {
-		err = fmt.Errorf("Get: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Call the server.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		err = fmt.Errorf("HTTP client: %v", err)
 		return
 	}
 
