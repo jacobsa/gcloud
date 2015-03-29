@@ -23,7 +23,11 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
-func fromRfc3339(s string) (t time.Time, err error) {
+////////////////////////////////////////////////////////////////////////
+// To our types
+////////////////////////////////////////////////////////////////////////
+
+func toTime(s string) (t time.Time, err error) {
 	if s != "" {
 		t, err = time.Parse(time.RFC3339, s)
 	}
@@ -82,12 +86,12 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		out.Owner = in.Owner.Entity
 	}
 
-	if out.Deleted, err = fromRfc3339(in.TimeDeleted); err != nil {
+	if out.Deleted, err = toTime(in.TimeDeleted); err != nil {
 		err = fmt.Errorf("Decoding TimeDeleted field: %v", err)
 		return
 	}
 
-	if out.Updated, err = fromRfc3339(in.Updated); err != nil {
+	if out.Updated, err = toTime(in.Updated); err != nil {
 		err = fmt.Errorf("Decoding Updated field: %v", err)
 		return
 	}
@@ -139,6 +143,26 @@ func fromWrappedObject(in *storage.Object) (out *Object) {
 		StorageClass:    in.StorageClass,
 		Deleted:         in.Deleted,
 		Updated:         in.Updated,
+	}
+
+	return
+}
+
+////////////////////////////////////////////////////////////////////////
+// From our types
+////////////////////////////////////////////////////////////////////////
+
+func toRawObject(
+	bucketName string,
+	in *CreateObjectRequest) (out *storagev1.Object, err error) {
+	out = &storagev1.Object{
+		Bucket:          bucketName,
+		Name:            in.Name,
+		ContentType:     in.ContentType,
+		ContentLanguage: in.ContentLanguage,
+		ContentEncoding: in.ContentEncoding,
+		CacheControl:    in.CacheControl,
+		Metadata:        in.Metadata,
 	}
 
 	return
