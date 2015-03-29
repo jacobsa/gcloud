@@ -70,7 +70,7 @@ func startResumableUpload(
 	httpClient *http.Client,
 	bucketName string,
 	ctx context.Context,
-	req *CreateObjectRequest) (uploadURL string, err error) {
+	req *CreateObjectRequest) (uploadURL *url.URL, err error) {
 	// Construct an appropriate URL.
 	//
 	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
@@ -136,9 +136,16 @@ func startResumableUpload(
 	}
 
 	// Extract the Location header.
-	uploadURL = httpRes.Header.Get("Location")
-	if uploadURL == "" {
+	str := httpRes.Header.Get("Location")
+	if str == "" {
 		err = fmt.Errorf("Expected a Location header.")
+		return
+	}
+
+	// Parse it.
+	uploadURL, err = url.Parse(str)
+	if err != nil {
+		err = fmt.Errorf("url.Parse: %v", err)
 		return
 	}
 
