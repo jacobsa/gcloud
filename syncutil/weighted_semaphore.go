@@ -35,8 +35,16 @@ type WeightedSemaphore struct {
 	remainingChanged sync.Cond
 }
 
+// LOCKS_REQUIRED(ws.mu)
+func (ws *WeightedSemaphore) checkInvariants()
+
 // Initialize the semaphore with the given capacity.
-func (ws *WeightedSemaphore) Init(capacity uint64)
+func (ws *WeightedSemaphore) Init(capacity uint64) {
+	ws.capacity = capacity
+	ws.remaining = capacity
+	ws.mu = NewInvariantMutex(ws.checkInvariants)
+	ws.remainingChanged.L = &ws.mu
+}
 
 // Return the capacity with which the semaphore was initialized.
 func (ws *WeightedSemaphore) Capacity() uint64
