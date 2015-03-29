@@ -14,7 +14,10 @@
 
 package syncutil
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // A weighted counted semaphore. Can be created as part of larger structs. Must
 // be initialized with Init.
@@ -36,7 +39,12 @@ type WeightedSemaphore struct {
 }
 
 // LOCKS_REQUIRED(ws.mu)
-func (ws *WeightedSemaphore) checkInvariants()
+func (ws *WeightedSemaphore) checkInvariants() {
+	// INVARIANT: remaining <= capacity
+	if !(ws.remaining <= ws.capacity) {
+		panic(fmt.Sprintf("remaining > capacity: %v, %v", ws.remaining, ws.capacity))
+	}
+}
 
 // Initialize the semaphore with the given capacity.
 func (ws *WeightedSemaphore) Init(capacity uint64) {
