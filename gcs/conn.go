@@ -21,6 +21,13 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
+// OAuth scopes for GCS. For use with e.g. oauthutil.NewJWTHttpClient.
+const (
+	Scope_FullControl = storagev1.DevstorageFull_controlScope
+	Scope_ReadOnly    = storagev1.DevstorageRead_onlyScope
+	Scope_ReadWrite   = storagev1.DevstorageRead_writeScope
+)
+
 // Conn represents a connection to GCS, pre-bound with a project ID and
 // information required for authorization.
 type Conn interface {
