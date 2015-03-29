@@ -55,12 +55,29 @@ func (ws *WeightedSemaphore) Init(capacity uint64) {
 }
 
 // Return the capacity with which the semaphore was initialized.
-func (ws *WeightedSemaphore) Capacity() uint64
+func (ws *WeightedSemaphore) Capacity() uint64 {
+	return ws.capacity
+}
 
 // Block until the supplied capacity is available.
 //
 // REQUIRES: c <= ws.Capacity()
-func (ws *WeightedSemaphore) Acquire(c uint64)
+func (ws *WeightedSemaphore) Acquire(c uint64) {
+	if c > ws.Capacity() {
+		panic(fmt.Sprintf("Bad cost: %v", c))
+	}
+
+	// Wait for capacity to be available.
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	for c > ws.remaining {
+		ws.remainingChanged.Wait()
+	}
+
+	// Mark it as ours.
+	ws.remaining -= c
+}
 
 // Release previously-acquired capacity.
 func (ws *WeightedSemaphore) Release(c uint64)
