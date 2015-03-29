@@ -80,4 +80,14 @@ func (ws *WeightedSemaphore) Acquire(c uint64) {
 }
 
 // Release previously-acquired capacity.
-func (ws *WeightedSemaphore) Release(c uint64)
+func (ws *WeightedSemaphore) Release(c uint64) {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	ws.remaining += c
+
+	// Do this under the lock to avoid a check-then-wait race in Acquire.
+	// Broadcast rather than signal because not every acquirer will be
+	// satisfiable.
+	ws.remainingChanged.Broadcast()
+}
