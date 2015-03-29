@@ -29,7 +29,6 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/oauthutil"
 	"golang.org/x/net/context"
-	"google.golang.org/cloud/storage"
 )
 
 var fBucket = flag.String("bucket", "", "Name of bucket.")
@@ -47,7 +46,7 @@ func createBucket() (bucket gcs.Bucket, err error) {
 
 	httpClient, err := oauthutil.NewJWTHttpClient(
 		*fKeyFile,
-		[]string{storage.ScopeFullControl})
+		[]string{gcs.Scope_FullControl})
 
 	if err != nil {
 		err = fmt.Errorf("NewJWTHttpClient: %v", err)
