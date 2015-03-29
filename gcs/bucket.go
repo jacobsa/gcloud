@@ -29,6 +29,8 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
+const userAgent = "github.com-jacobsa-gloud-gcs"
+
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
 // authorization information.
 //
@@ -151,10 +153,17 @@ func (b *bucket) ListObjects(
 		RawQuery: query.Encode(),
 	}
 
-	// Call the server.
-	httpRes, err := b.client.Get(url.String())
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
 	if err != nil {
-		err = fmt.Errorf("Get: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Call the server.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		err = fmt.Errorf("HTTP client: %v", err)
 		return
 	}
 
@@ -217,10 +226,17 @@ func (b *bucket) NewReader(
 		url.RawQuery = fmt.Sprintf("generation=%v", req.Generation)
 	}
 
-	// Call the server.
-	httpRes, err := b.client.Get(url.String())
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
 	if err != nil {
-		err = fmt.Errorf("Get: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Call the server.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		err = fmt.Errorf("HTTP client: %v", err)
 		return
 	}
 
@@ -315,35 +331,29 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	// Set up URL params.
-	urlParams := make(url.Values)
-	urlParams.Set("projection", "full")
+	// Construct an appropriate URL (cf. http://goo.gl/B46IDy).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o/%s",
+		httputil.EncodePathSegment(b.Name()),
+		httputil.EncodePathSegment(req.Name))
 
-	// Set up the URL with a tempalte that we will later expand.
-	url := googleapi.ResolveRelative(
-		b.rawService.BasePath,
-		"b/{bucket}/o/{object}")
+	query := make(url.Values)
+	query.Set("projection", "full")
 
-	url += "?" + urlParams.Encode()
+	url := &url.URL{
+		Scheme:   "https",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
+	}
 
-	// Create an HTTP request using NewRequest, which parses the URL string.
-	// Expand the URL object it creates.
-	httpReq, err := http.NewRequest("PATCH", url, body)
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("PATCH", url, body, userAgent)
 	if err != nil {
-		err = fmt.Errorf("http.NewRequest: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
 	}
 
-	googleapi.Expand(
-		httpReq.URL,
-		map[string]string{
-			"bucket": b.Name(),
-			"object": req.Name,
-		})
-
-	// Set up HTTP request headers.
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
 
 	// Execute the HTTP request.
 	httpRes, err := b.client.Do(httpReq)
