@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"unicode/utf8"
@@ -29,10 +30,10 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
-// Create the JSON for an "object resource", for use in an Objects.insert body.
-func serializeMetadata(
+// Create the JSON for an "object resource", for use as an Objects.insert body.
+func makeCreateObjectBody(
 	bucketName string,
-	req *CreateObjectRequest) (out []byte, err error) {
+	req *CreateObjectRequest) (r io.Reader, err error) {
 	// Convert to storagev1.Object.
 	rawObject, err := toRawObject(bucketName, req)
 	if err != nil {
@@ -41,11 +42,14 @@ func serializeMetadata(
 	}
 
 	// Serialize.
-	out, err = json.Marshal(rawObject)
+	b, err := json.Marshal(rawObject)
 	if err != nil {
 		err = fmt.Errorf("json.Marshal: %v", err)
 		return
 	}
+
+	// Create a Reader.
+	r = bytes.NewReader(b)
 
 	return
 }
@@ -83,10 +87,10 @@ func startResumableUpload(
 			*req.GenerationPrecondition)
 	}
 
-	// Serialize the object metadata to JSON, for the request body.
-	metadataJson, err := serializeMetadata(bucketName, req)
+	// Set up the request body.
+	body, err := makeCreateObjectBody(bucketName, req)
 	if err != nil {
-		err = fmt.Errorf("serializeMetadata: %v", err)
+		err = fmt.Errorf("makeCreateObjectBody: %v", err)
 		return
 	}
 
@@ -94,7 +98,7 @@ func startResumableUpload(
 	httpReq, err := httputil.NewRequest(
 		"POST",
 		url,
-		bytes.NewReader(metadataJson),
+		body,
 		userAgent)
 
 	if err != nil {
