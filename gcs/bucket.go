@@ -219,8 +219,9 @@ func (b *bucket) NewReader(
 	}
 
 	url := &url.URL{
-		Scheme: "https",
-		Opaque: opaque,
+		Scheme:   "https",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
 	}
 
 	// Create an HTTP request.
