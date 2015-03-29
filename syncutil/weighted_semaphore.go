@@ -14,9 +14,25 @@
 
 package syncutil
 
+import "sync"
+
 // A weighted counted semaphore. Can be created as part of larger structs. Must
 // be initialized with Init.
 type WeightedSemaphore struct {
+	// Constant after Init returns.
+	capacity uint64
+
+	mu InvariantMutex
+
+	// The remaining capacity.
+	//
+	// INVARIANT: remaining <= capacity
+	//
+	// GUARDED_BY(mu)
+	remaining uint64
+
+	// Signalled when remaining is changed.
+	remainingChanged sync.Cond
 }
 
 // Initialize the semaphore with the given capacity.
