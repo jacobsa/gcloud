@@ -122,7 +122,11 @@ func (b *bucket) Name() string {
 func (b *bucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	// Set up the query for the URL.
+	// Construct an appropriate URL (cf. http://goo.gl/aVSAhT).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o",
+		httputil.EncodePathSegment(b.Name()))
+
 	query := make(url.Values)
 	query.Set("projection", "full")
 
@@ -141,11 +145,6 @@ func (b *bucket) ListObjects(
 	if req.MaxResults != 0 {
 		query.Set("maxResults", fmt.Sprintf("%v", req.MaxResults))
 	}
-
-	// Construct an appropriate URL (cf. http://goo.gl/aVSAhT).
-	opaque := fmt.Sprintf(
-		"//www.googleapis.com/storage/v1/b/%s/o",
-		httputil.EncodePathSegment(b.Name()))
 
 	url := &url.URL{
 		Scheme:   "https",
@@ -216,14 +215,14 @@ func (b *bucket) NewReader(
 		bucketSegment,
 		objectSegment)
 
+	query := make(url.Values)
+	if req.Generation != 0 {
+		query.Set("generation", fmt.Sprintf("%v", req.Generation))
+	}
+
 	url := &url.URL{
 		Scheme: "https",
 		Opaque: opaque,
-	}
-
-	// Add a generation condition, if specified.
-	if req.Generation != 0 {
-		url.RawQuery = fmt.Sprintf("generation=%v", req.Generation)
 	}
 
 	// Create an HTTP request.

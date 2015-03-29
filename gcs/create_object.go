@@ -74,17 +74,18 @@ func startResumableUpload(
 		"//www.googleapis.com/upload/storage/v1/b/%s/o",
 		bucketSegment)
 
+	query := make(url.Values)
+	query.Set("projection", "full")
+	query.Set("uploadType", "resumable")
+
+	if req.GenerationPrecondition != nil {
+		query.Set("ifGenerationMatch", fmt.Sprintf("%v", *req.GenerationPrecondition))
+	}
+
 	url := &url.URL{
 		Scheme:   "https",
 		Opaque:   opaque,
-		RawQuery: "uploadType=resumable&projection=full",
-	}
-
-	if req.GenerationPrecondition != nil {
-		url.RawQuery = fmt.Sprintf(
-			"%s&ifGenerationMatch=%v",
-			url.RawQuery,
-			*req.GenerationPrecondition)
+		RawQuery: query.Encode(),
 	}
 
 	// Set up the request body.
