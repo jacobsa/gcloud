@@ -25,8 +25,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
-	"google.golang.org/cloud"
-	"google.golang.org/cloud/storage"
 )
 
 const userAgent = "github.com-jacobsa-gloud-gcs"
@@ -334,23 +332,42 @@ func (b *bucket) UpdateObject(
 }
 
 func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
-	// Call the wrapped package.
-	authContext := cloud.WithContext(ctx, b.projID, b.client)
-	err = storage.DeleteObject(authContext, b.name, name)
+	// Construct an appropriate URL (cf. http://goo.gl/TRQJjZ).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o/%s",
+		httputil.EncodePathSegment(b.Name()),
+		httputil.EncodePathSegment(name))
 
-	// Transform errors.
-	if err == storage.ErrObjectNotExist {
-		err = &NotFoundError{
-			Err: err,
-		}
+	url := &url.URL{
+		Scheme: "https",
+		Opaque: opaque,
 	}
 
-	// Handle the fact that as of 2015-03-12, the wrapped package does not
-	// correctly return ErrObjectNotExist here.
-	if typed, ok := err.(*googleapi.Error); ok {
-		if typed.Code == http.StatusNotFound {
-			err = &NotFoundError{Err: typed}
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("DELETE", url, nil, userAgent)
+	if err != nil {
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Execute the HTTP request.
+	httpRes, err := b.client.Do(httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	// Check for HTTP-level errors.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
 		}
+
+		return
 	}
 
 	return
