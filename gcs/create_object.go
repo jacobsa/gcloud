@@ -29,22 +29,6 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
-func toRawObject(
-	bucketName string,
-	in *CreateObjectRequest) (out *storagev1.Object, err error) {
-	out = &storagev1.Object{
-		Bucket:          bucketName,
-		Name:            in.Name,
-		ContentType:     in.ContentType,
-		ContentLanguage: in.ContentLanguage,
-		ContentEncoding: in.ContentEncoding,
-		CacheControl:    in.CacheControl,
-		Metadata:        in.Metadata,
-	}
-
-	return
-}
-
 // Create the JSON for an "object resource", for use in an Objects.insert body.
 func serializeMetadata(
 	bucketName string,
