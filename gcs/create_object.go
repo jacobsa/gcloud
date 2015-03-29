@@ -107,19 +107,19 @@ func startResumableUpload(
 	}
 
 	// Create the HTTP request.
-	httpReq, err := http.NewRequest(
+	httpReq, err := httputil.NewRequest(
 		"POST",
-		url.String(),
-		bytes.NewReader(metadataJson))
+		url,
+		bytes.NewReader(metadataJson),
+		userAgent)
 
 	if err != nil {
-		err = fmt.Errorf("http.NewRequest: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
 	}
 
 	// Set up HTTP request headers.
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
 	httpReq.Header.Set("X-Upload-Content-Type", req.ContentType)
 
 	// Execute the HTTP request.
@@ -169,10 +169,16 @@ func createObject(
 		return
 	}
 
-	// Make a follow-up request to the upload URL.
-	httpReq, err := http.NewRequest("PUT", uploadURL, req.Contents)
+	// Set up a follow-up request to the upload URL.
+	httpReq, err := httputil.NewRequest("PUT", uploadURL, req.Contents, userAgent)
+	if err != nil {
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
 	httpReq.Header.Set("Content-Type", req.ContentType)
 
+	// Execute the request.
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil {
 		return

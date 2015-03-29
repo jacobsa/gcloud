@@ -29,6 +29,8 @@ import (
 	"google.golang.org/cloud/storage"
 )
 
+const userAgent = "github.com-jacobsa-gloud-gcs"
+
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
 // authorization information.
 //
@@ -328,9 +330,9 @@ func (b *bucket) UpdateObject(
 
 	// Create an HTTP request using NewRequest, which parses the URL string.
 	// Expand the URL object it creates.
-	httpReq, err := http.NewRequest("PATCH", url, body)
+	httpReq, err := httputil.NewRequest("PATCH", url, body, userAgent)
 	if err != nil {
-		err = fmt.Errorf("http.NewRequest: %v", err)
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
 	}
 
@@ -343,7 +345,6 @@ func (b *bucket) UpdateObject(
 
 	// Set up HTTP request headers.
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "github.com-jacobsa-gloud-gcs")
 
 	// Execute the HTTP request.
 	httpRes, err := b.client.Do(httpReq)
