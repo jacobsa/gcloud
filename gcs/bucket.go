@@ -146,6 +146,7 @@ func (b *bucket) ListObjects(
 
 	url := &url.URL{
 		Scheme:   "https",
+		Host:     "www.googleapis.com",
 		Opaque:   opaque,
 		RawQuery: query.Encode(),
 	}
@@ -220,6 +221,7 @@ func (b *bucket) NewReader(
 
 	url := &url.URL{
 		Scheme:   "https",
+		Host:     "storage.googleapis.com",
 		Opaque:   opaque,
 		RawQuery: query.Encode(),
 	}
@@ -279,6 +281,7 @@ func (b *bucket) StatObject(
 
 	url := &url.URL{
 		Scheme:   "https",
+		Host:     "www.googleapis.com",
 		Opaque:   opaque,
 		RawQuery: query.Encode(),
 	}
@@ -341,6 +344,7 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
 
 	url := &url.URL{
 		Scheme: "https",
+		Host:   "www.googleapis.com",
 		Opaque: opaque,
 	}
 

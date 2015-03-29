@@ -20,18 +20,36 @@ import (
 	"net/url"
 )
 
-// Create an HTTP request with the supplied information. This is the same as
-// calling http.NewRequest, except that it makes it more difficult to forget to
-// include a user agent.
+// Create an HTTP request with the supplied information.
+//
+// Unlike http.NewRequest:
+//
+//  *  This function doesn't mangle the supplied URL by round tripping it to a
+//     string. For example, the Opaque field will continue to differentiate
+//     between actual slashes in the path and escaped ones (cf.
+//     http://goo.gl/rWX6ps).
+//
+//  *  This function doesn't magically re-interpret an io.Reader as an
+//     io.ReadCloser when possible.
+//
+//  *  This function provides a convenient choke point to ensure we don't
+//     forget to set a user agent header.
+//
 func NewRequest(
 	method string,
 	url *url.URL,
-	body io.Reader,
+	body io.ReadCloser,
 	userAgent string) (req *http.Request, err error) {
 	// Create the request.
-	req, err = http.NewRequest(method, url.String(), body)
-	if err != nil {
-		return
+	req = &http.Request{
+		Method:     method,
+		URL:        url,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     make(http.Header),
+		Body:       body,
+		Host:       url.Host,
 	}
 
 	// Set the User-Agent header.

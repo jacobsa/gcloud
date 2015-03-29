@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -29,7 +30,7 @@ import (
 
 func makeUpdateObjectBody(
 	bucketName string,
-	req *UpdateObjectRequest) (r io.Reader, err error) {
+	req *UpdateObjectRequest) (rc io.ReadCloser, err error) {
 	// Set up a map representing the JSON object we want to send to GCS. For now,
 	// we don't treat empty strings specially.
 	jsonMap := make(map[string]interface{})
@@ -64,11 +65,14 @@ func makeUpdateObjectBody(
 	}
 
 	// Set up a reader.
-	r, err = googleapi.WithoutDataWrapper.JSONReader(jsonMap)
+	r, err := googleapi.WithoutDataWrapper.JSONReader(jsonMap)
 	if err != nil {
 		err = fmt.Errorf("JSONReader", err)
 		return
 	}
+
+	// Set up a ReadCloser.
+	rc = ioutil.NopCloser(r)
 
 	return
 }
@@ -89,6 +93,7 @@ func updateObject(
 
 	url := &url.URL{
 		Scheme:   "https",
+		Host:     "www.googleapis.com",
 		Opaque:   opaque,
 		RawQuery: query.Encode(),
 	}

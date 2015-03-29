@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"unicode/utf8"
@@ -33,7 +34,7 @@ import (
 // Create the JSON for an "object resource", for use as an Objects.insert body.
 func makeCreateObjectBody(
 	bucketName string,
-	req *CreateObjectRequest) (r io.Reader, err error) {
+	req *CreateObjectRequest) (rc io.ReadCloser, err error) {
 	// Convert to storagev1.Object.
 	rawObject, err := toRawObject(bucketName, req)
 	if err != nil {
@@ -48,8 +49,8 @@ func makeCreateObjectBody(
 		return
 	}
 
-	// Create a Reader.
-	r = bytes.NewReader(b)
+	// Create a ReadCloser.
+	rc = ioutil.NopCloser(bytes.NewReader(b))
 
 	return
 }
@@ -84,6 +85,7 @@ func startResumableUpload(
 
 	url := &url.URL{
 		Scheme:   "https",
+		Host:     "www.googleapis.com",
 		Opaque:   opaque,
 		RawQuery: query.Encode(),
 	}
@@ -166,7 +168,12 @@ func createObject(
 	}
 
 	// Set up a follow-up request to the upload URL.
-	httpReq, err := httputil.NewRequest("PUT", uploadURL, req.Contents, userAgent)
+	httpReq, err := httputil.NewRequest(
+		"PUT",
+		uploadURL,
+		ioutil.NopCloser(req.Contents),
+		userAgent)
+
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
