@@ -41,21 +41,34 @@ type ConnConfig struct {
 	// github.com/jacobsa/gcloud/oauthutil for a convenient way to create one of
 	// these.
 	HTTPClient *http.Client
+
+	// The value to set in User-Agent headers for outgoing HTTP requests. If
+	// empty, a default will be used.
+	UserAgent string
 }
 
 // Open a connection to GCS.
 func NewConn(cfg *ConnConfig) (c Conn, err error) {
+	// Fix the user agent if there is none.
+	userAgent := cfg.UserAgent
+	if userAgent == "" {
+		const defaultUserAgent = "github.com-jacobsa-gloud-gcs"
+		userAgent = defaultUserAgent
+	}
+
 	c = &conn{
-		client: cfg.HTTPClient,
+		client:    cfg.HTTPClient,
+		userAgent: userAgent,
 	}
 
 	return
 }
 
 type conn struct {
-	client *http.Client
+	client    *http.Client
+	userAgent string
 }
 
 func (c *conn) GetBucket(name string) Bucket {
-	return newBucket(c.client, name)
+	return newBucket(c.client, c.userAgent, name)
 }

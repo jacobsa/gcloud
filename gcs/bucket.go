@@ -27,8 +27,6 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
-const userAgent = "github.com-jacobsa-gloud-gcs"
-
 // Bucket represents a GCS bucket, pre-bound with a bucket name and necessary
 // authorization information.
 //
@@ -107,8 +105,9 @@ type Bucket interface {
 }
 
 type bucket struct {
-	client *http.Client
-	name   string
+	client    *http.Client
+	userAgent string
+	name      string
 }
 
 func (b *bucket) Name() string {
@@ -150,7 +149,7 @@ func (b *bucket) ListObjects(
 	}
 
 	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
+	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
@@ -227,7 +226,7 @@ func (b *bucket) NewReader(
 	}
 
 	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
+	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
@@ -268,7 +267,7 @@ func (b *bucket) NewReader(
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
-	o, err = createObject(b.client, b.Name(), ctx, req)
+	o, err = createObject(b.client, b.userAgent, b.Name(), ctx, req)
 	return
 }
 
@@ -292,7 +291,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("GET", url, nil, userAgent)
+	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
@@ -336,7 +335,7 @@ func (b *bucket) StatObject(
 func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
-	o, err = updateObject(b.client, b.Name(), ctx, req)
+	o, err = updateObject(b.client, b.userAgent, b.Name(), ctx, req)
 	return
 }
 
@@ -354,7 +353,7 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
 	}
 
 	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("DELETE", url, nil, userAgent)
+	httpReq, err := httputil.NewRequest("DELETE", url, nil, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
@@ -385,9 +384,11 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
 
 func newBucket(
 	client *http.Client,
+	userAgent string,
 	name string) Bucket {
 	return &bucket{
-		client: client,
-		name:   name,
+		client:    client,
+		userAgent: userAgent,
+		name:      name,
 	}
 }

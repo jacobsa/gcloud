@@ -79,6 +79,7 @@ func makeUpdateObjectBody(
 
 func updateObject(
 	httpClient *http.Client,
+	userAgent string,
 	bucketName string,
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {

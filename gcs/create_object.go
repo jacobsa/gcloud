@@ -57,6 +57,7 @@ func makeCreateObjectBody(
 
 func startResumableUpload(
 	httpClient *http.Client,
+	userAgent string,
 	bucketName string,
 	ctx context.Context,
 	req *CreateObjectRequest) (uploadURL *url.URL, err error) {
@@ -145,6 +146,7 @@ func startResumableUpload(
 
 func createObject(
 	httpClient *http.Client,
+	userAgent string,
 	bucketName string,
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
@@ -159,6 +161,7 @@ func createObject(
 	// Start a resumable upload, obtaining an upload URL.
 	uploadURL, err := startResumableUpload(
 		httpClient,
+		userAgent,
 		bucketName,
 		ctx,
 		req)
