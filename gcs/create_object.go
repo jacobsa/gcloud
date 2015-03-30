@@ -32,33 +32,29 @@ import (
 )
 
 // Create the JSON for an "object resource", for use as an Objects.insert body.
-func makeCreateObjectBody(
-	bucketName string,
+func (b *bucket) makeCreateObjectBody(
 	req *CreateObjectRequest) (rc io.ReadCloser, err error) {
 	// Convert to storagev1.Object.
-	rawObject, err := toRawObject(bucketName, req)
+	rawObject, err := toRawObject(b.Name(), req)
 	if err != nil {
 		err = fmt.Errorf("toRawObject: %v", err)
 		return
 	}
 
 	// Serialize.
-	b, err := json.Marshal(rawObject)
+	j, err := json.Marshal(rawObject)
 	if err != nil {
 		err = fmt.Errorf("json.Marshal: %v", err)
 		return
 	}
 
 	// Create a ReadCloser.
-	rc = ioutil.NopCloser(bytes.NewReader(b))
+	rc = ioutil.NopCloser(bytes.NewReader(j))
 
 	return
 }
 
-func startResumableUpload(
-	httpClient *http.Client,
-	userAgent string,
-	bucketName string,
+func (b *bucket) startResumableUpload(
 	ctx context.Context,
 	req *CreateObjectRequest) (uploadURL *url.URL, err error) {
 	// Construct an appropriate URL.
@@ -71,7 +67,7 @@ func startResumableUpload(
 	// In Google-internal bug 19718068, it was clarified that the intent is that
 	// the bucket name be encoded into a single path segment, as defined by RFC
 	// 3986.
-	bucketSegment := httputil.EncodePathSegment(bucketName)
+	bucketSegment := httputil.EncodePathSegment(b.Name())
 	opaque := fmt.Sprintf(
 		"//www.googleapis.com/upload/storage/v1/b/%s/o",
 		bucketSegment)
@@ -92,7 +88,7 @@ func startResumableUpload(
 	}
 
 	// Set up the request body.
-	body, err := makeCreateObjectBody(bucketName, req)
+	body, err := b.makeCreateObjectBody(req)
 	if err != nil {
 		err = fmt.Errorf("makeCreateObjectBody: %v", err)
 		return
@@ -103,7 +99,7 @@ func startResumableUpload(
 		"POST",
 		url,
 		body,
-		userAgent)
+		b.userAgent)
 
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
@@ -115,7 +111,7 @@ func startResumableUpload(
 	httpReq.Header.Set("X-Upload-Content-Type", req.ContentType)
 
 	// Execute the HTTP request.
-	httpRes, err := httpClient.Do(httpReq)
+	httpRes, err := b.client.Do(httpReq)
 	if err != nil {
 		return
 	}
@@ -144,10 +140,7 @@ func startResumableUpload(
 	return
 }
 
-func createObject(
-	httpClient *http.Client,
-	userAgent string,
-	bucketName string,
+func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
 	// We encode using json.NewEncoder, which is documented to silently transform
@@ -159,13 +152,7 @@ func createObject(
 	}
 
 	// Start a resumable upload, obtaining an upload URL.
-	uploadURL, err := startResumableUpload(
-		httpClient,
-		userAgent,
-		bucketName,
-		ctx,
-		req)
-
+	uploadURL, err := b.startResumableUpload(ctx, req)
 	if err != nil {
 		return
 	}
@@ -175,7 +162,7 @@ func createObject(
 		"PUT",
 		uploadURL,
 		ioutil.NopCloser(req.Contents),
-		userAgent)
+		b.userAgent)
 
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
@@ -185,7 +172,7 @@ func createObject(
 	httpReq.Header.Set("Content-Type", req.ContentType)
 
 	// Execute the request.
-	httpRes, err := httpClient.Do(httpReq)
+	httpRes, err := b.client.Do(httpReq)
 	if err != nil {
 		return
 	}

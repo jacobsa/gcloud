@@ -28,8 +28,7 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
-func makeUpdateObjectBody(
-	bucketName string,
+func (b *bucket) makeUpdateObjectBody(
 	req *UpdateObjectRequest) (rc io.ReadCloser, err error) {
 	// Set up a map representing the JSON object we want to send to GCS. For now,
 	// we don't treat empty strings specially.
@@ -77,16 +76,13 @@ func makeUpdateObjectBody(
 	return
 }
 
-func updateObject(
-	httpClient *http.Client,
-	userAgent string,
-	bucketName string,
+func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
 	// Construct an appropriate URL (cf. http://goo.gl/B46IDy).
 	opaque := fmt.Sprintf(
 		"//www.googleapis.com/storage/v1/b/%s/o/%s",
-		httputil.EncodePathSegment(bucketName),
+		httputil.EncodePathSegment(b.Name()),
 		httputil.EncodePathSegment(req.Name))
 
 	query := make(url.Values)
@@ -100,14 +96,14 @@ func updateObject(
 	}
 
 	// Set up the request body.
-	body, err := makeUpdateObjectBody(bucketName, req)
+	body, err := b.makeUpdateObjectBody(req)
 	if err != nil {
 		err = fmt.Errorf("makeUpdateObjectBody: %v", err)
 		return
 	}
 
 	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("PATCH", url, body, userAgent)
+	httpReq, err := httputil.NewRequest("PATCH", url, body, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
@@ -116,7 +112,7 @@ func updateObject(
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Execute the HTTP request.
-	httpRes, err := httpClient.Do(httpReq)
+	httpRes, err := b.client.Do(httpReq)
 	if err != nil {
 		return
 	}

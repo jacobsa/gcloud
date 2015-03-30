@@ -264,13 +264,6 @@ func (b *bucket) NewReader(
 	return
 }
 
-func (b *bucket) CreateObject(
-	ctx context.Context,
-	req *CreateObjectRequest) (o *Object, err error) {
-	o, err = createObject(b.client, b.userAgent, b.Name(), ctx, req)
-	return
-}
-
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
@@ -329,13 +322,6 @@ func (b *bucket) StatObject(
 		return
 	}
 
-	return
-}
-
-func (b *bucket) UpdateObject(
-	ctx context.Context,
-	req *UpdateObjectRequest) (o *Object, err error) {
-	o, err = updateObject(b.client, b.userAgent, b.Name(), ctx, req)
 	return
 }
 
