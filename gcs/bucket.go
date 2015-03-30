@@ -107,10 +107,8 @@ type Bucket interface {
 }
 
 type bucket struct {
-	projID     string
-	client     *http.Client
-	rawService *storagev1.Service
-	name       string
+	client *http.Client
+	name   string
 }
 
 func (b *bucket) Name() string {
@@ -386,14 +384,10 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
 }
 
 func newBucket(
-	projID string,
 	client *http.Client,
-	rawService *storagev1.Service,
 	name string) Bucket {
 	return &bucket{
-		projID:     projID,
-		client:     client,
-		rawService: rawService,
-		name:       name,
+		client: client,
+		name:   name,
 	}
 }

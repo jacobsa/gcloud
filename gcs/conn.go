@@ -15,7 +15,6 @@
 package gcs
 
 import (
-	"fmt"
 	"net/http"
 
 	storagev1 "google.golang.org/api/storage/v1"
@@ -37,9 +36,7 @@ type Conn interface {
 }
 
 type conn struct {
-	projID     string
-	client     *http.Client
-	rawService *storagev1.Service
+	client *http.Client
 }
 
 // Open a connection to GCS for the project with the given ID using the
@@ -47,21 +44,14 @@ type conn struct {
 // authentication.
 func NewConn(projID string, client *http.Client) (c Conn, err error) {
 	impl := &conn{
-		projID: projID,
 		client: client,
 	}
 
 	c = impl
 
-	// Create a raw service for the storagev1 package.
-	if impl.rawService, err = storagev1.New(impl.client); err != nil {
-		err = fmt.Errorf("storagev1.New: %v", err)
-		return
-	}
-
 	return
 }
 
 func (c *conn) GetBucket(name string) Bucket {
-	return newBucket(c.projID, c.client, c.rawService, name)
+	return newBucket(c.client, name)
 }
