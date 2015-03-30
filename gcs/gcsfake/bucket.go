@@ -464,7 +464,7 @@ func (b *bucket) mintObject(
 		ContentLanguage: req.ContentLanguage,
 		CacheControl:    req.CacheControl,
 		Owner:           "user-fake",
-		Size:            int64(len(contents)),
+		Size:            uint64(len(contents)),
 		ContentEncoding: req.ContentEncoding,
 		MD5:             md5.Sum([]byte(contents)),
 		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),

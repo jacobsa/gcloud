@@ -32,9 +32,7 @@ type Object struct {
 	ContentLanguage string
 	CacheControl    string
 	Owner           string
-	// TODO(jacobsa): Switch to uint64, matching underlying JSON interface.
-	// Cf. https://cloud.google.com/storage/docs/json_api/v1/objects
-	Size            int64
+	Size            uint64
 	ContentEncoding string
 	MD5             [md5.Size]byte
 	CRC32C          uint32
