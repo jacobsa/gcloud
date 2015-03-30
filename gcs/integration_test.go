@@ -34,11 +34,11 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/gcloud/oauthutil"
-	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
 	storagev1 "google.golang.org/api/storage/v1"
@@ -51,7 +51,7 @@ import (
 var fKeyFile = flag.String("key_file", "", "Path to a JSON key for a service account created on the Google Developers Console.")
 var fBucket = flag.String("bucket", "", "Empty bucket to use for storage.")
 
-func getHttpClientOrDie() *http.Client {
+func getHTTPClientOrDie() *http.Client {
 	if *fKeyFile == "" {
 		panic("You must set --key_file.")
 	}
@@ -77,13 +77,12 @@ func getBucketNameOrDie() string {
 // Return a bucket based on the contents of command-line flags, exiting the
 // process if misconfigured.
 func getBucketOrDie() gcs.Bucket {
-	// A project ID is apparently only needed for creating and listing buckets,
-	// presumably since a bucket ID already maps to a unique project ID (cf.
-	// http://goo.gl/Plh3rb). This doesn't currently matter to us.
-	const projectId = "some_project_id"
-
 	// Set up a GCS connection.
-	conn, err := gcs.NewConn(projectId, getHttpClientOrDie())
+	cfg := &gcs.ConnConfig{
+		HTTPClient: getHTTPClientOrDie(),
+	}
+
+	conn, err := gcs.NewConn(cfg)
 	if err != nil {
 		log.Fatalf("gcs.NewConn: %v", err)
 	}
