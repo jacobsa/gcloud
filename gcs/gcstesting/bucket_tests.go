@@ -152,13 +152,6 @@ func interestingNames() (names []string) {
 	//  *  U+000A and U+000D, which are forbidden by the docs.
 	//
 	for r := rune(0); r <= unicode.MaxRune; r++ {
-		// TODO(jacobsa): Re-enable these runes once GCS is fixed or the
-		// documentation is updated.
-		// See: https://github.com/jacobsa/gcloud/issues/2
-		if r == 0x85 || r == 0x2028 || r == 0x2029 {
-			continue
-		}
-
 		if !unicode.In(r, unicode.C) && !unicode.In(r, unicode.Z) {
 			continue
 		}
