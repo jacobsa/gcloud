@@ -35,21 +35,25 @@ type Conn interface {
 	GetBucket(name string) Bucket
 }
 
-type conn struct {
-	client *http.Client
+// Configuration accepted by NewConn.
+type ConnConfig struct {
+	// An HTTP client, assumed to handle authorization and authentication. See
+	// github.com/jacobsa/gcloud/oauthutil for a convenient way to create one of
+	// these.
+	HTTPClient *http.Client
 }
 
-// Open a connection to GCS for the project with the given ID using the
-// supplied HTTP client, which is assumed to handle authorization and
-// authentication.
-func NewConn(projID string, client *http.Client) (c Conn, err error) {
-	impl := &conn{
-		client: client,
+// Open a connection to GCS.
+func NewConn(cfg *ConnConfig) (c Conn, err error) {
+	c = &conn{
+		client: cfg.HTTPClient,
 	}
 
-	c = impl
-
 	return
+}
+
+type conn struct {
+	client *http.Client
 }
 
 func (c *conn) GetBucket(name string) Bucket {

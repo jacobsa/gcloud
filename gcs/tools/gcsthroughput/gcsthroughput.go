@@ -54,7 +54,11 @@ func createBucket() (bucket gcs.Bucket, err error) {
 	}
 
 	// Use that to create a connection.
-	conn, err := gcs.NewConn("", httpClient)
+	connCfg := &gcs.ConnConfig{
+		HTTPClient: httpClient,
+	}
+
+	conn, err := gcs.NewConn(connCfg)
 	if err != nil {
 		err = fmt.Errorf("NewConn: %v", err)
 		return
