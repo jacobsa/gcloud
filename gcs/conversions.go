@@ -80,26 +80,38 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		StorageClass:    in.StorageClass,
 	}
 
-	// Handle special cases.
+	// Owner
 	if in.Owner != nil {
 		out.Owner = in.Owner.Entity
 	}
 
+	// Deletion time
 	if out.Deleted, err = toTime(in.TimeDeleted); err != nil {
 		err = fmt.Errorf("Decoding TimeDeleted field: %v", err)
 		return
 	}
 
+	// Update time
 	if out.Updated, err = toTime(in.Updated); err != nil {
 		err = fmt.Errorf("Decoding Updated field: %v", err)
 		return
 	}
 
-	if out.MD5, err = base64.StdEncoding.DecodeString(in.Md5Hash); err != nil {
+	// MD5
+	md5Slice, err := base64.StdEncoding.DecodeString(in.Md5Hash)
+	if err != nil {
 		err = fmt.Errorf("Decoding Md5Hash field: %v", err)
 		return
 	}
 
+	if len(md5Slice) != len(out.MD5) {
+		err = fmt.Errorf("Unexpected Md5Hash field: %v", in.Md5Hash)
+		return
+	}
+
+	copy(out.MD5[:], md5Slice)
+
+	// CRC32C
 	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)
 	if err != nil {
 		err = fmt.Errorf("Decoding Crc32c field: %v", err)

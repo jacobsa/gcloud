@@ -466,6 +466,7 @@ func (b *bucket) mintObject(
 		Owner:           "user-fake",
 		Size:            int64(len(contents)),
 		ContentEncoding: req.ContentEncoding,
+		MD5:             md5.Sum([]byte(contents)),
 		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),
 		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
 		Metadata:        req.Metadata,
@@ -474,10 +475,6 @@ func (b *bucket) mintObject(
 		StorageClass:    "STANDARD",
 		Updated:         b.clock.Now(),
 	}
-
-	// Fill in the MD5 field.
-	md5Array := md5.Sum([]byte(contents))
-	o.entry.MD5 = md5Array[:]
 
 	// Set up contents.
 	o.contents = contents

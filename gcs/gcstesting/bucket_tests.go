@@ -49,12 +49,6 @@ func createEmpty(
 	return err
 }
 
-// Convert from [16]byte to the slice type used by gcs.Object.
-func md5Sum(s string) []byte {
-	array := md5.Sum([]byte(s))
-	return array[:]
-}
-
 func computeCrc32C(s string) uint32 {
 	return crc32.Checksum([]byte(s), crc32.MakeTable(crc32.Castagnoli))
 }
@@ -372,7 +366,7 @@ func (t *createTest) ObjectAttributes_Default() {
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("", o.ContentEncoding)
-	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
+	ExpectThat(o.MD5, DeepEquals(md5.Sum([]byte("taco"))))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectEq(nil, o.Metadata)
@@ -424,7 +418,7 @@ func (t *createTest) ObjectAttributes_Explicit() {
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("gzip", o.ContentEncoding)
-	ExpectThat(o.MD5, DeepEquals(md5Sum("taco")))
+	ExpectThat(o.MD5, DeepEquals(md5.Sum([]byte("taco"))))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectThat(o.Metadata, DeepEquals(req.Metadata))

@@ -14,7 +14,10 @@
 
 package gcs
 
-import "time"
+import (
+	"crypto/md5"
+	"time"
+)
 
 // Object is a record representing a particular generation of a particular
 // object name in GCS.
@@ -33,14 +36,13 @@ type Object struct {
 	// Cf. https://cloud.google.com/storage/docs/json_api/v1/objects
 	Size            int64
 	ContentEncoding string
-	// TODO(jacobsa): Switch to [16]byte like the md5 package.
-	MD5            []byte
-	CRC32C         uint32
-	MediaLink      string
-	Metadata       map[string]string
-	Generation     int64
-	MetaGeneration int64
-	StorageClass   string
-	Deleted        time.Time
-	Updated        time.Time
+	MD5             [md5.Size]byte
+	CRC32C          uint32
+	MediaLink       string
+	Metadata        map[string]string
+	Generation      int64
+	MetaGeneration  int64
+	StorageClass    string
+	Deleted         time.Time
+	Updated         time.Time
 }
