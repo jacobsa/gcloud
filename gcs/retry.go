@@ -18,7 +18,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
 )
 
@@ -26,29 +25,54 @@ import (
 // randomized exponential backoff.
 type retryBucket struct {
 	maxSleep time.Duration
-	wrapped  gcs.Bucket
+	wrapped  Bucket
 }
 
-func (rb *retryBucket) Name() string
+var _ Bucket = &retryBucket{}
+
+func (rb *retryBucket) Name() (name string) {
+	name = rb.wrapped.Name()
+	return
+}
 
 func (rb *retryBucket) NewReader(
 	ctx context.Context,
-	req *ReadObjectRequest) (io.ReadCloser, error)
+	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
+	rc, err = rb.wrapped.NewReader(ctx, req)
+	return
+}
 
-func (rb *retryBucket) reateObject(
+func (rb *retryBucket) CreateObject(
 	ctx context.Context,
-	req *CreateObjectRequest) (*Object, error)
+	req *CreateObjectRequest) (o *Object, err error) {
+	o, err = rb.wrapped.CreateObject(ctx, req)
+	return
+}
 
 func (rb *retryBucket) StatObject(
 	ctx context.Context,
-	req *StatObjectRequest) (*Object, error)
+	req *StatObjectRequest) (o *Object, err error) {
+	o, err = rb.wrapped.StatObject(ctx, req)
+	return
+}
 
-func (rb *retryBucket) istObjects(
+func (rb *retryBucket) ListObjects(
 	ctx context.Context,
-	req *ListObjectsRequest) (*Listing, error)
+	req *ListObjectsRequest) (listing *Listing, err error) {
+	listing, err = rb.wrapped.ListObjects(ctx, req)
+	return
+}
 
 func (rb *retryBucket) UpdateObject(
 	ctx context.Context,
-	req *UpdateObjectRequest) (*Object, error)
+	req *UpdateObjectRequest) (o *Object, err error) {
+	o, err = rb.wrapped.UpdateObject(ctx, req)
+	return
+}
 
-func (rb *retryBucket) eleteObject(ctx context.Context, name string) error
+func (rb *retryBucket) DeleteObject(
+	ctx context.Context,
+	name string) (err error) {
+	err = rb.wrapped.DeleteObject(ctx, name)
+	return
+}
