@@ -72,8 +72,11 @@ func expBackoff(
 	var totalSleep time.Duration
 
 	for n := uint(0); ; n++ {
-		// Make an attempt.
+		// Make an attempt. Stop if successful.
 		err = f()
+		if err == nil {
+			return
+		}
 
 		// Is this an error we want to pass through?
 		if _, ok := err.(*NotFoundError); ok {
