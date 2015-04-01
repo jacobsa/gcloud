@@ -437,10 +437,6 @@ func (b *bucket) DeleteObject(
 	// Do we possess the object with the given name?
 	index := b.objects.find(name)
 	if index == len(b.objects) {
-		err = &gcs.NotFoundError{
-			Err: fmt.Errorf("Object %s not found", name),
-		}
-
 		return
 	}
 

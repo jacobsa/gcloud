@@ -16,6 +16,7 @@ package gcs
 
 import (
 	"net/http"
+	"time"
 
 	storagev1 "google.golang.org/api/storage/v1"
 )
@@ -45,6 +46,13 @@ type ConnConfig struct {
 	// The value to set in User-Agent headers for outgoing HTTP requests. If
 	// empty, a default will be used.
 	UserAgent string
+
+	// The maximum amount of time to spend sleeping in a retry loop with
+	// exponential backoff for failed requests. The default of zero disables
+	// automatic retries.
+	//
+	// If you enable automatic retries, beware of idempotency issues.
+	MaxBackoffSleep time.Duration
 }
 
 // Open a connection to GCS.
@@ -57,18 +65,27 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 	}
 
 	c = &conn{
-		client:    cfg.HTTPClient,
-		userAgent: userAgent,
+		client:          cfg.HTTPClient,
+		userAgent:       userAgent,
+		maxBackoffSleep: cfg.MaxBackoffSleep,
 	}
 
 	return
 }
 
 type conn struct {
-	client    *http.Client
-	userAgent string
+	client          *http.Client
+	userAgent       string
+	maxBackoffSleep time.Duration
 }
 
-func (c *conn) GetBucket(name string) Bucket {
-	return newBucket(c.client, c.userAgent, name)
+func (c *conn) GetBucket(name string) (b Bucket) {
+	b = newBucket(c.client, c.userAgent, name)
+
+	// Enable retry loops if requested.
+	if c.maxBackoffSleep > 0 {
+		b = newRetryBucket(c.maxBackoffSleep, b)
+	}
+
+	return
 }
