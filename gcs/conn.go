@@ -47,9 +47,11 @@ type ConnConfig struct {
 	// empty, a default will be used.
 	UserAgent string
 
-	// The maximum amount of time to spend sleeping in exponential backoff for
-	// failed requests. The default of zero disables automatic exponential
-	// backoff.
+	// The maximum amount of time to spend sleeping in a retry loop with
+	// exponential backoff for failed requests. The default of zero disables
+	// automatic retries.
+	//
+	// If you enable automatic retries, beware of idempotency issues.
 	MaxBackoffSleep time.Duration
 }
 
