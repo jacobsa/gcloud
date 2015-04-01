@@ -65,18 +65,27 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 	}
 
 	c = &conn{
-		client:    cfg.HTTPClient,
-		userAgent: userAgent,
+		client:          cfg.HTTPClient,
+		userAgent:       userAgent,
+		maxBackoffSleep: cfg.MaxBackoffSleep,
 	}
 
 	return
 }
 
 type conn struct {
-	client    *http.Client
-	userAgent string
+	client          *http.Client
+	userAgent       string
+	maxBackoffSleep time.Duration
 }
 
-func (c *conn) GetBucket(name string) Bucket {
-	return newBucket(c.client, c.userAgent, name)
+func (c *conn) GetBucket(name string) (b Bucket) {
+	b = newBucket(c.client, c.userAgent, name)
+
+	// Enable retry loops if requested.
+	if c.maxBackoffSleep > 0 {
+		b = newRetryBucket(c.maxBackoffSleep, b)
+	}
+
+	return
 }

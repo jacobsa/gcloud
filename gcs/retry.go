@@ -30,7 +30,16 @@ type retryBucket struct {
 	wrapped  Bucket
 }
 
-var _ Bucket = &retryBucket{}
+func newRetryBucket(
+	maxSleep time.Duration,
+	wrapped Bucket) (b Bucket) {
+	b = &retryBucket{
+		maxSleep: maxSleep,
+		wrapped:  wrapped,
+	}
+
+	return
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Helpers
