@@ -95,9 +95,8 @@ type Bucket interface {
 		ctx context.Context,
 		req *UpdateObjectRequest) (*Object, error)
 
-	// Delete the object with the given name.
-	//
-	// If the object doesn't exist, err will be of type *NotFoundError.
+	// Delete the object with the given name. Non-existence of the object is not
+	// treated as an error.
 	//
 	// Official documentation:
 	//     https://cloud.google.com/storage/docs/json_api/v1/objects/delete
@@ -354,14 +353,17 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
 	defer googleapi.CloseBody(httpRes)
 
 	// Check for HTTP-level errors.
-	if err = googleapi.CheckResponse(httpRes); err != nil {
-		// Special case: handle not found errors.
-		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code == http.StatusNotFound {
-				err = &NotFoundError{Err: typed}
-			}
-		}
+	err = googleapi.CheckResponse(httpRes)
 
+	// Special case: we want deletes to be idempotent.
+	if typed, ok := err.(*googleapi.Error); ok {
+		if typed.Code == http.StatusNotFound {
+			err = nil
+		}
+	}
+
+	// Propagate other errors.
+	if err != nil {
 		return
 	}
 
