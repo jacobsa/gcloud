@@ -16,6 +16,7 @@ package gcs
 
 import (
 	"net/http"
+	"time"
 
 	storagev1 "google.golang.org/api/storage/v1"
 )
@@ -45,6 +46,11 @@ type ConnConfig struct {
 	// The value to set in User-Agent headers for outgoing HTTP requests. If
 	// empty, a default will be used.
 	UserAgent string
+
+	// The maximum amount of time to spend sleeping in exponential backoff for
+	// failed requests. The default of zero disables automatic exponential
+	// backoff.
+	MaxBackoffSleep time.Duration
 }
 
 // Open a connection to GCS.
