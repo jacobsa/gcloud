@@ -57,8 +57,8 @@ var _ Bucket = &retryBucket{}
 //
 func expBackoff(
 	ctx context.Context,
-	f func() error,
-	maxSleep time.Duration) (err error) {
+	maxSleep time.Duration,
+	f func() error) (err error) {
 	const baseDelay = time.Millisecond
 	var totalSleep time.Duration
 
@@ -116,41 +116,82 @@ func (rb *retryBucket) Name() (name string) {
 func (rb *retryBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	rc, err = rb.wrapped.NewReader(ctx, req)
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			rc, err = rb.wrapped.NewReader(ctx, req)
+			return
+		})
+
 	return
 }
 
 func (rb *retryBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
-	o, err = rb.wrapped.CreateObject(ctx, req)
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			o, err = rb.wrapped.CreateObject(ctx, req)
+			return
+		})
+
 	return
 }
 
 func (rb *retryBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	o, err = rb.wrapped.StatObject(ctx, req)
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			o, err = rb.wrapped.StatObject(ctx, req)
+			return
+		})
+
 	return
 }
 
 func (rb *retryBucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	listing, err = rb.wrapped.ListObjects(ctx, req)
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			listing, err = rb.wrapped.ListObjects(ctx, req)
+			return
+		})
 	return
 }
 
 func (rb *retryBucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
-	o, err = rb.wrapped.UpdateObject(ctx, req)
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			o, err = rb.wrapped.UpdateObject(ctx, req)
+			return
+		})
+
 	return
 }
 
 func (rb *retryBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error) {
-	err = rb.wrapped.DeleteObject(ctx, name)
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			err = rb.wrapped.DeleteObject(ctx, name)
+			return
+		})
+
 	return
 }
