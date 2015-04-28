@@ -282,5 +282,24 @@ func (t *ListObjectsTest) EmptyListing() {
 }
 
 func (t *ListObjectsTest) NonEmptyListing() {
-	AssertFalse(true, "TODO")
+	// Wrapped
+	o0 := &gcs.Object{Name: "taco"}
+	o1 := &gcs.Object{Name: "burrito"}
+
+	expected := &gcs.Listing{
+		Objects: []*gcs.Object{o0, o1},
+	}
+
+	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
+		WillOnce(Return(expected, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(o0, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+	ExpectCall(t.cache, "Insert")(o1, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	listing, err := t.bucket.ListObjects(nil, &gcs.ListObjectsRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(expected, listing)
 }
