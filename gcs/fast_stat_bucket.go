@@ -69,6 +69,7 @@ type fastStatBucket struct {
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
+// LOCKS_REQUIRED(b.mu)
 func (b *fastStatBucket) checkInvariants()
 
 ////////////////////////////////////////////////////////////////////////
@@ -81,22 +82,27 @@ func (b *fastStatBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error)
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error)
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error)
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error)
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error)
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error)
