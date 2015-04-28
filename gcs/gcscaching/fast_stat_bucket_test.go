@@ -182,7 +182,21 @@ func (t *StatObjectTest) CacheHit() {
 }
 
 func (t *StatObjectTest) CallsWrapped() {
-	AssertFalse(true, "TODO")
+	const name = ""
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(nil))
+
+	// Wrapped
+	ExpectCall(t.wrapped, "StatObject")(Any(), req).
+		WillOnce(Return(nil, errors.New("")))
+
+	// Call
+	_, _ = t.bucket.StatObject(nil, req)
 }
 
 func (t *StatObjectTest) WrappedFails() {
