@@ -21,6 +21,8 @@ import (
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/mock_gcs"
+	. "github.com/jacobsa/oglematchers"
+	. "github.com/jacobsa/oglemock"
 	. "github.com/jacobsa/ogletest"
 )
 
@@ -66,7 +68,25 @@ type CreateObjectTest struct {
 func init() { RegisterTestSuite(&CreateObjectTest{}) }
 
 func (t *CreateObjectTest) CallsEraseAndWrapped() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(name)
+
+	// Wrapped
+	var wrappedReq *gcs.CreateObjectRequest
+	ExpectCall(t.wrapped, "CreateObject")(Any(), Any()).
+		WillOnce(SaveArg(1, &wrappedReq))
+
+	// Call
+	req := &gcs.CreateObjectRequest{
+		Name: name,
+	}
+
+	_, _ = t.bucket.CreateObject(nil, req)
+
+	AssertNe(nil, wrappedReq)
+	ExpectEq(req, wrappedReq)
 }
 
 func (t *CreateObjectTest) WrappedFails() {
