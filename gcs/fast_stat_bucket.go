@@ -15,9 +15,13 @@
 package gcs
 
 import (
+	"io"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
+	"github.com/jacobsa/gcloud/syncutil"
 )
 
 // Create a bucket that caches object records returned by the supplied wrapped
@@ -28,5 +32,71 @@ func NewFastStatBucket(
 	cache StatCache,
 	clock timeutil.Clock,
 	wrapped Bucket) (b Bucket) {
-	panic("TODO")
+	fsb := &fastStatBucket{
+		cache:   cache,
+		clock:   clock,
+		wrapped: wrapped,
+		ttl:     ttl,
+	}
+
+	fsb.mu = syncutil.NewInvariantMutex(fsb.checkInvariants)
+
+	b = fsb
+	return
 }
+
+type fastStatBucket struct {
+	mu syncutil.InvariantMutex
+
+	/////////////////////////
+	// Dependencies
+	/////////////////////////
+
+	// GUARDED_BY(mu)
+	cache StatCache
+
+	clock   timeutil.Clock
+	wrapped Bucket
+
+	/////////////////////////
+	// Constant data
+	/////////////////////////
+
+	ttl time.Duration
+}
+
+////////////////////////////////////////////////////////////////////////
+// Helpers
+////////////////////////////////////////////////////////////////////////
+
+func (b *fastStatBucket) checkInvariants()
+
+////////////////////////////////////////////////////////////////////////
+// Bucket interface
+////////////////////////////////////////////////////////////////////////
+
+func (b *fastStatBucket) Name() string
+
+func (b *fastStatBucket) NewReader(
+	ctx context.Context,
+	req *ReadObjectRequest) (rc io.ReadCloser, err error)
+
+func (b *fastStatBucket) CreateObject(
+	ctx context.Context,
+	req *CreateObjectRequest) (o *Object, err error)
+
+func (b *fastStatBucket) StatObject(
+	ctx context.Context,
+	req *StatObjectRequest) (o *Object, err error)
+
+func (b *fastStatBucket) ListObjects(
+	ctx context.Context,
+	req *ListObjectsRequest) (listing *Listing, err error)
+
+func (b *fastStatBucket) UpdateObject(
+	ctx context.Context,
+	req *UpdateObjectRequest) (o *Object, err error)
+
+func (b *fastStatBucket) DeleteObject(
+	ctx context.Context,
+	name string) (err error)
