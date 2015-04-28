@@ -15,6 +15,7 @@
 package gcs_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -90,7 +91,20 @@ func (t *CreateObjectTest) CallsEraseAndWrapped() {
 }
 
 func (t *CreateObjectTest) WrappedFails() {
-	AssertFalse(true, "TODO")
+	const name = ""
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	ExpectCall(t.wrapped, "CreateObject")(Any(), Any()).
+		WillOnce(Return(nil, errors.New("taco")))
+
+	// Call
+	_, err = t.bucket.CreateObject(nil, &gcs.CreateObjectRequest{})
+
+	ExpectThat(err, Error(HasSubstr("taco")))
 }
 
 func (t *CreateObjectTest) WrappedSucceeds() {
