@@ -258,7 +258,13 @@ type ListObjectsTest struct {
 func init() { RegisterTestSuite(&ListObjectsTest{}) }
 
 func (t *ListObjectsTest) WrappedFails() {
-	AssertFalse(true, "TODO")
+	// Wrapped
+	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
+		WillOnce(Return(nil, errors.New("taco")))
+
+	// Call
+	_, err := t.bucket.ListObjects(nil, &gcs.ListObjectsRequest{})
+	ExpectThat(err, Error(HasSubstr("taco")))
 }
 
 func (t *ListObjectsTest) EmptyListing() {
