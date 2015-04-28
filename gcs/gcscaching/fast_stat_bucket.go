@@ -15,7 +15,6 @@
 package gcscaching
 
 import (
-	"errors"
 	"io"
 	"sync"
 	"time"
@@ -197,6 +196,7 @@ func (b *fastStatBucket) UpdateObject(
 func (b *fastStatBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error) {
-	err = errors.New("TODO")
+	b.invalidate(name)
+	err = b.wrapped.DeleteObject(ctx, name)
 	return
 }
