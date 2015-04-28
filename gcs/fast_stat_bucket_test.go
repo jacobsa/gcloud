@@ -77,7 +77,7 @@ func (t *CreateObjectTest) CallsEraseAndWrapped() {
 	// Wrapped
 	var wrappedReq *gcs.CreateObjectRequest
 	ExpectCall(t.wrapped, "CreateObject")(Any(), Any()).
-		WillOnce(SaveArg(1, &wrappedReq))
+		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(nil, errors.New(""))))
 
 	// Call
 	req := &gcs.CreateObjectRequest{
