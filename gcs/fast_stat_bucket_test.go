@@ -124,7 +124,7 @@ func (t *CreateObjectTest) WrappedSucceeds() {
 		WillOnce(Return(obj, nil))
 
 	// Insert
-	ExpectCall(t.cache, "Insert")(obj, t.clock.Now().Add(ttl))
+	ExpectCall(t.cache, "Insert")(obj, timeutil.TimeEq(t.clock.Now().Add(ttl)))
 
 	// Call
 	o, err := t.bucket.CreateObject(nil, &gcs.CreateObjectRequest{})
