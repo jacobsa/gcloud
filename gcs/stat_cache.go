@@ -14,18 +14,20 @@
 
 package gcs
 
+import "time"
+
 // A cache mapping from name to most recent known record for the object of that
 // name. External synchronization must be provided.
 type StatCache interface {
 	// Insert an entry for the given object record. The entry will not replace any
 	// entry with a newer generation number, and will not be available after the
 	// supplied expiration time.
-	Insert(o *storage.Object, expiration time.Time)
+	Insert(o *Object, expiration time.Time)
 
 	// Erase the entry for the given object name, if any.
 	Erase(name string)
 
 	// Return the current entry for the given name, or nil if none. Use the
 	// supplied time to decide whether entries have expired.
-	LookUp(name string, now time.Time) (o *storage.Object)
+	LookUp(name string, now time.Time) (o *Object)
 }
