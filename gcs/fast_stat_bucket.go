@@ -65,6 +65,26 @@ type fastStatBucket struct {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Helpers
+////////////////////////////////////////////////////////////////////////
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) invalidate(name string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.cache.Erase(name)
+}
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) insert(o *Object) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.cache.Insert(o, b.clock.Now().Add(b.ttl))
+}
+
+////////////////////////////////////////////////////////////////////////
 // Bucket interface
 ////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +103,18 @@ func (b *fastStatBucket) NewReader(
 func (b *fastStatBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
-	err = errors.New("TODO")
+	// Throw away any existing record for this object.
+	b.invalidate(req.Name)
+
+	// Create the new object.
+	o, err = b.wrapped.CreateObject(ctx, req)
+	if err != nil {
+		return
+	}
+
+	// Record the new object.
+	b.insert(o)
+
 	return
 }
 
