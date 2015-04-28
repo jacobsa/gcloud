@@ -70,11 +70,19 @@ type fastStatBucket struct {
 ////////////////////////////////////////////////////////////////////////
 
 // LOCKS_EXCLUDED(b.mu)
-func (b *fastStatBucket) insert(o *gcs.Object) {
+func (b *fastStatBucket) insertMultiple(objs []*gcs.Object) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.cache.Insert(o, b.clock.Now().Add(b.ttl))
+	expiration := b.clock.Now().Add(b.ttl)
+	for _, o := range objs {
+		b.cache.Insert(o, expiration)
+	}
+}
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) insert(o *gcs.Object) {
+	b.insertMultiple([]*gcs.Object{o})
 }
 
 // LOCKS_EXCLUDED(b.mu)
@@ -154,7 +162,15 @@ func (b *fastStatBucket) StatObject(
 func (b *fastStatBucket) ListObjects(
 	ctx context.Context,
 	req *gcs.ListObjectsRequest) (listing *gcs.Listing, err error) {
-	err = errors.New("TODO")
+	// Fetch the listing.
+	listing, err = b.wrapped.ListObjects(ctx, req)
+	if err != nil {
+		return
+	}
+
+	// Note anything we found.
+	b.insertMultiple(listing.Objects)
+
 	return
 }
 
