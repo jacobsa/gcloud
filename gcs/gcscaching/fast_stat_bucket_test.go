@@ -146,7 +146,18 @@ type StatObjectTest struct {
 func init() { RegisterTestSuite(&StatObjectTest{}) }
 
 func (t *StatObjectTest) CallsCache() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(name, timeutil.TimeEq(t.clock.Now())).
+		WillOnce(Return(&gcs.Object{}))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, _ = t.bucket.StatObject(nil, req)
 }
 
 func (t *StatObjectTest) CacheHit() {
