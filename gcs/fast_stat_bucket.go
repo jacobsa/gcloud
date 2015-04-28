@@ -75,7 +75,7 @@ func (b *fastStatBucket) Name() string {
 func (b *fastStatBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	err = errors.New("TODO")
+	rc, err = b.wrapped.NewReader(ctx, req)
 	return
 }
 
