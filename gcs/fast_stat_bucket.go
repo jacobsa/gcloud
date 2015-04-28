@@ -15,13 +15,14 @@
 package gcs
 
 import (
+	"errors"
 	"io"
+	"sync"
 	"time"
 
 	"golang.org/x/net/context"
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
-	"github.com/jacobsa/gcloud/syncutil"
 )
 
 // Create a bucket that caches object records returned by the supplied wrapped
@@ -39,14 +40,12 @@ func NewFastStatBucket(
 		ttl:     ttl,
 	}
 
-	fsb.mu = syncutil.NewInvariantMutex(fsb.checkInvariants)
-
 	b = fsb
 	return
 }
 
 type fastStatBucket struct {
-	mu syncutil.InvariantMutex
+	mu sync.Mutex
 
 	/////////////////////////
 	// Dependencies
@@ -66,43 +65,56 @@ type fastStatBucket struct {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// Helpers
-////////////////////////////////////////////////////////////////////////
-
-// LOCKS_REQUIRED(b.mu)
-func (b *fastStatBucket) checkInvariants()
-
-////////////////////////////////////////////////////////////////////////
 // Bucket interface
 ////////////////////////////////////////////////////////////////////////
 
-func (b *fastStatBucket) Name() string
+func (b *fastStatBucket) Name() string {
+	return b.wrapped.Name()
+}
 
 func (b *fastStatBucket) NewReader(
 	ctx context.Context,
-	req *ReadObjectRequest) (rc io.ReadCloser, err error)
+	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
+	err = errors.New("TODO")
+	return
+}
 
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) CreateObject(
 	ctx context.Context,
-	req *CreateObjectRequest) (o *Object, err error)
+	req *CreateObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO")
+	return
+}
 
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) StatObject(
 	ctx context.Context,
-	req *StatObjectRequest) (o *Object, err error)
+	req *StatObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO")
+	return
+}
 
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) ListObjects(
 	ctx context.Context,
-	req *ListObjectsRequest) (listing *Listing, err error)
+	req *ListObjectsRequest) (listing *Listing, err error) {
+	err = errors.New("TODO")
+	return
+}
 
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) UpdateObject(
 	ctx context.Context,
-	req *UpdateObjectRequest) (o *Object, err error)
+	req *UpdateObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO")
+	return
+}
 
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) DeleteObject(
 	ctx context.Context,
-	name string) (err error)
+	name string) (err error) {
+	err = errors.New("TODO")
+	return
+}
