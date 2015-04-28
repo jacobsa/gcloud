@@ -27,4 +27,6 @@ func NewFastStatBucket(
 	ttl time.Duration,
 	cache StatCache,
 	clock timeutil.Clock,
-	wrapped Bucket) (b Bucket)
+	wrapped Bucket) (b Bucket) {
+	panic("TODO")
+}
