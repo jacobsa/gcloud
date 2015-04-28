@@ -33,6 +33,8 @@ import (
 // Each method that may block accepts a context object that is used for
 // deadlines and cancellation. Users need not package authorization information
 // into the context object (using cloud.WithContext or similar).
+//
+// All methods are safe for concurrent access.
 type Bucket interface {
 	Name() string
 
