@@ -378,3 +378,60 @@ func (t *UpdateObjectTest) WrappedSucceeds() {
 	AssertEq(nil, err)
 	ExpectEq(obj, o)
 }
+
+////////////////////////////////////////////////////////////////////////
+// DeleteObject
+////////////////////////////////////////////////////////////////////////
+
+type DeleteObjectTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&DeleteObjectTest{}) }
+
+func (t *DeleteObjectTest) CallsEraseAndWrapped() {
+	const name = "taco"
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(name)
+
+	// Wrapped
+	ExpectCall(t.wrapped, "DeleteObject")(Any(), name).
+		WillOnce(Return(errors.New("")))
+
+	// Call
+	_ = t.bucket.DeleteObject(nil, name)
+}
+
+func (t *DeleteObjectTest) WrappedFails() {
+	const name = ""
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	ExpectCall(t.wrapped, "DeleteObject")(Any(), Any()).
+		WillOnce(Return(errors.New("taco")))
+
+	// Call
+	err = t.bucket.DeleteObject(nil, name)
+
+	ExpectThat(err, Error(HasSubstr("taco")))
+}
+
+func (t *DeleteObjectTest) WrappedSucceeds() {
+	const name = ""
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	ExpectCall(t.wrapped, "DeleteObject")(Any(), Any()).
+		WillOnce(Return(nil))
+
+	// Call
+	err = t.bucket.DeleteObject(nil, name)
+	AssertEq(nil, err)
+}
