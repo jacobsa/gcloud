@@ -32,7 +32,7 @@ func TestFastStatBucket(t *testing.T) { RunTests(t) }
 
 const ttl = time.Second
 
-type FastStatBucketTest struct {
+type fastStatBucketTest struct {
 	cache   mock_gcs.MockStatCache
 	clock   timeutil.SimulatedClock
 	wrapped mock_gcs.MockBucket
@@ -40,9 +40,7 @@ type FastStatBucketTest struct {
 	bucket gcs.Bucket
 }
 
-func init() { RegisterTestSuite(&FastStatBucketTest{}) }
-
-func (t *FastStatBucketTest) SetUp(ti *TestInfo) {
+func (t *fastStatBucketTest) SetUp(ti *TestInfo) {
 	// Set up a fixed, non-zero time.
 	t.clock.SetTime(time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local))
 
@@ -58,9 +56,15 @@ func (t *FastStatBucketTest) SetUp(ti *TestInfo) {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// Test functions
+// CreateObject
 ////////////////////////////////////////////////////////////////////////
 
-func (t *FastStatBucketTest) DoesFoo() {
+type CreateObjectTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&CreateObjectTest{}) }
+
+func (t *CreateObjectTest) DoesFoo() {
 	AssertFalse(true, "TODO")
 }
