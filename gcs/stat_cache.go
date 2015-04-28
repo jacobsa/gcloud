@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcsinternal
+package gcs
 
 // A cache mapping from name to most recent known record for the object of that
 // name. External synchronization must be provided.
