@@ -178,7 +178,18 @@ func (b *fastStatBucket) ListObjects(
 func (b *fastStatBucket) UpdateObject(
 	ctx context.Context,
 	req *gcs.UpdateObjectRequest) (o *gcs.Object, err error) {
-	err = errors.New("TODO")
+	// Throw away any existing record for this object.
+	b.invalidate(req.Name)
+
+	// Update the object.
+	o, err = b.wrapped.UpdateObject(ctx, req)
+	if err != nil {
+		return
+	}
+
+	// Record the new version.
+	b.insert(o)
+
 	return
 }
 
