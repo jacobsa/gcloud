@@ -132,3 +132,33 @@ func (t *CreateObjectTest) WrappedSucceeds() {
 	AssertEq(nil, err)
 	ExpectEq(obj, o)
 }
+
+////////////////////////////////////////////////////////////////////////
+// StatObject
+////////////////////////////////////////////////////////////////////////
+
+type StatObjectTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&StatObjectTest{}) }
+
+func (t *StatObjectTest) CallsCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatObjectTest) CacheHit() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatObjectTest) CallsWrapped() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatObjectTest) WrappedFails() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatObjectTest) WrappedSucceeds() {
+	AssertFalse(true, "TODO")
+}
