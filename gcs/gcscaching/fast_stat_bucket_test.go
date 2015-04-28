@@ -200,9 +200,49 @@ func (t *StatObjectTest) CallsWrapped() {
 }
 
 func (t *StatObjectTest) WrappedFails() {
-	AssertFalse(true, "TODO")
+	const name = ""
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(nil))
+
+	// Wrapped
+	ExpectCall(t.wrapped, "StatObject")(Any(), Any()).
+		WillOnce(Return(nil, errors.New("taco")))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err := t.bucket.StatObject(nil, req)
+	ExpectThat(err, Error(HasSubstr("taco")))
 }
 
 func (t *StatObjectTest) WrappedSucceeds() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(nil))
+
+	// Wrapped
+	obj := &gcs.Object{
+		Name: name,
+	}
+
+	ExpectCall(t.wrapped, "StatObject")(Any(), Any()).
+		WillOnce(Return(obj, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(obj, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	o, err := t.bucket.StatObject(nil, req)
+	AssertEq(nil, err)
+	ExpectEq(obj, o)
 }
