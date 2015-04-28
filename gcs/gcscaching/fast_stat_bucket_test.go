@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcs_test
+package gcscaching_test
 
 import (
 	"errors"
@@ -21,6 +21,8 @@ import (
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcloud/gcs/gcscaching"
+	"github.com/jacobsa/gcloud/gcs/gcscaching/mock_gcscaching"
 	"github.com/jacobsa/gcloud/gcs/mock_gcs"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/oglemock"
@@ -36,7 +38,7 @@ func TestFastStatBucket(t *testing.T) { RunTests(t) }
 const ttl = time.Second
 
 type fastStatBucketTest struct {
-	cache   mock_gcs.MockStatCache
+	cache   mock_gcscaching.MockStatCache
 	clock   timeutil.SimulatedClock
 	wrapped mock_gcs.MockBucket
 
@@ -48,10 +50,10 @@ func (t *fastStatBucketTest) SetUp(ti *TestInfo) {
 	t.clock.SetTime(time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local))
 
 	// Set up dependencies.
-	t.cache = mock_gcs.NewMockStatCache(ti.MockController, "cache")
+	t.cache = mock_gcscaching.NewMockStatCache(ti.MockController, "cache")
 	t.wrapped = mock_gcs.NewMockBucket(ti.MockController, "wrapped")
 
-	t.bucket = gcs.NewFastStatBucket(
+	t.bucket = gcscaching.NewFastStatBucket(
 		ttl,
 		t.cache,
 		&t.clock,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcs
+package gcscaching
 
 import (
 	"errors"
@@ -23,6 +23,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
+	"github.com/jacobsa/gcloud/gcs"
 )
 
 // Create a bucket that caches object records returned by the supplied wrapped
@@ -32,7 +33,7 @@ func NewFastStatBucket(
 	ttl time.Duration,
 	cache StatCache,
 	clock timeutil.Clock,
-	wrapped Bucket) (b Bucket) {
+	wrapped gcs.Bucket) (b gcs.Bucket) {
 	fsb := &fastStatBucket{
 		cache:   cache,
 		clock:   clock,
@@ -55,7 +56,7 @@ type fastStatBucket struct {
 	cache StatCache
 
 	clock   timeutil.Clock
-	wrapped Bucket
+	wrapped gcs.Bucket
 
 	/////////////////////////
 	// Constant data
@@ -77,7 +78,7 @@ func (b *fastStatBucket) invalidate(name string) {
 }
 
 // LOCKS_EXCLUDED(b.mu)
-func (b *fastStatBucket) insert(o *Object) {
+func (b *fastStatBucket) insert(o *gcs.Object) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -94,7 +95,7 @@ func (b *fastStatBucket) Name() string {
 
 func (b *fastStatBucket) NewReader(
 	ctx context.Context,
-	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
+	req *gcs.ReadObjectRequest) (rc io.ReadCloser, err error) {
 	rc, err = b.wrapped.NewReader(ctx, req)
 	return
 }
@@ -102,7 +103,7 @@ func (b *fastStatBucket) NewReader(
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) CreateObject(
 	ctx context.Context,
-	req *CreateObjectRequest) (o *Object, err error) {
+	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
 	// Throw away any existing record for this object.
 	b.invalidate(req.Name)
 
@@ -121,7 +122,7 @@ func (b *fastStatBucket) CreateObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) StatObject(
 	ctx context.Context,
-	req *StatObjectRequest) (o *Object, err error) {
+	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
 	err = errors.New("TODO")
 	return
 }
@@ -129,7 +130,7 @@ func (b *fastStatBucket) StatObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) ListObjects(
 	ctx context.Context,
-	req *ListObjectsRequest) (listing *Listing, err error) {
+	req *gcs.ListObjectsRequest) (listing *gcs.Listing, err error) {
 	err = errors.New("TODO")
 	return
 }
@@ -137,7 +138,7 @@ func (b *fastStatBucket) ListObjects(
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) UpdateObject(
 	ctx context.Context,
-	req *UpdateObjectRequest) (o *Object, err error) {
+	req *gcs.UpdateObjectRequest) (o *gcs.Object, err error) {
 	err = errors.New("TODO")
 	return
 }

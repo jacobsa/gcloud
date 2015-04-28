@@ -4,11 +4,12 @@
 //     https://github.com/jacobsa/oglemock
 //
 
-package mock_gcs
+package mock_gcscaching
 
 import (
 	fmt "fmt"
 	gcs "github.com/jacobsa/gcloud/gcs"
+	gcscaching "github.com/jacobsa/gcloud/gcs/gcscaching"
 	oglemock "github.com/jacobsa/oglemock"
 	runtime "runtime"
 	time "time"
@@ -16,7 +17,7 @@ import (
 )
 
 type MockStatCache interface {
-	gcs.StatCache
+	gcscaching.StatCache
 	oglemock.MockObject
 }
 

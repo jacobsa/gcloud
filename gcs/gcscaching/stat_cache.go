@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcs
+package gcscaching
 
-import "time"
+import (
+	"time"
+
+	"github.com/jacobsa/gcloud/gcs"
+)
 
 // A cache mapping from name to most recent known record for the object of that
 // name. External synchronization must be provided.
@@ -22,12 +26,12 @@ type StatCache interface {
 	// Insert an entry for the given object record. The entry will not replace any
 	// entry with a newer generation number, and will not be available after the
 	// supplied expiration time.
-	Insert(o *Object, expiration time.Time)
+	Insert(o *gcs.Object, expiration time.Time)
 
 	// Erase the entry for the given object name, if any.
 	Erase(name string)
 
 	// Return the current entry for the given name, or nil if none. Use the
 	// supplied time to decide whether entries have expired.
-	LookUp(name string, now time.Time) (o *Object)
+	LookUp(name string, now time.Time) (o *gcs.Object)
 }
