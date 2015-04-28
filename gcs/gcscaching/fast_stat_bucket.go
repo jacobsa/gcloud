@@ -70,6 +70,14 @@ type fastStatBucket struct {
 ////////////////////////////////////////////////////////////////////////
 
 // LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) insert(o *gcs.Object) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.cache.Insert(o, b.clock.Now().Add(b.ttl))
+}
+
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) invalidate(name string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -78,11 +86,12 @@ func (b *fastStatBucket) invalidate(name string) {
 }
 
 // LOCKS_EXCLUDED(b.mu)
-func (b *fastStatBucket) insert(o *gcs.Object) {
+func (b *fastStatBucket) lookUp(name string) (o *gcs.Object) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.cache.Insert(o, b.clock.Now().Add(b.ttl))
+	o = b.cache.LookUp(name, b.clock.Now())
+	return
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -123,7 +132,21 @@ func (b *fastStatBucket) CreateObject(
 func (b *fastStatBucket) StatObject(
 	ctx context.Context,
 	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
-	err = errors.New("TODO")
+	// Do we already have an entry in the cache?
+	o = b.lookUp(req.Name)
+	if o != nil {
+		return
+	}
+
+	// Ask the wrapped bucket.
+	o, err = b.wrapped.StatObject(ctx, req)
+	if err != nil {
+		return
+	}
+
+	// Update the cache.
+	b.insert(o)
+
 	return
 }
 
