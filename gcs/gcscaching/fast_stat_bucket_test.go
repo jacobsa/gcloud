@@ -246,3 +246,25 @@ func (t *StatObjectTest) WrappedSucceeds() {
 	AssertEq(nil, err)
 	ExpectEq(obj, o)
 }
+
+////////////////////////////////////////////////////////////////////////
+// ListObjects
+////////////////////////////////////////////////////////////////////////
+
+type ListObjectsTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&ListObjectsTest{}) }
+
+func (t *ListObjectsTest) WrappedFails() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListObjectsTest) EmptyListing() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *ListObjectsTest) NonEmptyListing() {
+	AssertFalse(true, "TODO")
+}
