@@ -268,7 +268,17 @@ func (t *ListObjectsTest) WrappedFails() {
 }
 
 func (t *ListObjectsTest) EmptyListing() {
-	AssertFalse(true, "TODO")
+	// Wrapped
+	expected := &gcs.Listing{}
+
+	ExpectCall(t.wrapped, "ListObjects")(Any(), Any()).
+		WillOnce(Return(expected, nil))
+
+	// Call
+	listing, err := t.bucket.ListObjects(nil, &gcs.ListObjectsRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(expected, listing)
 }
 
 func (t *ListObjectsTest) NonEmptyListing() {
