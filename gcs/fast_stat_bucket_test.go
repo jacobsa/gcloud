@@ -108,5 +108,27 @@ func (t *CreateObjectTest) WrappedFails() {
 }
 
 func (t *CreateObjectTest) WrappedSucceeds() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	obj := &gcs.Object{
+		Name:       name,
+		Generation: 1234,
+	}
+
+	ExpectCall(t.wrapped, "CreateObject")(Any(), Any()).
+		WillOnce(Return(obj, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(obj, t.clock.Now().Add(ttl))
+
+	// Call
+	o, err := t.bucket.CreateObject(nil, &gcs.CreateObjectRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(obj, o)
 }
