@@ -303,3 +303,78 @@ func (t *ListObjectsTest) NonEmptyListing() {
 	AssertEq(nil, err)
 	ExpectEq(expected, listing)
 }
+
+////////////////////////////////////////////////////////////////////////
+// UpdateObject
+////////////////////////////////////////////////////////////////////////
+
+type UpdateObjectTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&UpdateObjectTest{}) }
+
+func (t *UpdateObjectTest) CallsEraseAndWrapped() {
+	const name = "taco"
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(name)
+
+	// Wrapped
+	var wrappedReq *gcs.UpdateObjectRequest
+	ExpectCall(t.wrapped, "UpdateObject")(Any(), Any()).
+		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(nil, errors.New(""))))
+
+	// Call
+	req := &gcs.UpdateObjectRequest{
+		Name: name,
+	}
+
+	_, _ = t.bucket.UpdateObject(nil, req)
+
+	AssertNe(nil, wrappedReq)
+	ExpectEq(req, wrappedReq)
+}
+
+func (t *UpdateObjectTest) WrappedFails() {
+	const name = ""
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	ExpectCall(t.wrapped, "UpdateObject")(Any(), Any()).
+		WillOnce(Return(nil, errors.New("taco")))
+
+	// Call
+	_, err = t.bucket.UpdateObject(nil, &gcs.UpdateObjectRequest{})
+
+	ExpectThat(err, Error(HasSubstr("taco")))
+}
+
+func (t *UpdateObjectTest) WrappedSucceeds() {
+	const name = "taco"
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	obj := &gcs.Object{
+		Name:       name,
+		Generation: 1234,
+	}
+
+	ExpectCall(t.wrapped, "UpdateObject")(Any(), Any()).
+		WillOnce(Return(obj, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(obj, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	o, err := t.bucket.UpdateObject(nil, &gcs.UpdateObjectRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(obj, o)
+}
