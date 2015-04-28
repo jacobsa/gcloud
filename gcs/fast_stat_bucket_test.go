@@ -65,6 +65,14 @@ type CreateObjectTest struct {
 
 func init() { RegisterTestSuite(&CreateObjectTest{}) }
 
-func (t *CreateObjectTest) DoesFoo() {
+func (t *CreateObjectTest) CallsEraseAndWrapped() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateObjectTest) WrappedFails() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *CreateObjectTest) WrappedSucceeds() {
 	AssertFalse(true, "TODO")
 }
