@@ -20,7 +20,7 @@ import (
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
-	. "github.com/jacobsa/oglematchers"
+	"github.com/jacobsa/gcloud/gcs/mock_gcs"
 	. "github.com/jacobsa/ogletest"
 )
 
@@ -43,7 +43,18 @@ type FastStatBucketTest struct {
 func init() { RegisterTestSuite(&FastStatBucketTest{}) }
 
 func (t *FastStatBucketTest) SetUp(ti *TestInfo) {
-	panic("TODO")
+	// Set up a fixed, non-zero time.
+	t.clock.SetTime(time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local))
+
+	// Set up dependencies.
+	t.cache = mock_gcs.NewMockStatCache(ti.MockController, "cache")
+	t.wrapped = mock_gcs.NewMockBucket(ti.MockController, "wrapped")
+
+	t.bucket = gcs.NewFastStatBucket(
+		ttl,
+		t.cache,
+		&t.clock,
+		t.wrapped)
 }
 
 ////////////////////////////////////////////////////////////////////////
