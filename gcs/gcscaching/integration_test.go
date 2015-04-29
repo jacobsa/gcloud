@@ -87,18 +87,26 @@ func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
 	ExpectNe(nil, o)
 }
 
-func (t *IntegrationTest) CreateThenStat() {
+func (t *IntegrationTest) CreateInsertsIntoCache() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *IntegrationTest) ListThenStat() {
+func (t *IntegrationTest) StatInsertsIntoCache() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *IntegrationTest) CreateThenUpdateThenStat() {
+func (t *IntegrationTest) ListInsertsIntoCache() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *IntegrationTest) DeleteThenStat() {
+func (t *IntegrationTest) UpdateUpdatesCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) DeleteRemovesFromCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) Expiration() {
 	AssertFalse(true, "TODO")
 }
