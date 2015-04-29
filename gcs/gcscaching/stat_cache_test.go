@@ -97,7 +97,14 @@ func (t *StatCacheTest) LookUpUnknownKey() {
 }
 
 func (t *StatCacheTest) KeysPresentButEverythingIsExpired() {
-	AssertFalse(true, "TODO")
+	o0 := &gcs.Object{Name: "burrito"}
+	o1 := &gcs.Object{Name: "taco"}
+
+	t.cache.Insert(o0, someTime.Add(-time.Second))
+	t.cache.Insert(o1, someTime.Add(-time.Second))
+
+	ExpectEq(nil, t.cache.LookUp("burrito", someTime))
+	ExpectEq(nil, t.cache.LookUp("taco", someTime))
 }
 
 func (t *StatCacheTest) FillUpToCapacity() {
