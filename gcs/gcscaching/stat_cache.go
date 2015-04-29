@@ -56,8 +56,18 @@ type statCache struct {
 	c lrucache.Cache
 }
 
+type entry struct {
+	o          *gcs.Object
+	expiration time.Time
+}
+
 func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
-	panic("TODO")
+	e := entry{
+		o:          o,
+		expiration: expiration,
+	}
+
+	sc.c.Insert(o.Name, e)
 }
 
 func (sc *statCache) Erase(name string) {
