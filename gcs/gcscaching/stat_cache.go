@@ -64,12 +64,12 @@ type entry struct {
 func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
 	// Compare first on generation.
 	if o.Generation != existing.Generation {
-		return o.Generation < existing.Generation
+		return o.Generation > existing.Generation
 	}
 
 	// Break ties on metadata generation.
 	if o.MetaGeneration != existing.MetaGeneration {
-		return o.MetaGeneration < existing.MetaGeneration
+		return o.MetaGeneration > existing.MetaGeneration
 	}
 
 	// Break ties by preferring fresher entries.
