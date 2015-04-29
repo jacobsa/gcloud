@@ -36,7 +36,7 @@ type invariantsCache struct {
 func (c *invariantsCache) Insert(
 	o *gcs.Object,
 	expiration time.Time) {
-	c.Wrapped.CheckInvariants()
+	c.wrapped.CheckInvariants()
 	defer c.wrapped.CheckInvariants()
 
 	c.wrapped.Insert(o, expiration)
@@ -66,7 +66,7 @@ func (c *invariantsCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 var someTime = time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local)
 
 type StatCacheTest struct {
-	cache gcscaching.StatCache
+	cache invariantsCache
 }
 
 func init() { RegisterTestSuite(&StatCacheTest{}) }
