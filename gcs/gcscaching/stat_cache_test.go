@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"github.com/jacobsa/gcloud/gcs/gcscaching"
-	. "github.com/jacobsa/oglematchers"
-	. "github.com/jacobsa/oglemock"
 	. "github.com/jacobsa/ogletest"
 )
 

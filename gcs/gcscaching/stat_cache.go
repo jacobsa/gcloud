@@ -36,3 +36,9 @@ type StatCache interface {
 	// supplied time to decide whether entries have expired.
 	LookUp(name string, now time.Time) (o *gcs.Object)
 }
+
+// Create a new stat cache that holds the given number of entries, which must
+// be positive.
+func NewStatCache(capacity int) (sc StatCache) {
+	panic("TODO")
+}
