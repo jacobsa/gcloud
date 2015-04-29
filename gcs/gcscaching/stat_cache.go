@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/util/lrucache"
 )
 
 // A cache mapping from name to most recent known record for the object of that
@@ -44,5 +45,29 @@ type StatCache interface {
 // Create a new stat cache that holds the given number of entries, which must
 // be positive.
 func NewStatCache(capacity int) (sc StatCache) {
+	sc = &statCache{
+		c: lrucache.New(capacity),
+	}
+
+	return
+}
+
+type statCache struct {
+	c lrucache.Cache
+}
+
+func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
+	panic("TODO")
+}
+
+func (sc *statCache) Erase(name string) {
+	panic("TODO")
+}
+
+func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
+	panic("TODO")
+}
+
+func (sc *statCache) CheckInvariants() {
 	panic("TODO")
 }
