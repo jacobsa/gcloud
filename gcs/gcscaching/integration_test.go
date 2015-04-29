@@ -64,6 +64,22 @@ func (t *IntegrationTest) SetUp(ti *TestInfo) {
 // Test functions
 ////////////////////////////////////////////////////////////////////////
 
-func (t *IntegrationTest) DoesFoo() {
+func (t *IntegrationTest) StatUnknownTwice() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) CreateThenStat() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) ListThenStat() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) CreateThenUpdateThenStat() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) DeleteThenStat() {
 	AssertFalse(true, "TODO")
 }
