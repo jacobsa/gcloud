@@ -18,13 +18,18 @@
 package gcscaching_test
 
 import (
+	"log"
 	"testing"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcscaching"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
+	"github.com/jacobsa/gcloud/gcs/gcsutil"
+	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 )
 
@@ -45,13 +50,20 @@ type IntegrationTest struct {
 func init() { RegisterTestSuite(&IntegrationTest{}) }
 
 func (t *IntegrationTest) SetUp(ti *TestInfo) {
+	// Grab the underlying bucket and empty it.
+	wrapped := gcstesting.IntegrationTestBucketOrDie()
+	err := gcsutil.DeleteAllObjects(context.Background(), wrapped)
+	if err != nil {
+		log.Fatalln("DeleteAllObjects:", err)
+	}
+
 	// Set up a fixed, non-zero time.
 	t.clock.SetTime(time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local))
 
 	// Set up dependencies.
 	const cacheCapacity = 100
 	t.cache = gcscaching.NewStatCache(cacheCapacity)
-	t.wrapped = gcstesting.IntegrationTestBucketOrDie()
+	t.wrapped = wrapped
 
 	t.bucket = gcscaching.NewFastStatBucket(
 		ttl,
@@ -65,7 +77,18 @@ func (t *IntegrationTest) SetUp(ti *TestInfo) {
 ////////////////////////////////////////////////////////////////////////
 
 func (t *IntegrationTest) StatUnknownTwice() {
-	AssertFalse(true, "TODO")
+	var err error
+	req := &gcs.StatObjectRequest{
+		Name: "taco",
+	}
+
+	// First
+	_, err = t.bucket.StatObject(context.Background(), req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// Second
+	_, err = t.bucket.StatObject(context.Background(), req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *IntegrationTest) CreateThenStat() {
