@@ -81,7 +81,8 @@ func (t *StatCacheTest) SetUp(ti *TestInfo) {
 ////////////////////////////////////////////////////////////////////////
 
 func (t *StatCacheTest) LookUpInEmptyCache() {
-	AssertFalse(true, "TODO")
+	ExpectEq(nil, t.cache.LookUp("", someTime))
+	ExpectEq(nil, t.cache.LookUp("taco", someTime))
 }
 
 func (t *StatCacheTest) LookUpUnknownKey() {
