@@ -62,10 +62,6 @@ type entry struct {
 }
 
 func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
-	if existing == nil {
-		return false
-	}
-
 	// Compare first on generation.
 	if o.Generation != existing.Generation {
 		return o.Generation < existing.Generation
