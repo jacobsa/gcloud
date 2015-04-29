@@ -66,6 +66,7 @@ func (c *invariantsCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 const capacity = 3
 
 var someTime = time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local)
+var expiration = someTime.Add(time.Second)
 
 type StatCacheTest struct {
 	cache invariantsCache
@@ -115,8 +116,6 @@ func (t *StatCacheTest) FillUpToCapacity() {
 	o1 := &gcs.Object{Name: "taco"}
 	o2 := &gcs.Object{Name: "enchilada"}
 
-	expiration := someTime.Add(time.Second)
-
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 	t.cache.Insert(o2, expiration)
@@ -146,8 +145,6 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 	o1 := &gcs.Object{Name: "taco"}
 	o2 := &gcs.Object{Name: "enchilada"}
 
-	expiration := someTime.Add(time.Second)
-
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)                    // Least recent
 	t.cache.Insert(o2, expiration)                    // Second most recent
@@ -165,7 +162,23 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 }
 
 func (t *StatCacheTest) Overwrite_NewerGeneration() {
-	AssertFalse(true, "TODO")
+	o0 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 5}
+	o1 := &gcs.Object{Name: "taco", Generation: 19, MetaGeneration: 1}
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)
+
+	ExpectEq(o1, t.cache.LookUp("taco", someTime))
+
+	// The overwritten entry shouldn't count toward capacity.
+	AssertEq(3, capacity)
+
+	t.cache.Insert(&gcs.Object{Name: "burrito"}, expiration)
+	t.cache.Insert(&gcs.Object{Name: "enchilada"}, expiration)
+
+	ExpectNe(nil, t.cache.LookUp("taco", someTime))
+	ExpectNe(nil, t.cache.LookUp("burrito", someTime))
+	ExpectNe(nil, t.cache.LookUp("enchilada", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_NewerMetadataGen() {
