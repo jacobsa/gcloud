@@ -208,7 +208,7 @@ func (t *StatCacheTest) Overwrite_SameGeneration_SameMetadataGen() {
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o0, t.cache.LookUp("taco", someTime))
+	ExpectEq(o1, t.cache.LookUp("taco", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_OlderMetadataGen() {
