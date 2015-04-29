@@ -182,17 +182,51 @@ func (t *StatCacheTest) Overwrite_NewerGeneration() {
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_NewerMetadataGen() {
-	AssertFalse(true, "TODO")
+	o0 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 5}
+	o1 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 7}
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)
+
+	ExpectEq(o1, t.cache.LookUp("taco", someTime))
+
+	// The overwritten entry shouldn't count toward capacity.
+	AssertEq(3, capacity)
+
+	t.cache.Insert(&gcs.Object{Name: "burrito"}, expiration)
+	t.cache.Insert(&gcs.Object{Name: "enchilada"}, expiration)
+
+	ExpectNe(nil, t.cache.LookUp("taco", someTime))
+	ExpectNe(nil, t.cache.LookUp("burrito", someTime))
+	ExpectNe(nil, t.cache.LookUp("enchilada", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_SameMetadataGen() {
-	AssertFalse(true, "TODO")
+	o0 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 5}
+	o1 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 5}
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)
+
+	ExpectEq(o0, t.cache.LookUp("taco", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_OlderMetadataGen() {
-	AssertFalse(true, "TODO")
+	o0 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 5}
+	o1 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 3}
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)
+
+	ExpectEq(o0, t.cache.LookUp("taco", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_OlderGeneration() {
-	AssertFalse(true, "TODO")
+	o0 := &gcs.Object{Name: "taco", Generation: 17, MetaGeneration: 5}
+	o1 := &gcs.Object{Name: "taco", Generation: 13, MetaGeneration: 7}
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)
+
+	ExpectEq(o0, t.cache.LookUp("taco", someTime))
 }
