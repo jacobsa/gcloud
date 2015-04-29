@@ -36,6 +36,8 @@ func TestIntegration(t *testing.T) { RunTests(t) }
 ////////////////////////////////////////////////////////////////////////
 
 type IntegrationTest struct {
+	ctx context.Context
+
 	cache   gcscaching.StatCache
 	clock   timeutil.SimulatedClock
 	wrapped gcs.Bucket
@@ -46,6 +48,8 @@ type IntegrationTest struct {
 func init() { RegisterTestSuite(&IntegrationTest{}) }
 
 func (t *IntegrationTest) SetUp(ti *TestInfo) {
+	t.ctx = context.Background()
+
 	// Set up a fixed, non-zero time.
 	t.clock.SetTime(time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local))
 
@@ -66,7 +70,7 @@ func (t *IntegrationTest) stat(name string) (o *gcs.Object, err error) {
 		Name: name,
 	}
 
-	o, err = t.bucket.StatObject(context.Background(), req)
+	o, err = t.bucket.StatObject(t.ctx, req)
 	return
 }
 
@@ -83,7 +87,7 @@ func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 
 	// Create the object through the back door.
-	_, err = gcsutil.CreateObject(context.Background(), t.wrapped, name, "")
+	_, err = gcsutil.CreateObject(t.ctx, t.wrapped, name, "")
 	AssertEq(nil, err)
 
 	// Stat again. We should now see the object.
@@ -97,11 +101,11 @@ func (t *IntegrationTest) CreateInsertsIntoCache() {
 	var err error
 
 	// Create an object.
-	_, err = gcsutil.CreateObject(context.Background(), t.bucket, name, "")
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, name, "")
 	AssertEq(nil, err)
 
 	// Delete it through the back door.
-	err = t.wrapped.DeleteObject(context.Background(), name)
+	err = t.wrapped.DeleteObject(t.ctx, name)
 	AssertEq(nil, err)
 
 	// StatObject should still see it.
