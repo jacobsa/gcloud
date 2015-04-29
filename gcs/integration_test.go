@@ -29,66 +29,30 @@
 package gcs_test
 
 import (
-	"flag"
 	"log"
-	"net/http"
 	"testing"
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
-	"github.com/jacobsa/gcloud/oauthutil"
 	"github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
-	storagev1 "google.golang.org/api/storage/v1"
 )
 
 ////////////////////////////////////////////////////////////////////////
 // Wiring code
 ////////////////////////////////////////////////////////////////////////
 
-var fKeyFile = flag.String("key_file", "", "Path to a JSON key for a service account created on the Google Developers Console.")
-var fBucket = flag.String("bucket", "", "Empty bucket to use for storage.")
-
-func getHTTPClientOrDie() *http.Client {
-	if *fKeyFile == "" {
-		panic("You must set --key_file.")
-	}
-
-	const scope = storagev1.DevstorageFull_controlScope
-	httpClient, err := oauthutil.NewJWTHttpClient(*fKeyFile, []string{scope})
-	if err != nil {
-		panic("oauthutil.NewJWTHttpClient: " + err.Error())
-	}
-
-	return httpClient
-}
-
-func getBucketNameOrDie() string {
-	s := *fBucket
-	if s == "" {
-		log.Fatalln("You must set --bucket.")
-	}
-
-	return s
-}
-
 // Return a bucket based on the contents of command-line flags, exiting the
 // process if misconfigured.
 func getBucketOrDie() gcs.Bucket {
-	// Set up a GCS connection.
-	cfg := &gcs.ConnConfig{
-		HTTPClient: getHTTPClientOrDie(),
-	}
-
-	conn, err := gcs.NewConn(cfg)
+	b, err := gcstesting.IntegrationTestBucket()
 	if err != nil {
-		log.Fatalf("gcs.NewConn: %v", err)
+		log.Fatalln(err)
 	}
 
-	// Open the bucket.
-	return conn.GetBucket(getBucketNameOrDie())
+	return b
 }
 
 ////////////////////////////////////////////////////////////////////////
