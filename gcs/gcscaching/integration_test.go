@@ -184,10 +184,22 @@ func (t *IntegrationTest) UpdateUpdatesCache() {
 	ExpectNe(nil, o)
 }
 
-func (t *IntegrationTest) DeleteRemovesFromCache() {
-	AssertFalse(true, "TODO")
-}
-
 func (t *IntegrationTest) Expiration() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Create an object.
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, name, "")
+	AssertEq(nil, err)
+
+	// Delete it through the back door.
+	err = t.wrapped.DeleteObject(t.ctx, name)
+	AssertEq(nil, err)
+
+	// Advance time.
+	t.clock.AdvanceTime(ttl + time.Millisecond)
+
+	// StatObject should no longer see it.
+	_, err = t.stat(name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
