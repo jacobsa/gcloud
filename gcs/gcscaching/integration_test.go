@@ -93,7 +93,21 @@ func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
 }
 
 func (t *IntegrationTest) CreateInsertsIntoCache() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Create an object.
+	_, err = gcsutil.CreateObject(context.Background(), t.bucket, name, "")
+	AssertEq(nil, err)
+
+	// Delete it through the back door.
+	err = t.wrapped.DeleteObject(context.Background(), name)
+	AssertEq(nil, err)
+
+	// StatObject should still see it.
+	o, err := t.stat(name)
+	AssertEq(nil, err)
+	ExpectNe(nil, o)
 }
 
 func (t *IntegrationTest) StatInsertsIntoCache() {
