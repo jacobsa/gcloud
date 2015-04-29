@@ -71,7 +71,7 @@ func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
 }
 
 func (sc *statCache) Erase(name string) {
-	panic("TODO")
+	sc.c.Erase(name)
 }
 
 func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
