@@ -45,6 +45,22 @@ func (t *StatCacheTest) SetUp(ti *TestInfo) {
 // Test functions
 ////////////////////////////////////////////////////////////////////////
 
-func (t *StatCacheTest) DoesFoo() {
+func (t *StatCacheTest) LookUpInEmptyCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) LookUpUnknownKey() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) FillUpToCapacity() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite() {
 	AssertFalse(true, "TODO")
 }
