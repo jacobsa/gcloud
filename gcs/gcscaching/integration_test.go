@@ -24,6 +24,7 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcscaching"
 	"github.com/jacobsa/gcloud/gcs/gcsfake"
+	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 )
@@ -64,19 +65,26 @@ func (t *IntegrationTest) SetUp(ti *TestInfo) {
 // Test functions
 ////////////////////////////////////////////////////////////////////////
 
-func (t *IntegrationTest) StatUnknownTwice() {
+func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
+	const name = "taco"
 	var err error
+
+	// Stat an unknown object.
 	req := &gcs.StatObjectRequest{
-		Name: "taco",
+		Name: name,
 	}
 
-	// First
 	_, err = t.bucket.StatObject(context.Background(), req)
-	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 
-	// Second
-	_, err = t.bucket.StatObject(context.Background(), req)
-	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	// Create the object through the back door.
+	_, err = gcsutil.CreateObject(context.Background(), t.wrapped, name, "")
+	AssertEq(nil, err)
+
+	// Stat again. We should now see the object.
+	o, err := t.bucket.StatObject(context.Background(), req)
+	AssertEq(nil, err)
+	ExpectNe(nil, o)
 }
 
 func (t *IntegrationTest) CreateThenStat() {
