@@ -29,31 +29,14 @@
 package gcs_test
 
 import (
-	"log"
 	"testing"
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
-	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	"github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
 )
-
-////////////////////////////////////////////////////////////////////////
-// Wiring code
-////////////////////////////////////////////////////////////////////////
-
-// Return a bucket based on the contents of command-line flags, exiting the
-// process if misconfigured.
-func getBucketOrDie() gcs.Bucket {
-	b, err := gcstesting.IntegrationTestBucket()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	return b
-}
 
 ////////////////////////////////////////////////////////////////////////
 // Registration
@@ -63,7 +46,7 @@ func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 
 func init() {
 	gcstesting.RegisterBucketTests(func() (deps gcstesting.BucketTestDeps) {
-		deps.Bucket = getBucketOrDie()
+		deps.Bucket = gcstesting.IntegrationTestBucketOrDie()
 		deps.Clock = timeutil.RealClock()
 
 		err := gcsutil.DeleteAllObjects(context.Background(), deps.Bucket)

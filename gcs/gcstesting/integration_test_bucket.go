@@ -18,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/jacobsa/gcloud/gcs"
@@ -87,6 +88,16 @@ func IntegrationTestBucket() (b gcs.Bucket, err error) {
 
 	// Open the bucket.
 	b = conn.GetBucket(name)
+
+	return
+}
+
+// Like IntegrationTestBucket, but exits the process on failure.
+func IntegrationTestBucketOrDie() (b gcs.Bucket) {
+	b, err := IntegrationTestBucket()
+	if err != nil {
+		log.Fatalln("IntegrationTestBucket:", err)
+	}
 
 	return
 }
