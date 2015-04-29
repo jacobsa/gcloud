@@ -127,9 +127,9 @@ func (t *StatCacheTest) FillUpToCapacity() {
 	ExpectEq(o2, t.cache.LookUp("enchilada", justBefore))
 
 	// At expiration
-	ExpectEq(nil, t.cache.LookUp("burrito", expiration))
-	ExpectEq(nil, t.cache.LookUp("taco", expiration))
-	ExpectEq(nil, t.cache.LookUp("enchilada", expiration))
+	ExpectEq(o0, t.cache.LookUp("burrito", expiration))
+	ExpectEq(o1, t.cache.LookUp("taco", expiration))
+	ExpectEq(o2, t.cache.LookUp("enchilada", expiration))
 
 	// After expiration
 	justAfter := expiration.Add(time.Nanosecond)
