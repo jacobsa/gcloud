@@ -184,6 +184,26 @@ func (t *IntegrationTest) UpdateUpdatesCache() {
 	ExpectNe(nil, o)
 }
 
+func (t *IntegrationTest) PositiveCacheExpiration() {
+	const name = "taco"
+	var err error
+
+	// Create an object.
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, name, "")
+	AssertEq(nil, err)
+
+	// Delete it through the back door.
+	err = t.wrapped.DeleteObject(t.ctx, name)
+	AssertEq(nil, err)
+
+	// Advance time.
+	t.clock.AdvanceTime(ttl + time.Millisecond)
+
+	// StatObject should no longer see it.
+	_, err = t.stat(name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
 func (t *IntegrationTest) CreateInvalidatesNegativeCache() {
 	const name = "taco"
 	var err error
@@ -203,7 +223,20 @@ func (t *IntegrationTest) CreateInvalidatesNegativeCache() {
 }
 
 func (t *IntegrationTest) StatAddsToNegativeCache() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Stat an unknown object, getting it into the negative cache.
+	_, err = t.stat(name)
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// Create the object through the back door.
+	_, err = gcsutil.CreateObject(t.ctx, t.wrapped, name, "")
+	AssertEq(nil, err)
+
+	// StatObject should still not see it yet.
+	_, err = t.stat(name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *IntegrationTest) ListInvalidatesNegativeCache() {
@@ -218,22 +251,6 @@ func (t *IntegrationTest) DeleteAddsToNegativeCache() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *IntegrationTest) Expiration() {
-	const name = "taco"
-	var err error
-
-	// Create an object.
-	_, err = gcsutil.CreateObject(t.ctx, t.bucket, name, "")
-	AssertEq(nil, err)
-
-	// Delete it through the back door.
-	err = t.wrapped.DeleteObject(t.ctx, name)
-	AssertEq(nil, err)
-
-	// Advance time.
-	t.clock.AdvanceTime(ttl + time.Millisecond)
-
-	// StatObject should no longer see it.
-	_, err = t.stat(name)
-	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+func (t *IntegrationTest) NegativeCacheExpiration() {
+	AssertFalse(true, "TODO")
 }
