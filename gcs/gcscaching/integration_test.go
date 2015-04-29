@@ -115,7 +115,25 @@ func (t *IntegrationTest) CreateInsertsIntoCache() {
 }
 
 func (t *IntegrationTest) StatInsertsIntoCache() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Create an object through the back door.
+	_, err = gcsutil.CreateObject(t.ctx, t.wrapped, name, "")
+	AssertEq(nil, err)
+
+	// Stat it so that it's in cache.
+	_, err = t.stat(name)
+	AssertEq(nil, err)
+
+	// Delete it through the back door.
+	err = t.wrapped.DeleteObject(t.ctx, name)
+	AssertEq(nil, err)
+
+	// StatObject should still see it.
+	o, err := t.stat(name)
+	AssertEq(nil, err)
+	ExpectNe(nil, o)
 }
 
 func (t *IntegrationTest) ListInsertsIntoCache() {
