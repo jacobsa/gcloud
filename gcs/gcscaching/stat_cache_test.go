@@ -140,7 +140,28 @@ func (t *StatCacheTest) FillUpToCapacity() {
 }
 
 func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
-	AssertFalse(true, "TODO")
+	AssertEq(3, capacity)
+
+	o0 := &gcs.Object{Name: "burrito"}
+	o1 := &gcs.Object{Name: "taco"}
+	o2 := &gcs.Object{Name: "enchilada"}
+
+	expiration := someTime.Add(time.Second)
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)                    // Least recent
+	t.cache.Insert(o2, expiration)                    // Second most recent
+	AssertEq(o0, t.cache.LookUp("burrito", someTime)) // Most recent
+
+	// Insert another.
+	o3 := &gcs.Object{Name: "queso"}
+	t.cache.Insert(o3, expiration)
+
+	// See what's left.
+	ExpectEq(nil, t.cache.LookUp("taco", someTime))
+	ExpectEq(o0, t.cache.LookUp("burrito", someTime))
+	ExpectEq(o2, t.cache.LookUp("enchilada", someTime))
+	ExpectEq(o3, t.cache.LookUp("queso", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_NewerGeneration() {
