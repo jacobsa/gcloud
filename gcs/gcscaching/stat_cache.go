@@ -61,7 +61,34 @@ type entry struct {
 	expiration time.Time
 }
 
+func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
+	if existing == nil {
+		return false
+	}
+
+	// Compare first on generation.
+	if o.Generation != existing.Generation {
+		return o.Generation < existing.Generation
+	}
+
+	// Break ties on metadata generation.
+	if o.MetaGeneration != existing.MetaGeneration {
+		return o.MetaGeneration < existing.MetaGeneration
+	}
+
+	// Break ties by preferring fresher entries.
+	return true
+}
+
 func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
+	// Is there already a better entry?
+	if existing := sc.c.LookUp(o.Name); existing != nil {
+		if !shouldReplace(o, existing.(entry).o) {
+			return
+		}
+	}
+
+	// Insert an entry.
 	e := entry{
 		o:          o,
 		expiration: expiration,
