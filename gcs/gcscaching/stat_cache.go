@@ -75,7 +75,22 @@ func (sc *statCache) Erase(name string) {
 }
 
 func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
-	panic("TODO")
+	// Look up in the LRU cache.
+	value := sc.c.LookUp(name)
+	if value == nil {
+		return
+	}
+
+	e := value.(entry)
+
+	// Has this entry expired?
+	if e.expiration.Before(now) {
+		sc.Erase(name)
+		return
+	}
+
+	o = e.o
+	return
 }
 
 func (sc *statCache) CheckInvariants() {
