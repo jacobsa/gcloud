@@ -185,7 +185,21 @@ func (t *IntegrationTest) UpdateUpdatesCache() {
 }
 
 func (t *IntegrationTest) CreateInvalidatesNegativeCache() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Stat an unknown object, getting it into the negative cache.
+	_, err = t.stat(name)
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// Create the object.
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, name, "")
+	AssertEq(nil, err)
+
+	// Now StatObject should see it.
+	o, err := t.stat(name)
+	AssertEq(nil, err)
+	ExpectNe(nil, o)
 }
 
 func (t *IntegrationTest) StatAddsToNegativeCache() {
