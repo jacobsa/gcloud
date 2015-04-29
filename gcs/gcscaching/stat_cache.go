@@ -69,5 +69,5 @@ func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 }
 
 func (sc *statCache) CheckInvariants() {
-	panic("TODO")
+	sc.c.CheckInvariants()
 }
