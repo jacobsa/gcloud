@@ -30,12 +30,18 @@ type StatCache interface {
 	// available after the supplied expiration time.
 	Insert(o *gcs.Object, expiration time.Time)
 
+	// Set up a negative entry for the given name, indicating that the name
+	// doesn't exist. Overwrite any existing entry for the name, positive or
+	// negative.
+	AddNegativeEntry(name string, expiration time.Time)
+
 	// Erase the entry for the given object name, if any.
 	Erase(name string)
 
-	// Return the current entry for the given name, or nil if none. Use the
-	// supplied time to decide whether entries have expired.
-	LookUp(name string, now time.Time) (o *gcs.Object)
+	// Return the current entry for the given name, or nil if there is a negative
+	// entry. Return hit == false when there is neither a positive nor a negative
+	// entry, or the entry has expired according to the supplied current time.
+	LookUp(name string, now time.Time) (hit bool, o *gcs.Object)
 
 	// Panic if any internal invariants have been violated. The careful user can
 	// arrange to call this at crucial moments.
