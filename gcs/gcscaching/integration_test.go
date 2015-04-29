@@ -61,6 +61,15 @@ func (t *IntegrationTest) SetUp(ti *TestInfo) {
 		t.wrapped)
 }
 
+func (t *IntegrationTest) stat(name string) (o *gcs.Object, err error) {
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	o, err = t.bucket.StatObject(context.Background(), req)
+	return
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Test functions
 ////////////////////////////////////////////////////////////////////////
@@ -70,11 +79,7 @@ func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
 	var err error
 
 	// Stat an unknown object.
-	req := &gcs.StatObjectRequest{
-		Name: name,
-	}
-
-	_, err = t.bucket.StatObject(context.Background(), req)
+	_, err = t.stat(name)
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 
 	// Create the object through the back door.
@@ -82,7 +87,7 @@ func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
 	AssertEq(nil, err)
 
 	// Stat again. We should now see the object.
-	o, err := t.bucket.StatObject(context.Background(), req)
+	o, err := t.stat(name)
 	AssertEq(nil, err)
 	ExpectNe(nil, o)
 }
