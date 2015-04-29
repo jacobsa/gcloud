@@ -63,6 +63,8 @@ func (c *invariantsCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 // Boilerplate
 ////////////////////////////////////////////////////////////////////////
 
+const capacity = 3
+
 var someTime = time.Date(2015, 4, 5, 2, 15, 0, 0, time.Local)
 
 type StatCacheTest struct {
@@ -72,7 +74,6 @@ type StatCacheTest struct {
 func init() { RegisterTestSuite(&StatCacheTest{}) }
 
 func (t *StatCacheTest) SetUp(ti *TestInfo) {
-	const capacity = 100
 	t.cache.wrapped = gcscaching.NewStatCache(capacity)
 }
 
@@ -108,7 +109,34 @@ func (t *StatCacheTest) KeysPresentButEverythingIsExpired() {
 }
 
 func (t *StatCacheTest) FillUpToCapacity() {
-	AssertFalse(true, "TODO")
+	AssertEq(3, capacity)
+
+	o0 := &gcs.Object{Name: "burrito"}
+	o1 := &gcs.Object{Name: "taco"}
+	o2 := &gcs.Object{Name: "enchilada"}
+
+	expiration := someTime.Add(time.Second)
+
+	t.cache.Insert(o0, expiration)
+	t.cache.Insert(o1, expiration)
+	t.cache.Insert(o2, expiration)
+
+	// Before expiration
+	justBefore := expiration.Add(-time.Nanosecond)
+	ExpectEq(o0, t.cache.LookUp("burrito", justBefore))
+	ExpectEq(o1, t.cache.LookUp("taco", justBefore))
+	ExpectEq(o2, t.cache.LookUp("enchilada", justBefore))
+
+	// At expiration
+	ExpectEq(nil, t.cache.LookUp("burrito", expiration))
+	ExpectEq(nil, t.cache.LookUp("taco", expiration))
+	ExpectEq(nil, t.cache.LookUp("enchilada", expiration))
+
+	// After expiration
+	justAfter := expiration.Add(time.Nanosecond)
+	ExpectEq(nil, t.cache.LookUp("burrito", justAfter))
+	ExpectEq(nil, t.cache.LookUp("taco", justAfter))
+	ExpectEq(nil, t.cache.LookUp("enchilada", justAfter))
 }
 
 func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
