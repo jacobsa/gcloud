@@ -184,6 +184,26 @@ func (t *IntegrationTest) UpdateUpdatesCache() {
 	ExpectNe(nil, o)
 }
 
+func (t *IntegrationTest) CreateInvalidatesNegativeCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) StatAddsToNegativeCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) ListInvalidatesNegativeCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) UpdateInvalidatesNegativeCache() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *IntegrationTest) DeleteAddsToNegativeCache() {
+	AssertFalse(true, "TODO")
+}
+
 func (t *IntegrationTest) Expiration() {
 	const name = "taco"
 	var err error
