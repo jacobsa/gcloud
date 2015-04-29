@@ -88,6 +88,10 @@ func (t *StatCacheTest) LookUpUnknownKey() {
 	AssertFalse(true, "TODO")
 }
 
+func (t *StatCacheTest) KeysPresentButEverythingIsExpired() {
+	AssertFalse(true, "TODO")
+}
+
 func (t *StatCacheTest) FillUpToCapacity() {
 	AssertFalse(true, "TODO")
 }
@@ -96,6 +100,22 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 	AssertFalse(true, "TODO")
 }
 
-func (t *StatCacheTest) Overwrite() {
+func (t *StatCacheTest) Overwrite_NewerGeneration() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite_SameGeneration_NewerMetadataGen() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite_SameGeneration_SameMetadataGen() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite_SameGeneration_OlderMetadataGen() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite_OlderGeneration() {
 	AssertFalse(true, "TODO")
 }
