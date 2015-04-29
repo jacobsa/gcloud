@@ -159,7 +159,29 @@ func (t *IntegrationTest) ListInsertsIntoCache() {
 }
 
 func (t *IntegrationTest) UpdateUpdatesCache() {
-	AssertFalse(true, "TODO")
+	const name = "taco"
+	var err error
+
+	// Create an object through the back door.
+	_, err = gcsutil.CreateObject(t.ctx, t.wrapped, name, "")
+	AssertEq(nil, err)
+
+	// Update it, putting the new version in cache.
+	updateReq := &gcs.UpdateObjectRequest{
+		Name: name,
+	}
+
+	_, err = t.bucket.UpdateObject(t.ctx, updateReq)
+	AssertEq(nil, err)
+
+	// Delete the object through the back door.
+	err = t.wrapped.DeleteObject(t.ctx, name)
+	AssertEq(nil, err)
+
+	// StatObject should still see it.
+	o, err := t.stat(name)
+	AssertEq(nil, err)
+	ExpectNe(nil, o)
 }
 
 func (t *IntegrationTest) DeleteRemovesFromCache() {
