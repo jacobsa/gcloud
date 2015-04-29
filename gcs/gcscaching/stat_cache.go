@@ -35,6 +35,10 @@ type StatCache interface {
 	// Return the current entry for the given name, or nil if none. Use the
 	// supplied time to decide whether entries have expired.
 	LookUp(name string, now time.Time) (o *gcs.Object)
+
+	// Panic if any internal invariants have been violated. The careful user can
+	// arrange to call this at crucial moments.
+	CheckInvariants()
 }
 
 // Create a new stat cache that holds the given number of entries, which must
