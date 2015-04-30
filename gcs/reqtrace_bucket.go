@@ -51,7 +51,7 @@ func (b *reqtraceBucket) NewReader(
 func (b *reqtraceBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
-	desc := fmt.Sprintf("CreateObject: %s", req.Name)
+	desc := fmt.Sprintf("CreateObject: %s", sanitizeObjectName(req.Name))
 	defer traceWithError(&ctx, &err, desc)()
 
 	o, err = b.Wrapped.CreateObject(ctx, req)
@@ -61,7 +61,7 @@ func (b *reqtraceBucket) CreateObject(
 func (b *reqtraceBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	desc := fmt.Sprintf("StatObject: %s", req.Name)
+	desc := fmt.Sprintf("StatObject: %s", sanitizeObjectName(req.Name))
 	defer traceWithError(&ctx, &err, desc)()
 
 	o, err = b.Wrapped.StatObject(ctx, req)
@@ -81,7 +81,7 @@ func (b *reqtraceBucket) ListObjects(
 func (b *reqtraceBucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
-	desc := fmt.Sprintf("UpdateObject: %s", req.Name)
+	desc := fmt.Sprintf("UpdateObject: %s", sanitizeObjectName(req.Name))
 	defer traceWithError(&ctx, &err, desc)()
 
 	o, err = b.Wrapped.UpdateObject(ctx, req)
@@ -91,7 +91,7 @@ func (b *reqtraceBucket) UpdateObject(
 func (b *reqtraceBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error) {
-	desc := fmt.Sprintf("DeleteObject: %s", name)
+	desc := fmt.Sprintf("DeleteObject: %s", sanitizeObjectName(name))
 	defer traceWithError(&ctx, &err, desc)()
 
 	err = b.Wrapped.DeleteObject(ctx, name)
@@ -101,6 +101,12 @@ func (b *reqtraceBucket) DeleteObject(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
+
+func sanitizeObjectName(
+	name string) (sanitized string) {
+	sanitized = "TODO"
+	return
+}
 
 func traceWithError(
 	ctx *context.Context,
