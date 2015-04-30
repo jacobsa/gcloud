@@ -29,7 +29,12 @@ type ReportFunc func(error)
 // called when the overall operation completes.
 func Trace(
 	parent context.Context,
-	desc string) (ctx context.Context, report ReportFunc)
+	desc string) (ctx context.Context, report ReportFunc) {
+	// TODO(jacobsa): Do something interesting.
+	ctx = parent
+	report = func(err error) {}
+	return
+}
 
 // If ctx is the result of calling Trace, begin a span in the trace with the
 // supplied description and return a report function that must be called to
@@ -37,7 +42,11 @@ func Trace(
 // nothing.
 func Start(
 	ctx context.Context,
-	desc string) (report ReportFunc)
+	desc string) (report ReportFunc) {
+	// TODO(jacobsa): Do something interesting.
+	report = func(err error) {}
+	return
+}
 
 // Call Start, then return a function that reports the value of *err at the
 // time it is invoked. Intended to be used with defer at the start of a
@@ -51,4 +60,8 @@ func Start(
 func StartWithError(
 	ctx context.Context,
 	err *error,
-	desc string) (f func())
+	desc string) (f func()) {
+	// TODO(jacobsa): Do something interesting.
+	f = func() {}
+	return
+}
