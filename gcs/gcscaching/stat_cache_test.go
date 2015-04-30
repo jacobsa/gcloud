@@ -43,6 +43,16 @@ func (c *invariantsCache) Insert(
 	return
 }
 
+func (c *invariantsCache) AddNegativeEntry(
+	name string,
+	expiration time.Time) {
+	c.wrapped.CheckInvariants()
+	defer c.wrapped.CheckInvariants()
+
+	c.wrapped.AddNegativeEntry(name, expiration)
+	return
+}
+
 func (c *invariantsCache) Erase(name string) {
 	c.wrapped.CheckInvariants()
 	defer c.wrapped.CheckInvariants()
@@ -61,6 +71,13 @@ func (c *invariantsCache) LookUp(
 	return
 }
 
+func (c *invariantsCache) LookUpOrNil(
+	name string,
+	now time.Time) (o *gcs.Object) {
+	_, o = c.LookUp(name, now)
+	return
+}
+
 func (c *invariantsCache) Hit(
 	name string,
 	now time.Time) (hit bool) {
@@ -68,10 +85,11 @@ func (c *invariantsCache) Hit(
 	return
 }
 
-func (c *invariantsCache) LookUpOrNil(
+func (c *invariantsCache) NegativeEntry(
 	name string,
-	now time.Time) (o *gcs.Object) {
-	_, o = c.LookUp(name, now)
+	now time.Time) (negative bool) {
+	hit, o := c.LookUp(name, now)
+	negative = hit && o == nil
 	return
 }
 
@@ -130,22 +148,21 @@ func (t *StatCacheTest) FillUpToCapacity() {
 
 	o0 := &gcs.Object{Name: "burrito"}
 	o1 := &gcs.Object{Name: "taco"}
-	o2 := &gcs.Object{Name: "enchilada"}
 
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
-	t.cache.Insert(o2, expiration)
+	t.cache.AddNegativeEntry("enchilada", expiration)
 
 	// Before expiration
 	justBefore := expiration.Add(-time.Nanosecond)
 	ExpectEq(o0, t.cache.LookUpOrNil("burrito", justBefore))
 	ExpectEq(o1, t.cache.LookUpOrNil("taco", justBefore))
-	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", justBefore))
+	ExpectTrue(t.cache.NegativeEntry("enchilada", justBefore))
 
 	// At expiration
 	ExpectEq(o0, t.cache.LookUpOrNil("burrito", expiration))
 	ExpectEq(o1, t.cache.LookUpOrNil("taco", expiration))
-	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", expiration))
+	ExpectTrue(t.cache.NegativeEntry("enchilada", justBefore))
 
 	// After expiration
 	justAfter := expiration.Add(time.Nanosecond)
@@ -159,11 +176,10 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 
 	o0 := &gcs.Object{Name: "burrito"}
 	o1 := &gcs.Object{Name: "taco"}
-	o2 := &gcs.Object{Name: "enchilada"}
 
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)                         // Least recent
-	t.cache.Insert(o2, expiration)                         // Second most recent
+	t.cache.AddNegativeEntry("enchilada", expiration)      // Second most recent
 	AssertEq(o0, t.cache.LookUpOrNil("burrito", someTime)) // Most recent
 
 	// Insert another.
@@ -173,7 +189,7 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 	// See what's left.
 	ExpectFalse(t.cache.Hit("taco", someTime))
 	ExpectEq(o0, t.cache.LookUpOrNil("burrito", someTime))
-	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", someTime))
+	ExpectTrue(t.cache.NegativeEntry("enchilada", someTime))
 	ExpectEq(o3, t.cache.LookUpOrNil("queso", someTime))
 }
 
@@ -245,4 +261,16 @@ func (t *StatCacheTest) Overwrite_OlderGeneration() {
 	t.cache.Insert(o1, expiration)
 
 	ExpectEq(o0, t.cache.LookUpOrNil("taco", someTime))
+}
+
+func (t *StatCacheTest) Overwrite_NegativeWithPositive() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite_PositiveWithNegative() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *StatCacheTest) Overwrite_NegativeWithNegative() {
+	AssertTrue(false, "TODO")
 }
