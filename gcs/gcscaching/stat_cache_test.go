@@ -51,12 +51,20 @@ func (c *invariantsCache) Erase(name string) {
 	return
 }
 
-func (c *invariantsCache) LookUp(name string, now time.Time) (o *gcs.Object) {
+func (c *invariantsCache) LookUp(
+	name string,
+	now time.Time) (hit bool, o *gcs.Object) {
 	c.wrapped.CheckInvariants()
 	defer c.wrapped.CheckInvariants()
 
-	panic("TODO")
-	// o = c.wrapped.LookUp(name, now)
+	hit, o = c.wrapped.LookUp(name, now)
+	return
+}
+
+func (c *invariantsCache) LookUpOrNil(
+	name string,
+	now time.Time) (o *gcs.Object) {
+	_, o = c.LookUp(name, now)
 	return
 }
 
@@ -123,14 +131,14 @@ func (t *StatCacheTest) FillUpToCapacity() {
 
 	// Before expiration
 	justBefore := expiration.Add(-time.Nanosecond)
-	ExpectEq(o0, t.cache.LookUp("burrito", justBefore))
-	ExpectEq(o1, t.cache.LookUp("taco", justBefore))
-	ExpectEq(o2, t.cache.LookUp("enchilada", justBefore))
+	ExpectEq(o0, t.cache.LookUpOrNil("burrito", justBefore))
+	ExpectEq(o1, t.cache.LookUpOrNil("taco", justBefore))
+	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", justBefore))
 
 	// At expiration
-	ExpectEq(o0, t.cache.LookUp("burrito", expiration))
-	ExpectEq(o1, t.cache.LookUp("taco", expiration))
-	ExpectEq(o2, t.cache.LookUp("enchilada", expiration))
+	ExpectEq(o0, t.cache.LookUpOrNil("burrito", expiration))
+	ExpectEq(o1, t.cache.LookUpOrNil("taco", expiration))
+	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", expiration))
 
 	// After expiration
 	justAfter := expiration.Add(time.Nanosecond)
@@ -147,9 +155,9 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 	o2 := &gcs.Object{Name: "enchilada"}
 
 	t.cache.Insert(o0, expiration)
-	t.cache.Insert(o1, expiration)                    // Least recent
-	t.cache.Insert(o2, expiration)                    // Second most recent
-	AssertEq(o0, t.cache.LookUp("burrito", someTime)) // Most recent
+	t.cache.Insert(o1, expiration)                         // Least recent
+	t.cache.Insert(o2, expiration)                         // Second most recent
+	AssertEq(o0, t.cache.LookUpOrNil("burrito", someTime)) // Most recent
 
 	// Insert another.
 	o3 := &gcs.Object{Name: "queso"}
@@ -157,9 +165,9 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 
 	// See what's left.
 	ExpectEq(nil, t.cache.LookUp("taco", someTime))
-	ExpectEq(o0, t.cache.LookUp("burrito", someTime))
-	ExpectEq(o2, t.cache.LookUp("enchilada", someTime))
-	ExpectEq(o3, t.cache.LookUp("queso", someTime))
+	ExpectEq(o0, t.cache.LookUpOrNil("burrito", someTime))
+	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", someTime))
+	ExpectEq(o3, t.cache.LookUpOrNil("queso", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_NewerGeneration() {
@@ -169,7 +177,7 @@ func (t *StatCacheTest) Overwrite_NewerGeneration() {
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o1, t.cache.LookUp("taco", someTime))
+	ExpectEq(o1, t.cache.LookUpOrNil("taco", someTime))
 
 	// The overwritten entry shouldn't count toward capacity.
 	AssertEq(3, capacity)
@@ -177,9 +185,9 @@ func (t *StatCacheTest) Overwrite_NewerGeneration() {
 	t.cache.Insert(&gcs.Object{Name: "burrito"}, expiration)
 	t.cache.Insert(&gcs.Object{Name: "enchilada"}, expiration)
 
-	ExpectNe(nil, t.cache.LookUp("taco", someTime))
-	ExpectNe(nil, t.cache.LookUp("burrito", someTime))
-	ExpectNe(nil, t.cache.LookUp("enchilada", someTime))
+	ExpectNe(nil, t.cache.LookUpOrNil("taco", someTime))
+	ExpectNe(nil, t.cache.LookUpOrNil("burrito", someTime))
+	ExpectNe(nil, t.cache.LookUpOrNil("enchilada", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_NewerMetadataGen() {
@@ -189,7 +197,7 @@ func (t *StatCacheTest) Overwrite_SameGeneration_NewerMetadataGen() {
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o1, t.cache.LookUp("taco", someTime))
+	ExpectEq(o1, t.cache.LookUpOrNil("taco", someTime))
 
 	// The overwritten entry shouldn't count toward capacity.
 	AssertEq(3, capacity)
@@ -197,9 +205,9 @@ func (t *StatCacheTest) Overwrite_SameGeneration_NewerMetadataGen() {
 	t.cache.Insert(&gcs.Object{Name: "burrito"}, expiration)
 	t.cache.Insert(&gcs.Object{Name: "enchilada"}, expiration)
 
-	ExpectNe(nil, t.cache.LookUp("taco", someTime))
-	ExpectNe(nil, t.cache.LookUp("burrito", someTime))
-	ExpectNe(nil, t.cache.LookUp("enchilada", someTime))
+	ExpectNe(nil, t.cache.LookUpOrNil("taco", someTime))
+	ExpectNe(nil, t.cache.LookUpOrNil("burrito", someTime))
+	ExpectNe(nil, t.cache.LookUpOrNil("enchilada", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_SameMetadataGen() {
@@ -209,7 +217,7 @@ func (t *StatCacheTest) Overwrite_SameGeneration_SameMetadataGen() {
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o1, t.cache.LookUp("taco", someTime))
+	ExpectEq(o1, t.cache.LookUpOrNil("taco", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_SameGeneration_OlderMetadataGen() {
@@ -219,7 +227,7 @@ func (t *StatCacheTest) Overwrite_SameGeneration_OlderMetadataGen() {
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o0, t.cache.LookUp("taco", someTime))
+	ExpectEq(o0, t.cache.LookUpOrNil("taco", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_OlderGeneration() {
@@ -229,5 +237,5 @@ func (t *StatCacheTest) Overwrite_OlderGeneration() {
 	t.cache.Insert(o0, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o0, t.cache.LookUp("taco", someTime))
+	ExpectEq(o0, t.cache.LookUpOrNil("taco", someTime))
 }
