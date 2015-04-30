@@ -24,18 +24,29 @@ import (
 // A cache mapping from name to most recent known record for the object of that
 // name. External synchronization must be provided.
 type StatCache interface {
-	// Insert an entry for the given object record. The entry will not replace
-	// any entry with a newer generation number, or any entry with an equivalent
-	// generation number but newer metadata generation number, and will not be
-	// available after the supplied expiration time.
+	// Insert an entry for the given object record.
+	//
+	// In order to help cope with caching of arbitrarily out of date (i.e.
+	// inconsistent) object listings, entry will not replace any positive entry
+	// with a newer generation number, or with an equivalent generation number
+	// but newer metadata generation number. We have no choice, however, but to
+	// replace negative entries.
+	//
+	// The entry will expire after the supplied time.
 	Insert(o *gcs.Object, expiration time.Time)
+
+	// Set up a negative entry for the given name, indicating that the name
+	// doesn't exist. Overwrite any existing entry for the name, positive or
+	// negative.
+	AddNegativeEntry(name string, expiration time.Time)
 
 	// Erase the entry for the given object name, if any.
 	Erase(name string)
 
-	// Return the current entry for the given name, or nil if none. Use the
-	// supplied time to decide whether entries have expired.
-	LookUp(name string, now time.Time) (o *gcs.Object)
+	// Return the current entry for the given name, or nil if there is a negative
+	// entry. Return hit == false when there is neither a positive nor a negative
+	// entry, or the entry has expired according to the supplied current time.
+	LookUp(name string, now time.Time) (hit bool, o *gcs.Object)
 
 	// Panic if any internal invariants have been violated. The careful user can
 	// arrange to call this at crucial moments.
@@ -56,20 +67,29 @@ type statCache struct {
 	c lrucache.Cache
 }
 
+// An entry in the cache, pairing an object with the expiration time for the
+// entry. Nil object means negative entry.
 type entry struct {
 	o          *gcs.Object
 	expiration time.Time
 }
 
-func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
+// Should the supplied object for a new positive entry replace the given
+// existing entry?
+func shouldReplace(o *gcs.Object, existing entry) bool {
+	// Negative entries should always be replaced with positive entries.
+	if existing.o == nil {
+		return true
+	}
+
 	// Compare first on generation.
-	if o.Generation != existing.Generation {
-		return o.Generation > existing.Generation
+	if o.Generation != existing.o.Generation {
+		return o.Generation > existing.o.Generation
 	}
 
 	// Break ties on metadata generation.
-	if o.MetaGeneration != existing.MetaGeneration {
-		return o.MetaGeneration > existing.MetaGeneration
+	if o.MetaGeneration != existing.o.MetaGeneration {
+		return o.MetaGeneration > existing.o.MetaGeneration
 	}
 
 	// Break ties by preferring fresher entries.
@@ -79,7 +99,7 @@ func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
 func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
 	// Is there already a better entry?
 	if existing := sc.c.LookUp(o.Name); existing != nil {
-		if !shouldReplace(o, existing.(entry).o) {
+		if !shouldReplace(o, existing.(entry)) {
 			return
 		}
 	}
@@ -93,11 +113,23 @@ func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
 	sc.c.Insert(o.Name, e)
 }
 
+func (sc *statCache) AddNegativeEntry(name string, expiration time.Time) {
+	// Insert a negative entry.
+	e := entry{
+		o:          nil,
+		expiration: expiration,
+	}
+
+	sc.c.Insert(name, e)
+}
+
 func (sc *statCache) Erase(name string) {
 	sc.c.Erase(name)
 }
 
-func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
+func (sc *statCache) LookUp(
+	name string,
+	now time.Time) (hit bool, o *gcs.Object) {
 	// Look up in the LRU cache.
 	value := sc.c.LookUp(name)
 	if value == nil {
@@ -112,7 +144,9 @@ func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 		return
 	}
 
+	hit = true
 	o = e.o
+
 	return
 }
 

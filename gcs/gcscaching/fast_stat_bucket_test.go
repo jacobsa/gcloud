@@ -150,7 +150,7 @@ func (t *StatObjectTest) CallsCache() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(name, timeutil.TimeEq(t.clock.Now())).
-		WillOnce(Return(&gcs.Object{}))
+		WillOnce(Return(true, &gcs.Object{}))
 
 	// Call
 	req := &gcs.StatObjectRequest{
@@ -160,7 +160,7 @@ func (t *StatObjectTest) CallsCache() {
 	_, _ = t.bucket.StatObject(nil, req)
 }
 
-func (t *StatObjectTest) CacheHit() {
+func (t *StatObjectTest) CacheHit_Positive() {
 	const name = "taco"
 
 	// LookUp
@@ -169,7 +169,7 @@ func (t *StatObjectTest) CacheHit() {
 	}
 
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(obj))
+		WillOnce(Return(true, obj))
 
 	// Call
 	req := &gcs.StatObjectRequest{
@@ -181,6 +181,22 @@ func (t *StatObjectTest) CacheHit() {
 	ExpectEq(obj, o)
 }
 
+func (t *StatObjectTest) CacheHit_Negative() {
+	const name = "taco"
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(true, nil))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err := t.bucket.StatObject(nil, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
 func (t *StatObjectTest) CallsWrapped() {
 	const name = ""
 	req := &gcs.StatObjectRequest{
@@ -189,7 +205,7 @@ func (t *StatObjectTest) CallsWrapped() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(nil))
+		WillOnce(Return(false, nil))
 
 	// Wrapped
 	ExpectCall(t.wrapped, "StatObject")(Any(), req).
@@ -204,7 +220,7 @@ func (t *StatObjectTest) WrappedFails() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(nil))
+		WillOnce(Return(false, nil))
 
 	// Wrapped
 	ExpectCall(t.wrapped, "StatObject")(Any(), Any()).
@@ -219,12 +235,38 @@ func (t *StatObjectTest) WrappedFails() {
 	ExpectThat(err, Error(HasSubstr("taco")))
 }
 
+func (t *StatObjectTest) WrappedSaysNotFound() {
+	const name = "taco"
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(false, nil))
+
+	// Wrapped
+	ExpectCall(t.wrapped, "StatObject")(Any(), Any()).
+		WillOnce(Return(nil, &gcs.NotFoundError{Err: errors.New("burrito")}))
+
+	// AddNegativeEntry
+	ExpectCall(t.cache, "AddNegativeEntry")(
+		name,
+		timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err := t.bucket.StatObject(nil, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(HasSubstr("burrito")))
+}
+
 func (t *StatObjectTest) WrappedSucceeds() {
 	const name = "taco"
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(nil))
+		WillOnce(Return(false, nil))
 
 	// Wrapped
 	obj := &gcs.Object{

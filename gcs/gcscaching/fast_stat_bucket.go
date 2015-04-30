@@ -15,6 +15,7 @@
 package gcscaching
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -85,6 +86,15 @@ func (b *fastStatBucket) insert(o *gcs.Object) {
 }
 
 // LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) addNegativeEntry(name string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	expiration := b.clock.Now().Add(b.ttl)
+	b.cache.AddNegativeEntry(name, expiration)
+}
+
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) invalidate(name string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -93,11 +103,11 @@ func (b *fastStatBucket) invalidate(name string) {
 }
 
 // LOCKS_EXCLUDED(b.mu)
-func (b *fastStatBucket) lookUp(name string) (o *gcs.Object) {
+func (b *fastStatBucket) lookUp(name string) (hit bool, o *gcs.Object) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	o = b.cache.LookUp(name, b.clock.Now())
+	hit, o = b.cache.LookUp(name, b.clock.Now())
 	return
 }
 
@@ -139,19 +149,34 @@ func (b *fastStatBucket) CreateObject(
 func (b *fastStatBucket) StatObject(
 	ctx context.Context,
 	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
-	// Do we already have an entry in the cache?
-	o = b.lookUp(req.Name)
-	if o != nil {
+	// Do we have an entry in the cache?
+	if hit, entry := b.lookUp(req.Name); hit {
+		// Negative entries result in NotFoundError.
+		if entry == nil {
+			err = &gcs.NotFoundError{
+				Err: fmt.Errorf("Negative cache entry for %v", req.Name),
+			}
+
+			return
+		}
+
+		// Otherwise, return the object.
+		o = entry
 		return
 	}
 
 	// Ask the wrapped bucket.
 	o, err = b.wrapped.StatObject(ctx, req)
 	if err != nil {
+		// Special case: NotFoundError -> negative entry.
+		if _, ok := err.(*gcs.NotFoundError); ok {
+			b.addNegativeEntry(req.Name)
+		}
+
 		return
 	}
 
-	// Update the cache.
+	// Put the object in cache.
 	b.insert(o)
 
 	return
