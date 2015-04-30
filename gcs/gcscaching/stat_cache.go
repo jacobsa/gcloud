@@ -109,6 +109,16 @@ func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
 	sc.c.Insert(o.Name, e)
 }
 
+func (sc *statCache) AddNegativeEntry(name string, expiration time.Time) {
+	// Insert a negative entry.
+	e := entry{
+		o:          nil,
+		expiration: expiration,
+	}
+
+	sc.c.Insert(name, e)
+}
+
 func (sc *statCache) Erase(name string) {
 	sc.c.Erase(name)
 }
