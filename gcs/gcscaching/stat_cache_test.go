@@ -55,7 +55,8 @@ func (c *invariantsCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 	c.wrapped.CheckInvariants()
 	defer c.wrapped.CheckInvariants()
 
-	o = c.wrapped.LookUp(name, now)
+	panic("TODO")
+	// o = c.wrapped.LookUp(name, now)
 	return
 }
 
