@@ -63,20 +63,29 @@ type statCache struct {
 	c lrucache.Cache
 }
 
+// An entry in the cache, pairing an object with the expiration time for the
+// entry. Nil object means negative entry.
 type entry struct {
 	o          *gcs.Object
 	expiration time.Time
 }
 
-func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
+// Should the supplied object for a new positive entry replace the given
+// existing entry?
+func shouldReplace(o *gcs.Object, existing entry) bool {
+	// Negative entries should always be replaced with positive entries.
+	if existing.o == nil {
+		return true
+	}
+
 	// Compare first on generation.
-	if o.Generation != existing.Generation {
-		return o.Generation > existing.Generation
+	if o.Generation != existing.o.Generation {
+		return o.Generation > existing.o.Generation
 	}
 
 	// Break ties on metadata generation.
-	if o.MetaGeneration != existing.MetaGeneration {
-		return o.MetaGeneration > existing.MetaGeneration
+	if o.MetaGeneration != existing.o.MetaGeneration {
+		return o.MetaGeneration > existing.o.MetaGeneration
 	}
 
 	// Break ties by preferring fresher entries.
@@ -86,7 +95,7 @@ func shouldReplace(o *gcs.Object, existing *gcs.Object) bool {
 func (sc *statCache) Insert(o *gcs.Object, expiration time.Time) {
 	// Is there already a better entry?
 	if existing := sc.c.LookUp(o.Name); existing != nil {
-		if !shouldReplace(o, existing.(entry).o) {
+		if !shouldReplace(o, existing.(entry)) {
 			return
 		}
 	}
