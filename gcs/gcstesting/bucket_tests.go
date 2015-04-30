@@ -206,9 +206,9 @@ type bucketTest struct {
 var _ bucketTestSetUpInterface = &bucketTest{}
 
 func (t *bucketTest) setUpBucketTest(deps BucketTestDeps) {
+	t.ctx = deps.ctx
 	t.bucket = deps.Bucket
 	t.clock = deps.Clock
-	t.ctx = context.Background()
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
