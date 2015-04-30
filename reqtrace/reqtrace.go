@@ -37,15 +37,17 @@ func Enabled() (enabled bool) {
 
 // Return a context descending from the supplied parent that contains the
 // smarts necessary to be used with the other functions in this package. If ctx
-// is already the result of calling Trace, do nothing.
+// is already the result of calling Trace, simply add a span.
 //
-// This function starts a root span. The returned report function must be
-// called when the overall operation completes.
+// This function starts a span. The returned report function must be called
+// when the overall operation completes.
 func Trace(
 	parent context.Context,
 	desc string) (ctx context.Context, report ReportFunc) {
-	// Is this context already being traced?
+	// Is this context already being traced? If so, simply add a span.
 	if parent.Value(traceStateKey) != nil {
+		ctx = parent
+		report = Start(ctx, desc)
 		return
 	}
 
