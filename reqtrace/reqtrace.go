@@ -93,6 +93,6 @@ func StartWithError(
 	err *error,
 	desc string) (f func()) {
 	report := Start(ctx, desc)
-	f = func() { report(*error) }
+	f = func() { report(*err) }
 	return
 }
