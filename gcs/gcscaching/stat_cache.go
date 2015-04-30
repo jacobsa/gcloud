@@ -24,9 +24,13 @@ import (
 // A cache mapping from name to most recent known record for the object of that
 // name. External synchronization must be provided.
 type StatCache interface {
-	// Insert an entry for the given object record. The entry will not replace
-	// any positive entry with a newer generation number, or with an equivalent
-	// generation number but newer metadata generation number.
+	// Insert an entry for the given object record.
+	//
+	// In order to help cope with caching of arbitrarily out of date (i.e.
+	// inconsistent) object listings, entry will not replace any positive entry
+	// with a newer generation number, or with an equivalent generation number
+	// but newer metadata generation number. We have no choice, however, but to
+	// replace negative entries.
 	//
 	// The entry will expire after the supplied time.
 	Insert(o *gcs.Object, expiration time.Time)
