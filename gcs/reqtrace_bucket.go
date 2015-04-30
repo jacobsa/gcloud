@@ -29,6 +29,20 @@ type reqtraceBucket struct {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Reporting reader
+////////////////////////////////////////////////////////////////////////
+
+// An io.ReadCloser that reports the outcome of the read operation represented
+// by the wrapped io.ReadCloser once it is known.
+type reportingReadCloser struct {
+	Wrapped io.ReadCloser
+	Report  reqtrace.ReportFunc
+}
+
+func (rc *reportingReadCloser) Read(p []byte) (n int, err error)
+func (rc *reportingReadCloser) Close() error
+
+////////////////////////////////////////////////////////////////////////
 // Bucket interface
 ////////////////////////////////////////////////////////////////////////
 
@@ -39,12 +53,27 @@ func (b *reqtraceBucket) Name() string {
 func (b *reqtraceBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	// TODO(jacobsa): Do something useful for this method. Probably a bespoke
-	// ReadCloser whose close method reports any errors seen while reading. What
-	// to do if it's never closed? Maybe watch ctx.Done()? That's still not
-	// guaranteed to be non-nil. I guess we could just fail to trace in that
-	// case.
+	var report reqtrace.ReportFunc
+
+	// Start a span.
+	desc := fmt.Sprintf("Read: %s", sanitizeObjectName(req.Name))
+	ctx, report = reqtrace.StartSpan(ctx, desc)
+
+	// Call the wrapped bucket.
 	rc, err = b.Wrapped.NewReader(ctx, req)
+
+	// If the bucket failed, we must report that now.
+	if err != nil {
+		report(err)
+		return
+	}
+
+	// Snoop on the outcome.
+	rc = &reportingReadCloser{
+		Wrapped: rc,
+		Report:  report,
+	}
+
 	return
 }
 
