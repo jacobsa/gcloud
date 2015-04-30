@@ -26,7 +26,8 @@ const traceStateKey contextKey = 0
 // operation represented by a span.
 type ReportFunc func(error)
 
-// Return whether tracing has been enabled for the current process.
+// Return false only if traces are disabled, i.e. Trace will never cause a
+// trace to be initiated.
 //
 // REQUIRES: flag.Parsed()
 func Enabled() (enabled bool) {
@@ -35,19 +36,69 @@ func Enabled() (enabled bool) {
 	return
 }
 
-// Return a context descending from the supplied parent that contains the
-// smarts necessary to be used with the other functions in this package. If ctx
-// is already the result of calling Trace, simply add a span.
+// Begin a span within the current trace. Return a new context that should be
+// used for operations that logically occur within the span, and a report
+// function that must be called with the outcome of the logical operation
+// represented by the span.
 //
-// This function starts a span. The returned report function must be called
-// when the overall operation completes.
+// If no trace is active, no span will be created but ctx and report will still
+// be valid.
+func StartSpan(
+	parent context.Context,
+	desc string) (ctx context.Context, report ReportFunc) {
+	// Look for the trace state.
+	val := parent.Value(traceStateKey)
+	if val == nil {
+		// Nothing to do.
+		report = func(err error) {}
+		return
+	}
+
+	ts := val.(*traceState)
+
+	// Set up the report function.
+	report = ts.CreateSpan(desc)
+
+	// For now we don't do anything interesting with the context. In the future,
+	// we may use it to record span hierarchy.
+	ctx = parent
+
+	return
+}
+
+// A wrapper around StartSpan that can be more convenient to use when the
+// lifetime of a span matches the lifetime of a function. Intended to be used
+// in a defer statement within a function using a named error return parameter.
+//
+// Equivalent to calling StartSpan with *ctx, replacing *ctx with the resulting
+// new context, then setting f to a function that will invoke the report
+// function with the contents of *error at the time that it is called.
+//
+// Example:
+//
+//     func DoSomething(ctx context.Context) (err error) {
+//       defer reqtrace.StartSpanWithError(&ctx, &err, "DoSomething")()
+//       [...]
+//     }
+//
+func StartSpanWithError(
+	ctx *context.Context,
+	err *error,
+	desc string) (f func()) {
+	var report ReportFunc
+	*ctx, report = StartSpan(*ctx, desc)
+	f = func() { report(*err) }
+	return
+}
+
+// Like StartSpan, but begins a root span for a new trace if no trace is active
+// in the supplied context and tracing is enabled for the process.
 func Trace(
 	parent context.Context,
 	desc string) (ctx context.Context, report ReportFunc) {
 	// Is this context already being traced? If so, simply add a span.
 	if parent.Value(traceStateKey) != nil {
-		ctx = parent
-		report = Start(ctx, desc)
+		ctx, report = StartSpan(parent, desc)
 		return
 	}
 
@@ -61,46 +112,8 @@ func Trace(
 		ts.Log()
 	}
 
-	// Stick it in the context.
+	// Set up the context.
 	ctx = context.WithValue(parent, traceStateKey, ts)
 
-	return
-}
-
-// If ctx is the result of calling Trace, begin a span in the trace with the
-// supplied description and return a report function that must be called to
-// report the outcome of the span. Otherwise return a function that does
-// nothing.
-func Start(
-	ctx context.Context,
-	desc string) (report ReportFunc) {
-	val := ctx.Value(traceStateKey)
-	if val == nil {
-		// Nothing to do.
-		report = func(err error) {}
-		return
-	}
-
-	ts := val.(*traceState)
-	report = ts.CreateSpan(desc)
-
-	return
-}
-
-// Call Start, then return a function that reports the value of *err at the
-// time it is invoked. Intended to be used with defer at the start of a
-// function with a named error return value:
-//
-//     func DoSomething(ctx context.Context) (err error) {
-//       defer reqtrace.StartWithError(ctx, &err, "DoSomething")
-//       [...]
-//     }
-//
-func StartWithError(
-	ctx context.Context,
-	err *error,
-	desc string) (f func()) {
-	report := Start(ctx, desc)
-	f = func() { report(*err) }
 	return
 }
