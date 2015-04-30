@@ -86,6 +86,15 @@ func (b *fastStatBucket) insert(o *gcs.Object) {
 }
 
 // LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) addNegativeEntry(name string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	expiration := b.clock.Now().Add(b.ttl)
+	b.cache.AddNegativeEntry(name, expiration)
+}
+
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) invalidate(name string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -161,7 +170,7 @@ func (b *fastStatBucket) StatObject(
 	if err != nil {
 		// Special case: NotFoundError -> negative entry.
 		if _, ok := err.(*gcs.NotFoundError); ok {
-			b.insert(o)
+			b.addNegativeEntry(req.Name)
 		}
 
 		return
