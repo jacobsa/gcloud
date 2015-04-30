@@ -86,14 +86,17 @@ func registerTestSuite(
 		// remembering that the suite implements bucketTestSetUpInterface.
 		var report reqtrace.ReportFunc
 		tf.SetUp = func(*ogletest.TestInfo) {
-			var ctx context.Context
-			ctx, report = reqtrace.Trace(context.Background(), "Overall test")
+			// Start tracing.
+			var testCtx context.Context
+			testCtx, report = reqtrace.Trace(context.Background(), "Overall test")
 
-			reportMakeDeps := reqtrace.Start(ctx, "Test setup")
-			deps := makeDeps(ctx)
-			deps.ctx = ctx
-			reportMakeDeps(nil)
+			// Set up the bucket and other dependencies.
+			makeDepsCtx, makeDepsReport := reqtrace.StartSpan(testCtx, "Test setup")
+			deps := makeDeps(makeDepsCtx)
+			makeDepsReport(nil)
 
+			// Hand off the dependencies and the context to the test.
+			deps.ctx = testCtx
 			instance.Interface().(bucketTestSetUpInterface).setUpBucketTest(deps)
 		}
 
