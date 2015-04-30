@@ -39,11 +39,20 @@ type traceState struct {
 	spans []*span
 }
 
+func (ts *traceState) report(span int, err error) {
+	// TODO(jacobsa): Do something interesting.
+}
+
 // Associate a new span with the trace. Return a function that will report its
 // completion.
 func (ts *traceState) CreateSpan(desc string) (report ReportFunc) {
-	// TODO(jacobsa): Do something interesting.
-	report = func(err error) {}
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	index := len(ts.spans)
+	ts.spans = append(ts.spans, &span{desc: desc, start: time.Now()})
+
+	report = func(err error) { ts.report(index, err) }
 	return
 }
 
