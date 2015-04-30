@@ -25,8 +25,9 @@ type span struct {
 	start time.Time
 
 	// Updated by report functions.
-	end time.Time
-	err error
+	finished bool
+	end      time.Time
+	err      error
 }
 
 // All of the state for a particular trace root. The zero value is usable.
@@ -39,8 +40,14 @@ type traceState struct {
 	spans []*span
 }
 
-func (ts *traceState) report(span int, err error) {
-	// TODO(jacobsa): Do something interesting.
+func (ts *traceState) report(spanIndex int, err error) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	s := ts.spans[spanIndex]
+	s.finished = true
+	s.end = time.Now()
+	s.err = err
 }
 
 // Associate a new span with the trace. Return a function that will report its
