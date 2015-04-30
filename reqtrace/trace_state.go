@@ -121,6 +121,7 @@ func (ts *traceState) Log() {
 
 	// Log each span with some ASCII art showing its length relative to the
 	// total.
+	const totalNumCols float64 = 120
 	for _, s := range ts.spans {
 		if !s.finished {
 			log.Println("(Unfinished)")
@@ -128,6 +129,8 @@ func (ts *traceState) Log() {
 			continue
 		}
 
+		// Calculate the duration of the span, and its width relative to the
+		// longest span.
 		d := s.end.Sub(s.start)
 		if d <= 0 {
 			log.Println("(Weird duration)")
@@ -135,25 +138,26 @@ func (ts *traceState) Log() {
 			continue
 		}
 
-		relWidth := float64(d/time.Nanosecond) / totalNs
-		offset := float64(s.start.Sub(minStart)/time.Nanosecond) / totalNs
+		durationRatio := float64(d/time.Nanosecond) / totalNs
 
-		const totalNumCols float64 = 120
-		offsetStr := strings.Repeat(" ", int(round(offset*totalNumCols)))
+		// We will offset the label and banner proportional to the time since the
+		// start of the earliest span.
+		offsetRatio := float64(s.start.Sub(minStart)/time.Nanosecond) / totalNs
+		offsetChars := int(round(offsetRatio * totalNumCols))
+		offsetStr := strings.Repeat(" ", offsetChars)
 
+		// Print the description and duration.
 		log.Printf("%s%v", offsetStr, s.desc)
 		log.Printf("%s%v", offsetStr, d)
 
-		banner := offsetStr
-
-		numChars := int(round(relWidth * totalNumCols))
-		banner += "|"
-		if numChars > 2 {
-			banner += strings.Repeat("-", numChars-2)
+		// Print a banner showing the duration graphically.
+		bannerChars := int(round(durationRatio * totalNumCols))
+		var dashes string
+		if bannerChars > 2 {
+			dashes = strings.Repeat("-", bannerChars-2)
 		}
-		banner += "|"
 
-		log.Println(banner)
+		log.Printf("%s|%s|", offsetStr, dashes)
 		log.Println()
 	}
 }
