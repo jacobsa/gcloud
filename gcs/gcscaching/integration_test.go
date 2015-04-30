@@ -78,24 +78,6 @@ func (t *IntegrationTest) stat(name string) (o *gcs.Object, err error) {
 // Test functions
 ////////////////////////////////////////////////////////////////////////
 
-func (t *IntegrationTest) StatDoesntCacheNotFoundErrors() {
-	const name = "taco"
-	var err error
-
-	// Stat an unknown object.
-	_, err = t.stat(name)
-	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-
-	// Create the object through the back door.
-	_, err = gcsutil.CreateObject(t.ctx, t.wrapped, name, "")
-	AssertEq(nil, err)
-
-	// Stat again. We should now see the object.
-	o, err := t.stat(name)
-	AssertEq(nil, err)
-	ExpectNe(nil, o)
-}
-
 func (t *IntegrationTest) CreateInsertsIntoCache() {
 	const name = "taco"
 	var err error
