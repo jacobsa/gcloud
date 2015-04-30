@@ -22,6 +22,10 @@ import (
 	"time"
 )
 
+func init() {
+	log.SetFlags(0)
+}
+
 type span struct {
 	// Fixed at creation.
 	desc  string
@@ -78,8 +82,7 @@ func round(x float64) float64 {
 func (ts *traceState) Log() {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-
-	log.Println("TRACE: ==============================================")
+	log.Println()
 
 	// Special case: we require at least one span.
 	if len(ts.spans) == 0 {
@@ -119,8 +122,6 @@ func (ts *traceState) Log() {
 	// Log each span with some ASCII art showing its length relative to the
 	// total.
 	for _, s := range ts.spans {
-		log.Println(s.desc)
-
 		if !s.finished {
 			log.Println("(Unfinished)")
 			log.Println()
@@ -138,10 +139,20 @@ func (ts *traceState) Log() {
 		offset := float64(s.start.Sub(minStart)/time.Nanosecond) / totalNs
 
 		const totalNumCols float64 = 120
-		banner := strings.Repeat(" ", int(round(offset*totalNumCols)))
-		banner += strings.Repeat("-", int(round(relWidth*totalNumCols)))
+		offsetStr := strings.Repeat(" ", int(round(offset*totalNumCols)))
 
-		log.Println(d)
+		log.Printf("%s%v", offsetStr, s.desc)
+		log.Printf("%s%v", offsetStr, d)
+
+		banner := offsetStr
+
+		numChars := int(round(relWidth * totalNumCols))
+		banner += "|"
+		if numChars > 2 {
+			banner += strings.Repeat("-", numChars-2)
+		}
+		banner += "|"
+
 		log.Println(banner)
 		log.Println()
 	}

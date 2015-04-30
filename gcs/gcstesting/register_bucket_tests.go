@@ -87,10 +87,12 @@ func registerTestSuite(
 		var report reqtrace.ReportFunc
 		tf.SetUp = func(*ogletest.TestInfo) {
 			var ctx context.Context
-			ctx, report = reqtrace.Trace(context.Background(), "(Test)")
+			ctx, report = reqtrace.Trace(context.Background(), "Overall test")
 
+			reportMakeDeps := reqtrace.Start(ctx, "Test setup")
 			deps := makeDeps(ctx)
 			deps.ctx = ctx
+			reportMakeDeps(nil)
 
 			instance.Interface().(bucketTestSetUpInterface).setUpBucketTest(deps)
 		}
