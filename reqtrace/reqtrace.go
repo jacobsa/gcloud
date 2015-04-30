@@ -17,6 +17,11 @@ package reqtrace
 
 import "golang.org/x/net/context"
 
+// The key used to associate a *traceState with a context.
+type contextKey int
+
+const traceStateKey contextKey = 0
+
 // A function that must be called exactly once to report the outcome of an
 // operation represented by a span.
 type ReportFunc func(error)
@@ -39,9 +44,18 @@ func Enabled() (enabled bool) {
 func Trace(
 	parent context.Context,
 	desc string) (ctx context.Context, report ReportFunc) {
-	// TODO(jacobsa): Do something interesting.
-	ctx = parent
-	report = func(err error) {}
+	// Is this context already being traced?
+	if parent.Value(traceStateKey) != nil {
+		return
+	}
+
+	// Set up a new trace state.
+	ts := new(traceState)
+	report = ts.CreateSpan(desc)
+
+	// Stick it in the context.
+	ctx = context.WithValue(parent, traceStateKey, ts)
+
 	return
 }
 
