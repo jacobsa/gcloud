@@ -160,7 +160,7 @@ func (t *StatObjectTest) CallsCache() {
 	_, _ = t.bucket.StatObject(nil, req)
 }
 
-func (t *StatObjectTest) CacheHit() {
+func (t *StatObjectTest) CacheHit_Positive() {
 	const name = "taco"
 
 	// LookUp
@@ -179,6 +179,10 @@ func (t *StatObjectTest) CacheHit() {
 	o, err := t.bucket.StatObject(nil, req)
 	AssertEq(nil, err)
 	ExpectEq(obj, o)
+}
+
+func (t *StatObjectTest) CacheHit_Negative() {
+	AssertTrue(false, "TODO")
 }
 
 func (t *StatObjectTest) CallsWrapped() {
@@ -217,6 +221,10 @@ func (t *StatObjectTest) WrappedFails() {
 
 	_, err := t.bucket.StatObject(nil, req)
 	ExpectThat(err, Error(HasSubstr("taco")))
+}
+
+func (t *StatObjectTest) WrappedSaysNotFound() {
+	AssertTrue(false, "TODO")
 }
 
 func (t *StatObjectTest) WrappedSucceeds() {
