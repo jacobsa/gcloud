@@ -21,6 +21,15 @@ import "golang.org/x/net/context"
 // operation represented by a span.
 type ReportFunc func(error)
 
+// Return whether tracing has been enabled for the current process.
+//
+// REQUIRES: flag.Parsed()
+func Enabled() (enabled bool) {
+	// TODO(jacobsa): Make this flag-controlled.
+	enabled = true
+	return
+}
+
 // Return a context descending from the supplied parent that contains the
 // smarts necessary to be used with the other functions in this package. If ctx
 // is already the result of calling Trace, do nothing.
