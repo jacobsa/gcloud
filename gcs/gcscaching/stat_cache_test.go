@@ -61,6 +61,13 @@ func (c *invariantsCache) LookUp(
 	return
 }
 
+func (c *invariantsCache) Hit(
+	name string,
+	now time.Time) (hit bool) {
+	hit, _ = c.LookUp(name, now)
+	return
+}
+
 func (c *invariantsCache) LookUpOrNil(
 	name string,
 	now time.Time) (o *gcs.Object) {
@@ -92,8 +99,8 @@ func (t *StatCacheTest) SetUp(ti *TestInfo) {
 ////////////////////////////////////////////////////////////////////////
 
 func (t *StatCacheTest) LookUpInEmptyCache() {
-	ExpectEq(nil, t.cache.LookUp("", someTime))
-	ExpectEq(nil, t.cache.LookUp("taco", someTime))
+	ExpectFalse(t.cache.Hit("", someTime))
+	ExpectFalse(t.cache.Hit("taco", someTime))
 }
 
 func (t *StatCacheTest) LookUpUnknownKey() {
@@ -103,8 +110,8 @@ func (t *StatCacheTest) LookUpUnknownKey() {
 	t.cache.Insert(o0, someTime.Add(time.Second))
 	t.cache.Insert(o1, someTime.Add(time.Second))
 
-	ExpectEq(nil, t.cache.LookUp("", someTime))
-	ExpectEq(nil, t.cache.LookUp("enchilada", someTime))
+	ExpectFalse(t.cache.Hit("", someTime))
+	ExpectFalse(t.cache.Hit("enchilada", someTime))
 }
 
 func (t *StatCacheTest) KeysPresentButEverythingIsExpired() {
@@ -114,8 +121,8 @@ func (t *StatCacheTest) KeysPresentButEverythingIsExpired() {
 	t.cache.Insert(o0, someTime.Add(-time.Second))
 	t.cache.Insert(o1, someTime.Add(-time.Second))
 
-	ExpectEq(nil, t.cache.LookUp("burrito", someTime))
-	ExpectEq(nil, t.cache.LookUp("taco", someTime))
+	ExpectFalse(t.cache.Hit("burrito", someTime))
+	ExpectFalse(t.cache.Hit("taco", someTime))
 }
 
 func (t *StatCacheTest) FillUpToCapacity() {
@@ -142,9 +149,9 @@ func (t *StatCacheTest) FillUpToCapacity() {
 
 	// After expiration
 	justAfter := expiration.Add(time.Nanosecond)
-	ExpectEq(nil, t.cache.LookUp("burrito", justAfter))
-	ExpectEq(nil, t.cache.LookUp("taco", justAfter))
-	ExpectEq(nil, t.cache.LookUp("enchilada", justAfter))
+	ExpectFalse(t.cache.Hit("burrito", justAfter))
+	ExpectFalse(t.cache.Hit("taco", justAfter))
+	ExpectFalse(t.cache.Hit("enchilada", justAfter))
 }
 
 func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
@@ -164,7 +171,7 @@ func (t *StatCacheTest) ExpiresLeastRecentlyUsed() {
 	t.cache.Insert(o3, expiration)
 
 	// See what's left.
-	ExpectEq(nil, t.cache.LookUp("taco", someTime))
+	ExpectFalse(t.cache.Hit("taco", someTime))
 	ExpectEq(o0, t.cache.LookUpOrNil("burrito", someTime))
 	ExpectEq(o2, t.cache.LookUpOrNil("enchilada", someTime))
 	ExpectEq(o3, t.cache.LookUpOrNil("queso", someTime))
