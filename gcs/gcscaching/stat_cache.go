@@ -25,9 +25,10 @@ import (
 // name. External synchronization must be provided.
 type StatCache interface {
 	// Insert an entry for the given object record. The entry will not replace
-	// any entry with a newer generation number, or any entry with an equivalent
-	// generation number but newer metadata generation number, and will not be
-	// available after the supplied expiration time.
+	// any positive entry with a newer generation number, or with an equivalent
+	// generation number but newer metadata generation number.
+	//
+	// The entry will expire after the supplied time.
 	Insert(o *gcs.Object, expiration time.Time)
 
 	// Set up a negative entry for the given name, indicating that the name
