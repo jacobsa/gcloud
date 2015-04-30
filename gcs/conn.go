@@ -18,6 +18,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jacobsa/gcloud/reqtrace"
+
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
@@ -84,7 +86,15 @@ func (c *conn) GetBucket(name string) (b Bucket) {
 
 	// Enable retry loops if requested.
 	if c.maxBackoffSleep > 0 {
+		// TODO(jacobsa): Show the retries as distinct spans in the trace.
 		b = newRetryBucket(c.maxBackoffSleep, b)
+	}
+
+	// Enable tracing if appropriate.
+	if reqtrace.Enabled() {
+		b = &reqtraceBucket{
+			Wrapped: b,
+		}
 	}
 
 	return
