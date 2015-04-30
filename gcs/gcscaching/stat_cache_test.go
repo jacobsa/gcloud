@@ -284,5 +284,10 @@ func (t *StatCacheTest) Overwrite_PositiveWithNegative() {
 }
 
 func (t *StatCacheTest) Overwrite_NegativeWithNegative() {
-	AssertTrue(false, "TODO")
+	const name = "taco"
+
+	t.cache.AddNegativeEntry(name, expiration)
+	t.cache.AddNegativeEntry(name, expiration)
+
+	ExpectTrue(t.cache.NegativeEntry(name, someTime))
 }
