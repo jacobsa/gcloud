@@ -46,3 +46,8 @@ func (ts *traceState) CreateSpan(desc string) (report ReportFunc) {
 	report = func(err error) {}
 	return
 }
+
+// Log information about the spans in this trace.
+func (ts *traceState) Log() {
+	// TODO(jacobsa): Do something interesting.
+}

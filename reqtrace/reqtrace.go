@@ -51,7 +51,13 @@ func Trace(
 
 	// Set up a new trace state.
 	ts := new(traceState)
-	report = ts.CreateSpan(desc)
+	baseReport := ts.CreateSpan(desc)
+
+	// Log when finished.
+	report = func(err error) {
+		baseReport(err)
+		ts.Log()
+	}
 
 	// Stick it in the context.
 	ctx = context.WithValue(parent, traceStateKey, ts)
