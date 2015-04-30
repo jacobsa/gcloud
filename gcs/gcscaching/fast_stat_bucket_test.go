@@ -150,7 +150,7 @@ func (t *StatObjectTest) CallsCache() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(name, timeutil.TimeEq(t.clock.Now())).
-		WillOnce(Return(&gcs.Object{}))
+		WillOnce(Return(true, &gcs.Object{}))
 
 	// Call
 	req := &gcs.StatObjectRequest{
@@ -169,7 +169,7 @@ func (t *StatObjectTest) CacheHit_Positive() {
 	}
 
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(obj))
+		WillOnce(Return(true, obj))
 
 	// Call
 	req := &gcs.StatObjectRequest{
@@ -193,7 +193,7 @@ func (t *StatObjectTest) CallsWrapped() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(nil))
+		WillOnce(Return(false, nil))
 
 	// Wrapped
 	ExpectCall(t.wrapped, "StatObject")(Any(), req).
@@ -208,7 +208,7 @@ func (t *StatObjectTest) WrappedFails() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(nil))
+		WillOnce(Return(false, nil))
 
 	// Wrapped
 	ExpectCall(t.wrapped, "StatObject")(Any(), Any()).
@@ -232,7 +232,7 @@ func (t *StatObjectTest) WrappedSucceeds() {
 
 	// LookUp
 	ExpectCall(t.cache, "LookUp")(Any(), Any()).
-		WillOnce(Return(nil))
+		WillOnce(Return(false, nil))
 
 	// Wrapped
 	obj := &gcs.Object{
