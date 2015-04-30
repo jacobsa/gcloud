@@ -15,6 +15,7 @@
 package reqtrace
 
 import (
+	"log"
 	"sync"
 	"time"
 )
@@ -65,5 +66,10 @@ func (ts *traceState) CreateSpan(desc string) (report ReportFunc) {
 
 // Log information about the spans in this trace.
 func (ts *traceState) Log() {
-	// TODO(jacobsa): Do something interesting.
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	for _, s := range ts.spans {
+		log.Println("SPAN:", s)
+	}
 }
