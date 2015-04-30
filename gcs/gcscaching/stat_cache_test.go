@@ -270,11 +270,17 @@ func (t *StatCacheTest) Overwrite_NegativeWithPositive() {
 	t.cache.AddNegativeEntry(name, expiration)
 	t.cache.Insert(o1, expiration)
 
-	ExpectEq(o1, t.cache.LookUpOrNil("taco", someTime))
+	ExpectEq(o1, t.cache.LookUpOrNil(name, someTime))
 }
 
 func (t *StatCacheTest) Overwrite_PositiveWithNegative() {
-	AssertTrue(false, "TODO")
+	const name = "taco"
+	o0 := &gcs.Object{Name: name, Generation: 13, MetaGeneration: 7}
+
+	t.cache.Insert(o0, expiration)
+	t.cache.AddNegativeEntry(name, expiration)
+
+	ExpectTrue(t.cache.NegativeEntry(name, someTime))
 }
 
 func (t *StatCacheTest) Overwrite_NegativeWithNegative() {
