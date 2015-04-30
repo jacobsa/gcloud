@@ -43,6 +43,25 @@ func (m *mockStatCache) Oglemock_Description() string {
 	return m.description
 }
 
+func (m *mockStatCache) AddNegativeEntry(p0 string, p1 time.Time) {
+	// Get a file name and line number for the caller.
+	_, file, line, _ := runtime.Caller(1)
+
+	// Hand the call off to the controller, which does most of the work.
+	retVals := m.controller.HandleMethodCall(
+		m,
+		"AddNegativeEntry",
+		file,
+		line,
+		[]interface{}{p0, p1})
+
+	if len(retVals) != 0 {
+		panic(fmt.Sprintf("mockStatCache.AddNegativeEntry: invalid return values: %v", retVals))
+	}
+
+	return
+}
+
 func (m *mockStatCache) CheckInvariants() {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
@@ -100,7 +119,7 @@ func (m *mockStatCache) Insert(p0 *gcs.Object, p1 time.Time) {
 	return
 }
 
-func (m *mockStatCache) LookUp(p0 string, p1 time.Time) (o0 *gcs.Object) {
+func (m *mockStatCache) LookUp(p0 string, p1 time.Time) (o0 bool, o1 *gcs.Object) {
 	// Get a file name and line number for the caller.
 	_, file, line, _ := runtime.Caller(1)
 
@@ -112,13 +131,18 @@ func (m *mockStatCache) LookUp(p0 string, p1 time.Time) (o0 *gcs.Object) {
 		line,
 		[]interface{}{p0, p1})
 
-	if len(retVals) != 1 {
+	if len(retVals) != 2 {
 		panic(fmt.Sprintf("mockStatCache.LookUp: invalid return values: %v", retVals))
 	}
 
-	// o0 *gcs.Object
+	// o0 bool
 	if retVals[0] != nil {
-		o0 = retVals[0].(*gcs.Object)
+		o0 = retVals[0].(bool)
+	}
+
+	// o1 *gcs.Object
+	if retVals[1] != nil {
+		o1 = retVals[1].(*gcs.Object)
 	}
 
 	return
