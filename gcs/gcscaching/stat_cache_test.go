@@ -264,7 +264,13 @@ func (t *StatCacheTest) Overwrite_OlderGeneration() {
 }
 
 func (t *StatCacheTest) Overwrite_NegativeWithPositive() {
-	AssertTrue(false, "TODO")
+	const name = "taco"
+	o1 := &gcs.Object{Name: name, Generation: 13, MetaGeneration: 7}
+
+	t.cache.AddNegativeEntry(name, expiration)
+	t.cache.Insert(o1, expiration)
+
+	ExpectEq(o1, t.cache.LookUpOrNil("taco", someTime))
 }
 
 func (t *StatCacheTest) Overwrite_PositiveWithNegative() {
