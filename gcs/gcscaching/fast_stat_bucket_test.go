@@ -182,7 +182,19 @@ func (t *StatObjectTest) CacheHit_Positive() {
 }
 
 func (t *StatObjectTest) CacheHit_Negative() {
-	AssertTrue(false, "TODO")
+	const name = "taco"
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(true, nil))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err := t.bucket.StatObject(nil, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *StatObjectTest) CallsWrapped() {
