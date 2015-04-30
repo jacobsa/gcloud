@@ -66,8 +66,16 @@ func Trace(
 func Start(
 	ctx context.Context,
 	desc string) (report ReportFunc) {
-	// TODO(jacobsa): Do something interesting.
-	report = func(err error) {}
+	val := ctx.Value(traceStateKey)
+	if val == nil {
+		// Nothing to do.
+		report = func(err error) {}
+		return
+	}
+
+	ts := val.(*traceState)
+	report = ts.CreateSpan(desc)
+
 	return
 }
 
@@ -84,7 +92,7 @@ func StartWithError(
 	ctx context.Context,
 	err *error,
 	desc string) (f func()) {
-	// TODO(jacobsa): Do something interesting.
-	f = func() {}
+	report := Start(ctx, desc)
+	f = func() { report(*error) }
 	return
 }
