@@ -104,7 +104,7 @@ func (b *reqtraceBucket) DeleteObject(
 
 func sanitizeObjectName(
 	name string) (sanitized string) {
-	sanitized = "TODO"
+	sanitized = fmt.Sprintf("%q", name)
 	return
 }
 

@@ -118,8 +118,6 @@ func (ts *traceState) Log() {
 
 	// Log each span with some ASCII art showing its length relative to the
 	// total.
-	//
-	// TODO(jacobsa): Also offset the ASCII art by start time.
 	for _, s := range ts.spans {
 		log.Println(s.desc)
 
@@ -136,9 +134,12 @@ func (ts *traceState) Log() {
 			continue
 		}
 
-		const totalNumCols float64 = 80
-		numCols := int(round((float64(d/time.Nanosecond) / totalNs) * totalNumCols))
-		banner := strings.Repeat("-", numCols)
+		relWidth := float64(d/time.Nanosecond) / totalNs
+		offset := float64(s.start.Sub(minStart)/time.Nanosecond) / totalNs
+
+		const totalNumCols float64 = 120
+		banner := strings.Repeat(" ", int(round(offset*totalNumCols)))
+		banner += strings.Repeat("-", int(round(relWidth*totalNumCols)))
 
 		log.Println(d)
 		log.Println(banner)
