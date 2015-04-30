@@ -52,7 +52,7 @@ func (b *reqtraceBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
 	desc := fmt.Sprintf("CreateObject: %s", sanitizeObjectName(req.Name))
-	defer traceWithError(&ctx, &err, desc)()
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
 
 	o, err = b.Wrapped.CreateObject(ctx, req)
 	return
@@ -62,7 +62,7 @@ func (b *reqtraceBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
 	desc := fmt.Sprintf("StatObject: %s", sanitizeObjectName(req.Name))
-	defer traceWithError(&ctx, &err, desc)()
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
 
 	o, err = b.Wrapped.StatObject(ctx, req)
 	return
@@ -72,7 +72,7 @@ func (b *reqtraceBucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
 	desc := fmt.Sprintf("ListObjects")
-	defer traceWithError(&ctx, &err, desc)()
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
 
 	listing, err = b.Wrapped.ListObjects(ctx, req)
 	return
@@ -82,7 +82,7 @@ func (b *reqtraceBucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
 	desc := fmt.Sprintf("UpdateObject: %s", sanitizeObjectName(req.Name))
-	defer traceWithError(&ctx, &err, desc)()
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
 
 	o, err = b.Wrapped.UpdateObject(ctx, req)
 	return
@@ -92,7 +92,7 @@ func (b *reqtraceBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error) {
 	desc := fmt.Sprintf("DeleteObject: %s", sanitizeObjectName(name))
-	defer traceWithError(&ctx, &err, desc)()
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
 
 	err = b.Wrapped.DeleteObject(ctx, name)
 	return
@@ -105,15 +105,5 @@ func (b *reqtraceBucket) DeleteObject(
 func sanitizeObjectName(
 	name string) (sanitized string) {
 	sanitized = fmt.Sprintf("%q", name)
-	return
-}
-
-func traceWithError(
-	ctx *context.Context,
-	err *error,
-	desc string) (f func()) {
-	var report reqtrace.ReportFunc
-	*ctx, report = reqtrace.Trace(*ctx, desc)
-	f = func() { report(*err) }
 	return
 }
