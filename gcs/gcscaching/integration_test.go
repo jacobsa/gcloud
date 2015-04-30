@@ -269,27 +269,6 @@ func (t *IntegrationTest) UpdateInvalidatesNegativeCache() {
 	ExpectNe(nil, o)
 }
 
-func (t *IntegrationTest) DeleteAddsToNegativeCache() {
-	const name = "taco"
-	var err error
-
-	// Create an object.
-	_, err = gcsutil.CreateObject(t.ctx, t.bucket, name, "")
-	AssertEq(nil, err)
-
-	// Delete it.
-	err = t.bucket.DeleteObject(t.ctx, name)
-	AssertEq(nil, err)
-
-	// Re-create the object through the back door.
-	_, err = gcsutil.CreateObject(t.ctx, t.wrapped, name, "")
-	AssertEq(nil, err)
-
-	// StatObject should still not see it.
-	_, err = t.stat(name)
-	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
-}
-
 func (t *IntegrationTest) NegativeCacheExpiration() {
 	const name = "taco"
 	var err error
