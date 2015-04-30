@@ -236,7 +236,29 @@ func (t *StatObjectTest) WrappedFails() {
 }
 
 func (t *StatObjectTest) WrappedSaysNotFound() {
-	AssertTrue(false, "TODO")
+	const name = "taco"
+
+	// LookUp
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).
+		WillOnce(Return(false, nil))
+
+	// Wrapped
+	ExpectCall(t.wrapped, "StatObject")(Any(), Any()).
+		WillOnce(Return(nil, &gcs.NotFoundError{Err: errors.New("burrito")}))
+
+	// AddNegativeEntry
+	ExpectCall(t.cache, "AddNegativeEntry")(
+		name,
+		timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	req := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err := t.bucket.StatObject(nil, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(HasSubstr("burrito")))
 }
 
 func (t *StatObjectTest) WrappedSucceeds() {
