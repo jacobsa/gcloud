@@ -37,10 +37,47 @@ type reqtraceBucket struct {
 type reportingReadCloser struct {
 	Wrapped io.ReadCloser
 	Report  reqtrace.ReportFunc
+
+	prevErr error
 }
 
-func (rc *reportingReadCloser) Read(p []byte) (n int, err error)
-func (rc *reportingReadCloser) Close() error
+func (rc *reportingReadCloser) Read(p []byte) (n int, err error) {
+	// Have we already seen an error? Make sure we don't get ourselves into a
+	// state where we report twice.
+	if rc.prevErr != nil {
+		err = fmt.Errorf("Already saw an error: %v", rc.prevErr)
+		return
+	}
+
+	// Call through.
+	n, err = rc.Wrapped.Read(p)
+	if err != nil {
+		rc.Report(err)
+		rc.prevErr = err
+		return
+	}
+
+	return
+}
+
+func (rc *reportingReadCloser) Close() (err error) {
+	// Have we already seen an error? Make sure we don't get ourselves into a
+	// state where we report twice.
+	if rc.prevErr != nil {
+		err = fmt.Errorf("Already saw an error: %v", rc.prevErr)
+		return
+	}
+
+	// Call through.
+	err = rc.Wrapped.Close()
+	if err != nil {
+		rc.Report(err)
+		rc.prevErr = err
+		return
+	}
+
+	return
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Bucket interface
