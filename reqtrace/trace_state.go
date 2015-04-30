@@ -16,6 +16,8 @@ package reqtrace
 
 import (
 	"log"
+	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -64,12 +66,82 @@ func (ts *traceState) CreateSpan(desc string) (report ReportFunc) {
 	return
 }
 
+func round(x float64) float64 {
+	if x < 0 {
+		return math.Ceil(x - 0.5)
+	}
+
+	return math.Floor(x + 0.5)
+}
+
 // Log information about the spans in this trace.
 func (ts *traceState) Log() {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
+	log.Println("TRACE: ==============================================")
+
+	// Special case: we require at least one span.
+	if len(ts.spans) == 0 {
+		log.Println("(No spans)")
+		return
+	}
+
+	// Find the minimum start time and maximum end time of all durations.
+	var minStart time.Time
+	var maxEnd time.Time
 	for _, s := range ts.spans {
-		log.Println("SPAN:", s)
+		if !s.finished {
+			continue
+		}
+
+		if minStart.IsZero() || s.start.Before(minStart) {
+			minStart = s.start
+		}
+
+		if maxEnd.Before(s.end) {
+			maxEnd = s.end
+		}
+	}
+
+	// Bail out if something weird happened.
+	//
+	// TODO(jacobsa): Be more graceful.
+	totalDuration := maxEnd.Sub(minStart)
+	if minStart.IsZero() || maxEnd.IsZero() || totalDuration <= 0 {
+		log.Println("(Weird trace)")
+		return
+	}
+
+	// Calculate the number of nanoseconds elapsed, as a floating point number.
+	totalNs := float64(totalDuration / time.Nanosecond)
+
+	// Log each span with some ASCII art showing its length relative to the
+	// total.
+	//
+	// TODO(jacobsa): Also offset the ASCII art by start time.
+	for _, s := range ts.spans {
+		log.Println(s.desc)
+
+		if !s.finished {
+			log.Println("(Unfinished)")
+			log.Println()
+			continue
+		}
+
+		d := s.end.Sub(s.start)
+		if d <= 0 {
+			log.Println("(Weird duration)")
+			log.Println()
+			continue
+		}
+
+		const totalNumCols float64 = 80
+		numCols := int(round((float64(d/time.Nanosecond) / totalNs) * totalNumCols))
+		banner := strings.Repeat("-", numCols)
+
+		log.Println(d)
+		log.Println(banner)
+		log.Println()
 	}
 }
