@@ -82,13 +82,6 @@ func shouldEscapeForPathSegment(c byte) bool {
 
 	// sub-delims
 	case '!', '$', '&', '\'', '(', ')', '*', '+', ',', ';', '=':
-		// TODO(jacobsa): Remove this when Google-internal bug 19977818 is fixed
-		// and '+' is correctly supported in path components.
-		// CreateTest.InterestingNames should still pass.
-		if c == '+' {
-			return true
-		}
-
 		return false
 
 	// other pchars
