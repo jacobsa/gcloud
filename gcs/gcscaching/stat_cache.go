@@ -123,7 +123,9 @@ func (sc *statCache) Erase(name string) {
 	sc.c.Erase(name)
 }
 
-func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
+func (sc *statCache) LookUp(
+	name string,
+	now time.Time) (hit bool, o *gcs.Object) {
 	// Look up in the LRU cache.
 	value := sc.c.LookUp(name)
 	if value == nil {
@@ -138,7 +140,9 @@ func (sc *statCache) LookUp(name string, now time.Time) (o *gcs.Object) {
 		return
 	}
 
+	hit = true
 	o = e.o
+
 	return
 }
 
