@@ -15,6 +15,7 @@
 package gcs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -36,24 +37,32 @@ type reqtraceBucket struct {
 // by the wrapped io.ReadCloser once it is known.
 type reportingReadCloser struct {
 	Wrapped io.ReadCloser
-	Report  reqtrace.ReportFunc
 
-	prevErr error
+	// Set to nil after it is called.
+	Report reqtrace.ReportFunc
 }
 
 func (rc *reportingReadCloser) Read(p []byte) (n int, err error) {
 	// Have we already seen an error? Make sure we don't get ourselves into a
 	// state where we report twice.
-	if rc.prevErr != nil {
-		err = fmt.Errorf("Already saw an error: %v", rc.prevErr)
+	if rc.Report == nil {
+		err = errors.New("reportingReadCloser already reported its outcome")
 		return
 	}
 
 	// Call through.
 	n, err = rc.Wrapped.Read(p)
+
+	// Special case: we don't treat EOF as an error, because the user should
+	// follow up with a call to Close.
+	if err == io.EOF {
+		return
+	}
+
+	// Report other errors.
 	if err != nil {
 		rc.Report(err)
-		rc.prevErr = err
+		rc.Report = nil
 		return
 	}
 
@@ -63,18 +72,17 @@ func (rc *reportingReadCloser) Read(p []byte) (n int, err error) {
 func (rc *reportingReadCloser) Close() (err error) {
 	// Have we already seen an error? Make sure we don't get ourselves into a
 	// state where we report twice.
-	if rc.prevErr != nil {
-		err = fmt.Errorf("Already saw an error: %v", rc.prevErr)
+	if rc.Report == nil {
+		err = errors.New("reportingReadCloser already reported its outcome")
 		return
 	}
 
 	// Call through.
 	err = rc.Wrapped.Close()
-	if err != nil {
-		rc.Report(err)
-		rc.prevErr = err
-		return
-	}
+
+	// Report the outcome.
+	rc.Report(err)
+	rc.Report = nil
 
 	return
 }
