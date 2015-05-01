@@ -15,17 +15,24 @@
 package gcstesting
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 
-	"github.com/jacobsa/gcloud/gcs"
+	"golang.org/x/net/context"
+
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
+	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/ogletest"
 	"github.com/jacobsa/ogletest/srcutil"
+	"github.com/jacobsa/reqtrace"
 )
 
 // Dependencies needed for tests registered by RegisterBucketTests.
 type BucketTestDeps struct {
+	// A context that should be used for all blocking operations.
+	ctx context.Context
+
 	// An initialized, empty bucket.
 	Bucket gcs.Bucket
 
@@ -58,7 +65,7 @@ func getTestMethods(suitePointerType reflect.Type) []reflect.Method {
 }
 
 func registerTestSuite(
-	makeDeps func() BucketTestDeps,
+	makeDeps func(context.Context) BucketTestDeps,
 	prototype bucketTestSetUpInterface) {
 	suitePointerType := reflect.TypeOf(prototype)
 	suiteType := suitePointerType.Elem()
@@ -77,8 +84,19 @@ func registerTestSuite(
 
 		// SetUp should create a bucket and then initialize the suite object,
 		// remembering that the suite implements bucketTestSetUpInterface.
+		var report reqtrace.ReportFunc
 		tf.SetUp = func(*ogletest.TestInfo) {
-			deps := makeDeps()
+			// Start tracing.
+			var testCtx context.Context
+			testCtx, report = reqtrace.Trace(context.Background(), "Overall test")
+
+			// Set up the bucket and other dependencies.
+			makeDepsCtx, makeDepsReport := reqtrace.StartSpan(testCtx, "Test setup")
+			deps := makeDeps(makeDepsCtx)
+			makeDepsReport(nil)
+
+			// Hand off the dependencies and the context to the test.
+			deps.ctx = testCtx
 			instance.Interface().(bucketTestSetUpInterface).setUpBucketTest(deps)
 		}
 
@@ -86,6 +104,13 @@ func registerTestSuite(
 		methodCopy := method
 		tf.Run = func() {
 			methodCopy.Func.Call([]reflect.Value{instance})
+		}
+
+		// Report the test result.
+		tf.TearDown = func() {
+			report(errors.New(
+				"TODO(jacobsa): Plumb through the test failure status. " +
+					"Or offer tracing in ogletest itself."))
 		}
 
 		// Save the test function.
@@ -98,7 +123,7 @@ func registerTestSuite(
 
 // Given a function that returns appropriate test depencencies, register test
 // suites that exercise the buckets returned by the function with ogletest.
-func RegisterBucketTests(makeDeps func() BucketTestDeps) {
+func RegisterBucketTests(makeDeps func(context.Context) BucketTestDeps) {
 	// A list of empty instances of the test suites we want to register.
 	suitePrototypes := []bucketTestSetUpInterface{
 		&createTest{},

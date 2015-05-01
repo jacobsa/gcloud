@@ -45,15 +45,17 @@ import (
 func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
 
 func init() {
-	gcstesting.RegisterBucketTests(func() (deps gcstesting.BucketTestDeps) {
+	makeDeps := func(ctx context.Context) (deps gcstesting.BucketTestDeps) {
 		deps.Bucket = gcstesting.IntegrationTestBucketOrDie()
 		deps.Clock = timeutil.RealClock()
 
-		err := gcsutil.DeleteAllObjects(context.Background(), deps.Bucket)
+		err := gcsutil.DeleteAllObjects(ctx, deps.Bucket)
 		if err != nil {
 			panic("DeleteAllObjects: " + err.Error())
 		}
 
 		return
-	})
+	}
+
+	gcstesting.RegisterBucketTests(makeDeps)
 }
