@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jacobsa/gcloud/reqtrace"
+	"github.com/jacobsa/reqtrace"
 
 	storagev1 "google.golang.org/api/storage/v1"
 )

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jacobsa/gcloud/reqtrace"
+	"github.com/jacobsa/reqtrace"
 
 	"golang.org/x/net/context"
 )

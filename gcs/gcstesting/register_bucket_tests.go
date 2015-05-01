@@ -23,9 +23,9 @@ import (
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
-	"github.com/jacobsa/gcloud/reqtrace"
 	"github.com/jacobsa/ogletest"
 	"github.com/jacobsa/ogletest/srcutil"
+	"github.com/jacobsa/reqtrace"
 )
 
 // Dependencies needed for tests registered by RegisterBucketTests.
