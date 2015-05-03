@@ -163,5 +163,9 @@ func toRawObject(
 		out.Crc32c = base64.StdEncoding.EncodeToString(buf)
 	}
 
+	if in.MD5 != nil {
+		out.Md5Hash = base64.StdEncoding.EncodeToString(in.MD5[:])
+	}
+
 	return
 }
