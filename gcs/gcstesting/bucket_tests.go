@@ -621,7 +621,20 @@ func (t *createTest) IncorrectCRC32C() {
 }
 
 func (t *createTest) CorrectCRC32C() {
-	AssertFalse(true, "TODO")
+	const name = "foo"
+	const contents = "taco"
+	var err error
+
+	// Create
+	req := &gcs.CreateObjectRequest{
+		Name:     name,
+		Contents: strings.NewReader(contents),
+		CRC32C:   gcsutil.CRC32C(contents),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, req)
+	AssertEq(nil, err)
+	ExpectEq(len(contents), o.Size)
 }
 
 func (t *createTest) IncorrectMD5() {
