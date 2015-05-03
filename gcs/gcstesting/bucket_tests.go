@@ -618,7 +618,7 @@ func (t *createTest) IncorrectCRC32C() {
 	}
 
 	_, err = t.bucket.StatObject(t.ctx, statReq)
-	ExpectThat(err, Error(HasSameTypeAs(&gcs.NotFoundError{})))
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *createTest) CorrectCRC32C() {
