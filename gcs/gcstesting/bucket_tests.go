@@ -639,7 +639,31 @@ func (t *createTest) CorrectCRC32C() {
 }
 
 func (t *createTest) IncorrectMD5() {
-	AssertFalse(true, "TODO")
+	const name = "foo"
+	const contents = "taco"
+	var err error
+
+	// Attempt to create with the wrong checksum.
+	md5 := gcsutil.MD5([]byte(contents))
+	(*md5)[13]++
+
+	req := &gcs.CreateObjectRequest{
+		Name:     name,
+		Contents: strings.NewReader(contents),
+		MD5:      md5,
+	}
+
+	_, err = t.bucket.CreateObject(t.ctx, req)
+	AssertThat(err, Error(HasSubstr("MD5")))
+	AssertThat(err, Error(HasSubstr("match")))
+
+	// It should not have been created.
+	statReq := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err = t.bucket.StatObject(t.ctx, statReq)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *createTest) CorrectMD5() {
