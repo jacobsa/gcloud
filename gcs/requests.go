@@ -14,7 +14,10 @@
 
 package gcs
 
-import "io"
+import (
+	"crypto/md5"
+	"io"
+)
 
 // A request to create an object, accepted by Bucket.CreateObject.
 type CreateObjectRequest struct {
@@ -45,6 +48,12 @@ type CreateObjectRequest struct {
 
 	// A reader from which to obtain the contents of the object. Must be non-nil.
 	Contents io.Reader
+
+	// TODO(jacobsa): Comments.
+	MD5 *[md5.Size]byte
+
+	// TODO(jacobsa): Comments.
+	CRC32C *uint32
 
 	// If non-nil, the object will be created/overwritten only if the current
 	// generation for the object name is equal to the given value. Zero means the
