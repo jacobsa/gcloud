@@ -594,7 +594,30 @@ func (t *createTest) IllegalNames() {
 }
 
 func (t *createTest) IncorrectCRC32C() {
-	AssertFalse(true, "TODO")
+	const name = "foo"
+	const contents = "taco"
+	var err error
+
+	// Attempt to create with the wrong checksum.
+	crc32c := gcsutil.CRC32C([]byte(contents))
+	*crc32c++
+
+	req := &gcs.CreateObjectRequest{
+		Name:     name,
+		Contents: strings.NewReader(contents),
+		CRC32C:   crc32c,
+	}
+
+	_, err = t.bucket.CreateObject(t.ctx, req)
+	AssertThat(err, Error(HasSubstr("TODO")))
+
+	// It should not have been created.
+	statReq := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err = t.bucket.StatObject(t.ctx, statReq)
+	ExpectThat(err, Error(HasSameTypeAs(&gcs.NotFoundError{})))
 }
 
 func (t *createTest) CorrectCRC32C() {
