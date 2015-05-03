@@ -593,6 +593,26 @@ func (t *createTest) IllegalNames() {
 	ExpectThat(listing.Objects, ElementsAre())
 }
 
+func (t *createTest) IncorrectCRC32C() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) CorrectCRC32C() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) IncorrectMD5() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) CorrectMD5() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *createTest) CorrectCRC32CAndMD5() {
+	AssertFalse(true, "TODO")
+}
+
 func (t *createTest) GenerationPrecondition_Zero_Unsatisfied() {
 	// Create an existing object.
 	o, err := gcsutil.CreateObject(
