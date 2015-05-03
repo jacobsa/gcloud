@@ -609,7 +609,8 @@ func (t *createTest) IncorrectCRC32C() {
 	}
 
 	_, err = t.bucket.CreateObject(t.ctx, req)
-	AssertThat(err, Error(HasSubstr("TODO")))
+	AssertThat(err, Error(HasSubstr("CRC32C")))
+	AssertThat(err, Error(HasSubstr("match")))
 
 	// It should not have been created.
 	statReq := &gcs.StatObjectRequest{

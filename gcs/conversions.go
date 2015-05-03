@@ -152,5 +152,16 @@ func toRawObject(
 		Metadata:        in.Metadata,
 	}
 
+	if in.CRC32C != nil {
+		buf := []byte{
+			byte(*in.CRC32C >> 24),
+			byte(*in.CRC32C >> 16),
+			byte(*in.CRC32C >> 8),
+			byte(*in.CRC32C >> 0),
+		}
+
+		out.Crc32c = base64.StdEncoding.EncodeToString(buf)
+	}
+
 	return
 }
