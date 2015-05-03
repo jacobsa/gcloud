@@ -152,5 +152,20 @@ func toRawObject(
 		Metadata:        in.Metadata,
 	}
 
+	if in.CRC32C != nil {
+		buf := []byte{
+			byte(*in.CRC32C >> 24),
+			byte(*in.CRC32C >> 16),
+			byte(*in.CRC32C >> 8),
+			byte(*in.CRC32C >> 0),
+		}
+
+		out.Crc32c = base64.StdEncoding.EncodeToString(buf)
+	}
+
+	if in.MD5 != nil {
+		out.Md5Hash = base64.StdEncoding.EncodeToString(in.MD5[:])
+	}
+
 	return
 }
