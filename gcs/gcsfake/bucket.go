@@ -17,6 +17,7 @@ package gcsfake
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -32,7 +33,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-var crc32Table = crc32.MakeTable(crc32.Castagnoli)
+var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
 
 // Create an in-memory bucket with the given name and empty contents. The
 // supplied clock will be used for generating timestamps.
@@ -463,7 +464,7 @@ func (b *bucket) mintObject(
 		Size:            uint64(len(contents)),
 		ContentEncoding: req.ContentEncoding,
 		MD5:             md5.Sum([]byte(contents)),
-		CRC32C:          crc32.Checksum([]byte(contents), crc32Table),
+		CRC32C:          crc32.Checksum([]byte(contents), crc32cTable),
 		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
 		Metadata:        req.Metadata,
 		Generation:      b.prevGeneration,
@@ -495,6 +496,32 @@ func (b *bucket) addObjectLocked(
 	var existingRecord *fakeObject
 	if existingIndex < len(b.objects) {
 		existingRecord = &b.objects[existingIndex]
+	}
+
+	// Check the provided checksum, if any.
+	if req.CRC32C != nil {
+		actual := crc32.Checksum([]byte(contents), crc32cTable)
+		if actual != *req.CRC32C {
+			err = fmt.Errorf(
+				"CRC32C mismatch: got 0x%08x, expected 0x%08x",
+				actual,
+				*req.CRC32C)
+
+			return
+		}
+	}
+
+	// Check the provided hash, if any.
+	if req.MD5 != nil {
+		actual := md5.Sum([]byte(contents))
+		if actual != *req.MD5 {
+			err = fmt.Errorf(
+				"MD5 mismatch: got %s, expected %s",
+				hex.EncodeToString(actual[:]),
+				hex.EncodeToString(req.MD5[:]))
+
+			return
+		}
 	}
 
 	// Check preconditions.
