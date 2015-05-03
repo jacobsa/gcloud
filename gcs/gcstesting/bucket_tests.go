@@ -629,7 +629,7 @@ func (t *createTest) CorrectCRC32C() {
 	req := &gcs.CreateObjectRequest{
 		Name:     name,
 		Contents: strings.NewReader(contents),
-		CRC32C:   gcsutil.CRC32C(contents),
+		CRC32C:   gcsutil.CRC32C([]byte(contents)),
 	}
 
 	o, err := t.bucket.CreateObject(t.ctx, req)
