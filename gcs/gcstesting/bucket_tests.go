@@ -667,7 +667,20 @@ func (t *createTest) IncorrectMD5() {
 }
 
 func (t *createTest) CorrectMD5() {
-	AssertFalse(true, "TODO")
+	const name = "foo"
+	const contents = "taco"
+	var err error
+
+	// Create
+	req := &gcs.CreateObjectRequest{
+		Name:     name,
+		Contents: strings.NewReader(contents),
+		MD5:      gcsutil.MD5([]byte(contents)),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, req)
+	AssertEq(nil, err)
+	ExpectEq(len(contents), o.Size)
 }
 
 func (t *createTest) CorrectCRC32CAndMD5() {
