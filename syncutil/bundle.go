@@ -105,11 +105,18 @@ func (b *Bundle) Add(f func(context.Context) error) {
 // Add must not be called concurrently with or after Join.
 func (b *Bundle) Join() error {
 	b.waitGroup.Wait()
+
+	// context.WithCancel requires that we arrange for this to be called
+	// eventually in order to avoid leaking resources. Since everything is done,
+	// to do so now is harmless.
+	b.cancel()
+
 	return b.firstError
 }
 
 // Create a bundle whose operations are fed a context inheriting from the given
-// parent context, which must be non-nil.
+// parent context, which must be non-nil. The bundle must eventually be joined
+// with Join.
 func NewBundle(parent context.Context) *Bundle {
 	b := &Bundle{}
 	b.context, b.cancel = context.WithCancel(parent)
