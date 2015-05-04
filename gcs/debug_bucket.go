@@ -79,7 +79,7 @@ func (b *debugBucket) requestLogf(
 	id uint64,
 	format string,
 	v ...interface{}) {
-	panic("TODO")
+	b.logger.Printf("Req %#16x: %s", id, fmt.Sprintf(format, v...))
 }
 
 func (b *debugBucket) startRequest(
