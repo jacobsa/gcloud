@@ -132,27 +132,39 @@ func (b *debugBucket) CreateObject(
 func (b *debugBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	err = errors.New("TODO")
+	id, desc, start := b.startRequest("StatObject(%q)", req.Name)
+	defer b.finishRequest(id, desc, start, &err)
+
+	o, err = b.wrapped.StatObject(ctx, req)
 	return
 }
 
 func (b *debugBucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	err = errors.New("TODO")
+	id, desc, start := b.startRequest("ListObjects()")
+	defer b.finishRequest(id, desc, start, &err)
+
+	listing, err = b.wrapped.ListObjects(ctx, req)
 	return
 }
 
 func (b *debugBucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
-	err = errors.New("TODO")
+	id, desc, start := b.startRequest("UpdateObject(%q)", req.Name)
+	defer b.finishRequest(id, desc, start, &err)
+
+	o, err = b.wrapped.UpdateObject(ctx, req)
 	return
 }
 
 func (b *debugBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error) {
-	err = errors.New("TODO")
+	id, desc, start := b.startRequest("DeleteObject(%q)", name)
+	defer b.finishRequest(id, desc, start, &err)
+
+	err = b.wrapped.DeleteObject(ctx, name)
 	return
 }
