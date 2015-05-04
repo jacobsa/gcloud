@@ -14,7 +14,10 @@
 
 package gcs
 
-import "flag"
+import (
+	"flag"
+	"log"
+)
 
 var fDebug = flag.Bool(
 	"gcs.debug",
@@ -27,4 +30,9 @@ func newDebugBucket(wrapped Bucket) (b Bucket) {
 	// TODO
 	b = wrapped
 	return
+}
+
+type debugBucket struct {
+	logger  log.Logger
+	wrapped Bucket
 }
