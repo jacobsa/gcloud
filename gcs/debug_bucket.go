@@ -17,6 +17,7 @@ package gcs
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -79,7 +80,12 @@ func (b *debugBucket) requestLogf(
 
 func (b *debugBucket) startRequest(
 	format string,
-	v ...interface{}) (id uint64, desc string, start time.Time)
+	v ...interface{}) (id uint64, desc string, start time.Time) {
+	start = time.Now()
+	id = b.mintRequestID()
+	desc = fmt.Sprintf(format, v...)
+	return
+}
 
 func (b *debugBucket) finishRequest(
 	id uint64,
