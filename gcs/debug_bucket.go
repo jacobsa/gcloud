@@ -15,8 +15,12 @@
 package gcs
 
 import (
+	"errors"
 	"flag"
+	"io"
 	"log"
+
+	"golang.org/x/net/context"
 )
 
 var fDebug = flag.Bool(
@@ -35,4 +39,54 @@ func newDebugBucket(wrapped Bucket) (b Bucket) {
 type debugBucket struct {
 	logger  log.Logger
 	wrapped Bucket
+}
+
+////////////////////////////////////////////////////////////////////////
+// Bucket interface
+////////////////////////////////////////////////////////////////////////
+
+func (b *debugBucket) Name() string {
+	return b.Wrapped.Name()
+}
+
+func (b *debugBucket) NewReader(
+	ctx context.Context,
+	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
+	err = errors.New("TODO: NewReader")
+	return
+}
+
+func (b *debugBucket) CreateObject(
+	ctx context.Context,
+	req *CreateObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO")
+	return
+}
+
+func (b *debugBucket) StatObject(
+	ctx context.Context,
+	req *StatObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO")
+	return
+}
+
+func (b *debugBucket) ListObjects(
+	ctx context.Context,
+	req *ListObjectsRequest) (listing *Listing, err error) {
+	err = errors.New("TODO")
+	return
+}
+
+func (b *debugBucket) UpdateObject(
+	ctx context.Context,
+	req *UpdateObjectRequest) (o *Object, err error) {
+	err = errors.New("TODO")
+	return
+}
+
+func (b *debugBucket) DeleteObject(
+	ctx context.Context,
+	name string) (err error) {
+	err = errors.New("TODO")
+	return
 }
