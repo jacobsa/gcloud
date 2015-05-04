@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/net/context"
 )
@@ -62,6 +63,31 @@ type debugBucket struct {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Helpers
+////////////////////////////////////////////////////////////////////////
+
+func (b *debugBucket) mintRequestID() (id uint64) {
+	panic("TODO")
+}
+
+func (b *debugBucket) requestLogf(
+	id uint64,
+	format string,
+	v ...interface{}) {
+	panic("TODO")
+}
+
+func (b *debugBucket) startRequest(
+	format string,
+	v ...interface{}) (id uint64, desc string, start time.Time)
+
+func (b *debugBucket) finishRequest(
+	id uint64,
+	desc string,
+	start time.Time,
+	err *error)
+
+////////////////////////////////////////////////////////////////////////
 // Bucket interface
 ////////////////////////////////////////////////////////////////////////
 
@@ -79,7 +105,10 @@ func (b *debugBucket) NewReader(
 func (b *debugBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
-	err = errors.New("TODO")
+	id, desc, start := b.startRequest("CreateObject(%q)", req.Name)
+	defer b.finishRequest(id, desc, start, &err)
+
+	o, err = b.wrapped.CreateObject(ctx, req)
 	return
 }
 
