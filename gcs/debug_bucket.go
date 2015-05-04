@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/context"
@@ -61,6 +62,8 @@ func newDebugBucket(wrapped Bucket) (b Bucket) {
 type debugBucket struct {
 	logger  *log.Logger
 	wrapped Bucket
+
+	nextRequestID uint64
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -68,7 +71,8 @@ type debugBucket struct {
 ////////////////////////////////////////////////////////////////////////
 
 func (b *debugBucket) mintRequestID() (id uint64) {
-	panic("TODO")
+	id = atomic.AddUint64(&b.nextRequestID, 1) - 1
+	return
 }
 
 func (b *debugBucket) requestLogf(
