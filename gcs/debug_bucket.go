@@ -46,7 +46,7 @@ type debugBucket struct {
 ////////////////////////////////////////////////////////////////////////
 
 func (b *debugBucket) Name() string {
-	return b.Wrapped.Name()
+	return b.wrapped.Name()
 }
 
 func (b *debugBucket) NewReader(
