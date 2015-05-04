@@ -19,6 +19,8 @@ import (
 	"flag"
 	"io"
 	"log"
+	"os"
+	"sync"
 
 	"golang.org/x/net/context"
 )
@@ -28,16 +30,34 @@ var fDebug = flag.Bool(
 	false,
 	"Write FUSE debugging messages to stderr.")
 
+var gLogger *log.Logger
+var gLoggerOnce sync.Once
+
+func initLogger() {
+	const flags = log.Ldate | log.Ltime | log.Lmicroseconds
+	gLogger = log.New(os.Stderr, "gcs: ", flags)
+}
+
 // If debugging is enabled, wrap the supplied bucket in a layer that prints
 // debug messages.
 func newDebugBucket(wrapped Bucket) (b Bucket) {
-	// TODO
 	b = wrapped
+
+	if *fDebug {
+		gLoggerOnce.Do(initLogger)
+		b = &debugBucket{
+			logger:  gLogger,
+			wrapped: b,
+		}
+
+		return
+	}
+
 	return
 }
 
 type debugBucket struct {
-	logger  log.Logger
+	logger  *log.Logger
 	wrapped Bucket
 }
 
