@@ -97,5 +97,8 @@ func (c *conn) GetBucket(name string) (b Bucket) {
 		}
 	}
 
+	// Print debug output when enabled.
+	b = newDebugBucket(b)
+
 	return
 }
