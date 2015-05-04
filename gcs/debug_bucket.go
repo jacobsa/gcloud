@@ -84,6 +84,8 @@ func (b *debugBucket) startRequest(
 	start = time.Now()
 	id = b.mintRequestID()
 	desc = fmt.Sprintf(format, v...)
+
+	b.requestLogf(id, "<- %s", desc)
 	return
 }
 
@@ -91,7 +93,16 @@ func (b *debugBucket) finishRequest(
 	id uint64,
 	desc string,
 	start time.Time,
-	err *error)
+	err *error) {
+	duration := time.Since(start)
+
+	errDesc := "OK"
+	if *err != nil {
+		errDesc = (*err).Error()
+	}
+
+	b.requestLogf(id, "-> %s (%v): %s", desc, duration, errDesc)
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Bucket interface
