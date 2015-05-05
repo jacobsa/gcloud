@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"time"
 
 	"golang.org/x/net/context"
 )
@@ -32,7 +33,25 @@ type canceller interface {
 func waitForCancellation(
 	ctx context.Context,
 	c canceller,
-	req *http.Request)
+	req *http.Request) {
+	// If there is no done channel, there's nothing we can do.
+	done := ctx.Done()
+	if done == nil {
+		return
+	}
+
+	// Wait, then cancel.
+	<-done
+	c.CancelRequest(req)
+
+	// HACK(jacobsa): The http package's design for cancellation seems flawed:
+	// the canceller must naturally race with the transport receiving the
+	// request. If it wins the race (which is not unlikely if our Do function is
+	// called with a pre-cancelled context), the cancellation will be lost.
+	// Attempt to work around this by sleeping a bit and cancelling again.
+	time.Sleep(10 * time.Millisecond)
+	c.CancelRequest(req)
+}
 
 // Call client.Do with the supplied request, cancelling the request if the
 // context is cancelled. Return an error if the client does not support
