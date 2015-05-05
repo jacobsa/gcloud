@@ -111,7 +111,7 @@ func (b *bucket) startResumableUpload(
 	httpReq.Header.Set("X-Upload-Content-Type", req.ContentType)
 
 	// Execute the HTTP request.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		return
 	}
@@ -172,7 +172,7 @@ func (b *bucket) CreateObject(
 	httpReq.Header.Set("Content-Type", req.ContentType)
 
 	// Execute the request.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		return
 	}

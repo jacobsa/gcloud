@@ -157,7 +157,7 @@ func (b *bucket) ListObjects(
 	}
 
 	// Call the server.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		err = fmt.Errorf("HTTP client: %v", err)
 		return
@@ -234,7 +234,7 @@ func (b *bucket) NewReader(
 	}
 
 	// Call the server.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		err = fmt.Errorf("HTTP client: %v", err)
 		return
@@ -292,7 +292,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Execute the HTTP request.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		return
 	}
@@ -347,7 +347,7 @@ func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
 	}
 
 	// Execute the HTTP request.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		return
 	}

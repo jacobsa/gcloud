@@ -58,7 +58,7 @@ func waitForCancellation(
 // cancellation.
 func Do(
 	ctx context.Context,
-	client http.Client,
+	client *http.Client,
 	req *http.Request) (resp *http.Response, err error) {
 	// Make sure the transport supports cancellation.
 	c, ok := client.Transport.(canceller)
