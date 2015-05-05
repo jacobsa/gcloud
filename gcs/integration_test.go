@@ -48,6 +48,7 @@ func init() {
 	makeDeps := func(ctx context.Context) (deps gcstesting.BucketTestDeps) {
 		deps.Bucket = gcstesting.IntegrationTestBucketOrDie()
 		deps.Clock = timeutil.RealClock()
+		deps.SupportsCancellation = true
 
 		err := gcsutil.DeleteAllObjects(ctx, deps.Bucket)
 		if err != nil {

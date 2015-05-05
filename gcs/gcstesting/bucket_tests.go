@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"log"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -198,9 +199,10 @@ func listDifference(a []string, b []string) (res []string) {
 ////////////////////////////////////////////////////////////////////////
 
 type bucketTest struct {
-	ctx    context.Context
-	bucket gcs.Bucket
-	clock  timeutil.Clock
+	ctx                  context.Context
+	bucket               gcs.Bucket
+	clock                timeutil.Clock
+	supportsCancellation bool
 }
 
 var _ bucketTestSetUpInterface = &bucketTest{}
@@ -209,6 +211,7 @@ func (t *bucketTest) setUpBucketTest(deps BucketTestDeps) {
 	t.ctx = deps.ctx
 	t.bucket = deps.Bucket
 	t.clock = deps.Clock
+	t.supportsCancellation = deps.SupportsCancellation
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
@@ -2026,4 +2029,98 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 			"c!",
 			"d!",
 		))
+}
+
+////////////////////////////////////////////////////////////////////////
+// Cancellation
+////////////////////////////////////////////////////////////////////////
+
+type cancellationTest struct {
+	bucketTest
+}
+
+// A Reader that slowly returns junk, forever. A channel is closed after 1 MiB
+// has been read.
+type bottomlessReader struct {
+	OneMegRead chan struct{}
+	n          int
+}
+
+func (rc *bottomlessReader) Read(p []byte) (n int, err error) {
+	// Return zeroes.
+	n = len(p)
+	for i := 0; i < n; i++ {
+		p[i] = 0
+	}
+
+	// But not too quickly.
+	time.Sleep(time.Millisecond)
+
+	// Notify once we hit a bunch of data read.
+	rc.n += n
+	if rc.n >= 1<<20 && rc.OneMegRead != nil {
+		close(rc.OneMegRead)
+		rc.OneMegRead = nil
+	}
+
+	return
+}
+
+func (t *cancellationTest) CreateObject() {
+	const name = "foo"
+	var err error
+
+	if !t.supportsCancellation {
+		log.Println("Cancellation not supported; skipping test.")
+		return
+	}
+
+	// Set up a cancellable context.
+	ctx, cancel := context.WithCancel(t.ctx)
+
+	// Begin a request to create an object using a bottomless reader for the
+	// contents.
+	oneMegRead := make(chan struct{})
+	rc := &bottomlessReader{
+		OneMegRead: oneMegRead,
+	}
+
+	errChan := make(chan error)
+	go func() {
+		req := &gcs.CreateObjectRequest{
+			Name:     name,
+			Contents: rc,
+		}
+
+		_, err := t.bucket.CreateObject(ctx, req)
+		errChan <- err
+	}()
+
+	// Wait until some data has been read.
+	<-oneMegRead
+
+	// Wait a moment longer. The request should not yet be complete.
+	select {
+	case err = <-errChan:
+		AddFailure("CreateObject returned early with error: %v", err)
+		AbortTest()
+
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	// Cancel the request. Now it should return quickly with an appropriate
+	// error.
+	cancel()
+	err = <-errChan
+
+	ExpectThat(err, Error(HasSubstr("connection")))
+	ExpectThat(err, Error(HasSubstr("closed")))
+
+	// The object should not have been created.
+	statReq := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err = t.bucket.StatObject(t.ctx, statReq)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }

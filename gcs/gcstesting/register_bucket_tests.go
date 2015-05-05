@@ -38,6 +38,9 @@ type BucketTestDeps struct {
 
 	// A clock matching the bucket's notion of time.
 	Clock timeutil.Clock
+
+	// Does the bucket support cancellation?
+	SupportsCancellation bool
 }
 
 // An interface that all bucket tests must implement.
@@ -132,6 +135,7 @@ func RegisterBucketTests(makeDeps func(context.Context) BucketTestDeps) {
 		&updateTest{},
 		&deleteTest{},
 		&listTest{},
+		&cancellationTest{},
 	}
 
 	// Register each.

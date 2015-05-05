@@ -112,7 +112,7 @@ func (b *bucket) UpdateObject(
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Execute the HTTP request.
-	httpRes, err := b.client.Do(httpReq)
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
 		return
 	}
