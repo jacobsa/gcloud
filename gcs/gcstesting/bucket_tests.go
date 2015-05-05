@@ -2043,10 +2043,14 @@ type bottomlessReadCloser struct {
 }
 
 func (rc *bottomlessReadCloser) Read(p []byte) (n int, err error) {
+	// Return zeroes.
 	n = len(p)
 	for i := 0; i < n; i++ {
 		p[i] = 0
 	}
+
+	// But not too quickly.
+	time.Sleep(time.Millisecond)
 
 	return
 }
@@ -2061,5 +2065,25 @@ func (rc *bottomlessReadCloser) Close(err error) {
 }
 
 func (t *cancellationTest) CreateObject() {
+	const name = "foo"
+	var err error
+
+	// Set up a cancellable context.
+	ctx, cancel := context.WithCancel(t.Ctx)
+
+	// Begin a request to create an object using a bottomless read closer for the
+	// contents.
+	rc := &bottomlessReadCloser{}
+	errChan := make(chan error)
+	go func() {
+		req := &gcs.CreateObjectRequest{
+			Name:     name,
+			Contents: rc,
+		}
+
+		_, err := t.bucket.CreateObject(ctx, req)
+		errChan <- err
+	}()
+
 	AssertTrue(false, "TODO")
 }
