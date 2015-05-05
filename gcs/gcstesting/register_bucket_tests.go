@@ -132,6 +132,7 @@ func RegisterBucketTests(makeDeps func(context.Context) BucketTestDeps) {
 		&updateTest{},
 		&deleteTest{},
 		&listTest{},
+		&cancellationTest{},
 	}
 
 	// Register each.

@@ -2027,3 +2027,15 @@ func (t *listTest) Cursor_BucketEndsWithRunOfObjectsGroupedByDelimiter() {
 			"d!",
 		))
 }
+
+////////////////////////////////////////////////////////////////////////
+// Cancellation
+////////////////////////////////////////////////////////////////////////
+
+type cancellationTest struct {
+	bucketTest
+}
+
+func (t *cancellationTest) CreateObject() {
+	AssertTrue(false, "TODO")
+}
