@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"log"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -198,9 +199,10 @@ func listDifference(a []string, b []string) (res []string) {
 ////////////////////////////////////////////////////////////////////////
 
 type bucketTest struct {
-	ctx    context.Context
-	bucket gcs.Bucket
-	clock  timeutil.Clock
+	ctx                  context.Context
+	bucket               gcs.Bucket
+	clock                timeutil.Clock
+	supportsCancellation bool
 }
 
 var _ bucketTestSetUpInterface = &bucketTest{}
@@ -209,6 +211,7 @@ func (t *bucketTest) setUpBucketTest(deps BucketTestDeps) {
 	t.ctx = deps.ctx
 	t.bucket = deps.Bucket
 	t.clock = deps.Clock
+	t.supportsCancellation = deps.SupportsCancellation
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
@@ -2066,6 +2069,11 @@ func (rc *bottomlessReader) Read(p []byte) (n int, err error) {
 func (t *cancellationTest) CreateObject() {
 	const name = "foo"
 	var err error
+
+	if !t.supportsCancellation {
+		log.Println("Cancellation not supported; skipping test.")
+		return
+	}
 
 	// Set up a cancellable context.
 	ctx, cancel := context.WithCancel(t.ctx)
