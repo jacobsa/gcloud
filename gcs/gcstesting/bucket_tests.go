@@ -2069,7 +2069,7 @@ func (t *cancellationTest) CreateObject() {
 	var err error
 
 	// Set up a cancellable context.
-	ctx, cancel := context.WithCancel(t.Ctx)
+	ctx, cancel := context.WithCancel(t.ctx)
 
 	// Begin a request to create an object using a bottomless read closer for the
 	// contents.
@@ -2085,5 +2085,27 @@ func (t *cancellationTest) CreateObject() {
 		errChan <- err
 	}()
 
-	AssertTrue(false, "TODO")
+	// Wait a moment. The request should not yet be complete.
+	select {
+	case err = <-errChan:
+		AddFailure("CreateObject returned early with error: %v", err)
+		AbortTest()
+
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	// Cancel the request. Now it should return quickly with an appropriate
+	// error.
+	cancel()
+	err = <-errChan
+
+	ExpectThat(err, Error(HasSubstr("TODO")))
+
+	// The object should not have been created.
+	statReq := &gcs.StatObjectRequest{
+		Name: name,
+	}
+
+	_, err = t.bucket.StatObject(t.ctx, statReq)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
