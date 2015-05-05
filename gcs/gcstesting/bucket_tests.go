@@ -2036,6 +2036,30 @@ type cancellationTest struct {
 	bucketTest
 }
 
+// A ReadCloser that slowly returns junk, forever until closed. The fact that it
+// was closed is recorded.
+type bottomlessReadCloser struct {
+	Closed bool
+}
+
+func (rc *bottomlessReadCloser) Read(p []byte) (n int, err error) {
+	n = len(p)
+	for i := 0; i < n; i++ {
+		p[i] = 0
+	}
+
+	return
+}
+
+func (rc *bottomlessReadCloser) Close(err error) {
+	if rc.Closed {
+		panic("bottomlessReadCloser closed twice")
+	}
+
+	rc.Closed = true
+	return
+}
+
 func (t *cancellationTest) CreateObject() {
 	AssertTrue(false, "TODO")
 }
