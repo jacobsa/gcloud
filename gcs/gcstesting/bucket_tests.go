@@ -2105,7 +2105,8 @@ func (t *cancellationTest) CreateObject() {
 	cancel()
 	err = <-errChan
 
-	ExpectThat(err, Error(HasSubstr("TODO")))
+	ExpectThat(err, Error(HasSubstr("connection")))
+	ExpectThat(err, Error(HasSubstr("closed")))
 
 	// The object should not have been created.
 	statReq := &gcs.StatObjectRequest{
