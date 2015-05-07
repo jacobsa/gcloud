@@ -34,7 +34,9 @@ var fBucket = flag.String(
 	"bucket", "",
 	"Empty bucket to use for storage.")
 
-func httpClient() (client *http.Client, err error) {
+// Return an HTTP client configured according to the --key_file flag defined by
+// this package. For use in integration tests that use GCS.
+func IntegrationTestHTTPClient() (client *http.Client, err error) {
 	if *fKeyFile == "" {
 		err = errors.New("You must set --key_file.")
 		return
@@ -70,7 +72,7 @@ func IntegrationTestBucket() (b gcs.Bucket, err error) {
 	}
 
 	// Grab the HTTP client.
-	client, err := httpClient()
+	client, err := IntegrationTestHTTPClient()
 	if err != nil {
 		return
 	}
