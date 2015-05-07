@@ -32,7 +32,7 @@ var fKeyFile = flag.String(
 
 var fBucket = flag.String(
 	"bucket", "",
-	"Empty bucket to use for storage.")
+	"Bucket to use for testing.")
 
 // Return an HTTP client configured according to the --key_file flag defined by
 // this package. For use in integration tests that use GCS.
