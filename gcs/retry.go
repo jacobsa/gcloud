@@ -16,6 +16,7 @@ package gcs
 
 import (
 	"io"
+	"log"
 	"math/rand"
 	"time"
 
@@ -45,6 +46,18 @@ func newRetryBucket(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
+func shouldRetry(err error) (b bool) {
+	// HTTP 50x errors.
+	if typed, ok := err.(*googleapi.Error); ok {
+		if typed.Code >= 500 && typed.Code < 600 {
+			b = true
+			return
+		}
+	}
+
+	return
+}
+
 // Exponential backoff for a function that might fail.
 //
 // This is essentially what is described in the "Best practices" section of the
@@ -53,10 +66,6 @@ func newRetryBucket(
 //     https://cloud.google.com/storage/docs/json_api/v1/how-tos/upload
 //
 // with the following exceptions:
-//
-//  *  We perform backoff for all errors except:
-//      *  HTTP 40x errors
-//      *  Error types defined by this package
 //
 //  *  We perform backoff for all operations.
 //
@@ -78,19 +87,15 @@ func expBackoff(
 			return
 		}
 
-		// Is this an error we want to pass through?
-		if _, ok := err.(*NotFoundError); ok {
-			return
-		}
+		// Do we want to retry?
+		if !shouldRetry(err) {
+			log.Printf(
+				"Not retrying error of type %T (%q): %#v",
+				err,
+				err.Error(),
+				err)
 
-		if _, ok := err.(*PreconditionError); ok {
 			return
-		}
-
-		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code >= 400 && typed.Code < 500 {
-				return
-			}
 		}
 
 		// Choose a a delay in [0, 2^n * baseDelay).
