@@ -159,7 +159,6 @@ func (b *bucket) ListObjects(
 	// Call the server.
 	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
-		err = fmt.Errorf("HTTP client: %v", err)
 		return
 	}
 
@@ -236,7 +235,6 @@ func (b *bucket) NewReader(
 	// Call the server.
 	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
-		err = fmt.Errorf("HTTP client: %v", err)
 		return
 	}
 
