@@ -18,6 +18,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"time"
 
 	"golang.org/x/net/context"
@@ -53,6 +54,16 @@ func shouldRetry(err error) (b bool) {
 			b = true
 			return
 		}
+	}
+
+	// Network errors, which tend to show up transiently when doing lots of
+	// operations in parallel. For example:
+	//
+	//     dial tcp 74.125.203.95:443: too many open files
+	//
+	if _, ok := err.(*net.OpError); ok {
+		b = true
+		return
 	}
 
 	return
