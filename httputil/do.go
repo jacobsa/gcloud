@@ -30,9 +30,18 @@ type canceller interface {
 }
 
 // Wait until the context is cancelled, then cancel the supplied HTTP request.
+//
+// HACK(jacobsa): The http package's design for cancellation is flawed: the
+// canceller must naturally race with the transport receiving the request --
+// CancelRequest may be called before RoundTrip, and in this case the
+// cancellation will be lost. This is especially a problem with wrapper
+// transports like the oauth2 one, which may do extra work before calling
+// through to http.Transport. Work around this by repeatedly cancelling until
+// the finished channel is closed.
 func waitForCancellation(
 	ctx context.Context,
 	c canceller,
+	finished chan struct{},
 	req *http.Request) {
 	// If there is no done channel, there's nothing we can do.
 	done := ctx.Done()
@@ -40,9 +49,21 @@ func waitForCancellation(
 		return
 	}
 
-	// Wait, then cancel.
+	// Wait for the context to be cancelled.
 	<-done
-	c.CancelRequest(req)
+
+	// Keep cancelling the HTTP request until the finished channel is closed, as
+	// discussed above.
+	for {
+		c.CancelRequest(req)
+
+		select {
+		case <-finished:
+			return
+
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 
 	// HACK(jacobsa): The http package's design for cancellation seems flawed:
 	// the canceller must naturally race with the transport receiving the
@@ -72,7 +93,9 @@ func Do(
 	// Wait for cancellation in the background. Note that this goroutine should
 	// eventually return, because context.WithCancel requires the caller to
 	// arrange for cancellation to happen eventually.
-	go waitForCancellation(ctx, c, req)
+	finished := make(chan struct{})
+	defer close(finished)
+	go waitForCancellation(ctx, c, finished, req)
 
 	// Call through.
 	resp, err = client.Do(req)
