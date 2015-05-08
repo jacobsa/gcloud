@@ -19,6 +19,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/url"
 	"time"
 
 	"golang.org/x/net/context"
@@ -63,6 +64,13 @@ func shouldRetry(err error) (b bool) {
 	//
 	if _, ok := err.(*net.OpError); ok {
 		b = true
+		return
+	}
+
+	// Sometimes the HTTP package helpfully encapsulates the real error in a URL
+	// error.
+	if urlErr, ok := err.(*url.Error); ok {
+		b = shouldRetry(urlErr.Err)
 		return
 	}
 
