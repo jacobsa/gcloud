@@ -128,6 +128,8 @@ func expBackoff(
 		}
 
 		// Sleep, returning early if cancelled.
+		log.Printf("Retrying after error of type %T (%q) in %v", err, err, d)
+
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
