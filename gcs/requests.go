@@ -70,6 +70,14 @@ type ReadObjectRequest struct {
 
 	// The generation of the object to read. Zero means the latest generation.
 	Generation int64
+
+	// A [start, limit) range of the object to read. If the range extends beyond
+	// the end of the object, it is truncated.
+	//
+	// If Limit is non-nil, *Limit must be greater than or equal to Start. If it
+	// is nil, the limit is treated as infinity.
+	Start int64
+	Limit *int64
 }
 
 type StatObjectRequest struct {
