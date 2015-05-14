@@ -296,35 +296,32 @@ func (b *bucket) NewReader(
 		return
 	}
 
-	// Validate the requested range.
-	rangeOK := req.Start >= 0 &&
-		req.Start < int64(len(o.contents)) &&
-		(req.Limit == nil || *req.Limit > req.Start)
+	// Extract the requested range.
+	result := o.contents
 
-	if !rangeOK {
-		var desc string
-		if req.Limit == nil {
-			desc = fmt.Sprintf("[%d, ∞)", req.Start)
-		} else {
-			desc = fmt.Sprintf("[%d, %d)", req.Start, *req.Limit)
+	if req.Range != nil {
+		start := req.Range.Start
+		limit := req.Range.Limit
+		l := uint64(len(result))
+
+		if start > limit {
+			start = 0
+			limit = 0
 		}
 
-		err = fmt.Errorf(
-			"Invalid range for object of length %v: %s",
-			len(o.contents),
-			desc)
+		if start > l {
+			start = 0
+			limit = 0
+		}
 
-		return
+		if limit > l {
+			limit = l
+		}
+
+		result = result[start:limit]
 	}
 
-	// Extract the requested range.
-	start := int(req.Start)
-	limit := len(o.contents)
-	if req.Limit != nil && *req.Limit < int64(len(o.contents)) {
-		limit = int(*req.Limit)
-	}
-
-	rc = ioutil.NopCloser(strings.NewReader(o.contents[start:limit]))
+	rc = ioutil.NopCloser(strings.NewReader(result))
 
 	return
 }
