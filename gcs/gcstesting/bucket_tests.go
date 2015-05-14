@@ -1069,7 +1069,11 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	AssertEq(nil, r.Close())
 }
 
-func (t *readTest) ValidRanges() {
+func (t *readTest) ValidRanges_EmptyObject() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *readTest) ValidRanges_NonEmptyObject() {
 	// Create an object of length four.
 	AssertEq(nil, t.createObject("foo", "taco"))
 
@@ -1092,6 +1096,26 @@ func (t *readTest) ValidRanges() {
 		{makeByteRange(1, 4), "aco"},
 		{makeByteRange(1, 2), "a"},
 		{makeByteRange(1, 1), ""},
+
+		// Left edge at right edge of object
+		{makeByteRange(4, math.MaxUint64), ""},
+		{makeByteRange(4, 17, ""},
+		{makeByteRange(4, 5, ""},
+		{makeByteRange(4, 4, ""},
+
+		// Left edge past right edge of object
+		{makeByteRange(5, math.MaxUint64), ""},
+		{makeByteRange(5, 17, ""},
+		{makeByteRange(5, 5, ""},
+		{makeByteRange(math.MaxUint64, math.MaxUint64), ""},
+
+		// Start and limit reversed
+		{makeByteRange(1, 0), ""},
+		{makeByteRange(4, 0), ""},
+		{makeByteRange(4, 3), ""},
+		{makeByteRange(5, 0), ""},
+		{makeByteRange(5, 3), ""},
+		{makeByteRange(5, 4), ""},
 	}
 
 	// Turn test cases into read requests.

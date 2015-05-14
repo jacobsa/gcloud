@@ -66,7 +66,7 @@ type CreateObjectRequest struct {
 
 // A [start, limit) range of bytes within an object.
 //
-// Requirements and semantics:
+// Semantics:
 //
 //  *  If Limit is less than or equal to Start, the range is treated as empty.
 //
