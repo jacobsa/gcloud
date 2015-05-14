@@ -397,7 +397,7 @@ func formatByteRange(
 	}
 
 	// Remember that HTTP byte ranges are inclusive. Sigh.
-	s = fmt.Sprintf("%d-%d", start, *limit-1)
+	s = fmt.Sprintf("bytes=%d-%d", start, *limit-1)
 
 	return
 }
