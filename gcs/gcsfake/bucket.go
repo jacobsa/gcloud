@@ -119,6 +119,10 @@ func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	return s.lowerBound(successor)
 }
 
+////////////////////////////////////////////////////////////////////////
+// bucket
+////////////////////////////////////////////////////////////////////////
+
 type bucket struct {
 	clock timeutil.Clock
 	name  string
@@ -292,7 +296,36 @@ func (b *bucket) NewReader(
 		return
 	}
 
-	rc = ioutil.NopCloser(strings.NewReader(o.contents))
+	// Validate the requested range.
+	rangeOK := req.Start >= 0 &&
+		req.Start < int64(len(o.contents)) &&
+		(req.Limit == nil || *req.Limit > req.Start)
+
+	if !rangeOK {
+		var desc string
+		if req.Limit == nil {
+			desc = fmt.Sprintf("[%d, ∞)", req.Start)
+		} else {
+			desc = fmt.Sprintf("[%d, %d)", req.Start, *req.Limit)
+		}
+
+		err = fmt.Errorf(
+			"Invalid range for object of length %v: %s",
+			len(o.contents),
+			desc)
+
+		return
+	}
+
+	// Extract the requested range.
+	start := int(req.Start)
+	limit := len(o.contents)
+	if req.Limit != nil && *req.Limit < int64(len(o.contents)) {
+		limit = int(*req.Limit)
+	}
+
+	rc = ioutil.NopCloser(strings.NewReader(o.contents[start:limit]))
+
 	return
 }
 
