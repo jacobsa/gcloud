@@ -1135,7 +1135,14 @@ func (t *readTest) Ranges() {
 				var rc io.ReadCloser
 				rc, err = t.bucket.NewReader(ctx, req)
 				if err != nil {
-					err = fmt.Errorf("NewReader: %v", err)
+					var desc string
+					if tc.limit == nil {
+						desc = fmt.Sprintf("[%d, inf)", tc.start)
+					} else {
+						desc = fmt.Sprintf("[%d, %d)", tc.start, *tc.limit)
+					}
+
+					err = fmt.Errorf("%s: NewReader: %v", desc, err)
 					return
 				}
 
