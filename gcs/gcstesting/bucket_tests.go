@@ -1091,25 +1091,13 @@ func (t *readTest) ValidRanges() {
 		testCase{0, newInt64(4), "taco", ""},
 		testCase{0, newInt64(3), "tac", ""},
 		testCase{0, newInt64(1), "t", ""},
-		testCase{0, newInt64(0), "", ""},
 
-		// Left edge is strictly within object
+		// Floating left edge
 		testCase{1, nil, "aco", ""},
 		testCase{1, newInt64(math.MaxInt64), "aco", ""},
 		testCase{1, newInt64(5), "aco", ""},
 		testCase{1, newInt64(4), "aco", ""},
 		testCase{1, newInt64(2), "a", ""},
-		testCase{1, newInt64(1), "", ""},
-
-		// Left edge is at right edge of object
-		testCase{4, nil, "", ""},
-		testCase{4, newInt64(17), "", ""},
-		testCase{4, newInt64(math.MaxInt64), "", ""},
-
-		// Left edge is past right edge of object
-		testCase{17, nil, "", ""},
-		testCase{17, newInt64(17), "", ""},
-		testCase{17, newInt64(math.MaxInt64), "", ""},
 	}
 
 	// Run each test case, with parallelism.
