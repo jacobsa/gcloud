@@ -1206,7 +1206,7 @@ func (t *readTest) ValidRanges_NonEmptyObject() {
 	for i, tc := range testCases {
 		desc := fmt.Sprintf("Test case %d, range %v", i, tc.br)
 		ExpectEq(nil, errs[i], "%s", desc)
-		ExpectEq(tc.expectedContents, contents[i], "%s", desc)
+		ExpectEq(tc.expectedContents, string(contents[i]), "%s", desc)
 	}
 }
 
