@@ -1136,7 +1136,67 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 }
 
 func (t *readTest) ValidRanges_EmptyObject() {
-	AssertTrue(false, "TODO")
+	// Create an empty object.
+	AssertEq(nil, t.createObject("foo", ""))
+
+	// Test cases.
+	testCases := []struct {
+		br gcs.ByteRange
+	}{
+		// Empty without knowing object length
+		{gcs.ByteRange{0, 0}},
+
+		{gcs.ByteRange{1, 1}},
+		{gcs.ByteRange{1, 0}},
+
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64}},
+		{gcs.ByteRange{math.MaxInt64, 17}},
+		{gcs.ByteRange{math.MaxInt64, 0}},
+
+		{gcs.ByteRange{math.MaxUint64, math.MaxUint64}},
+		{gcs.ByteRange{math.MaxUint64, 17}},
+		{gcs.ByteRange{math.MaxUint64, 0}},
+
+		// Not empty without knowing object length
+		{gcs.ByteRange{0, 1}},
+		{gcs.ByteRange{0, 17}},
+		{gcs.ByteRange{0, math.MaxInt64}},
+		{gcs.ByteRange{0, math.MaxUint64}},
+
+		{gcs.ByteRange{1, 2}},
+		{gcs.ByteRange{1, 17}},
+		{gcs.ByteRange{1, math.MaxInt64}},
+		{gcs.ByteRange{1, math.MaxUint64}},
+
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64 + 1}},
+		{gcs.ByteRange{math.MaxInt64, math.MaxUint64}},
+	}
+
+	// Turn test cases into read requests.
+	var requests []*gcs.ReadObjectRequest
+	for _, tc := range testCases {
+		br := tc.br
+		req := &gcs.ReadObjectRequest{
+			Name:  "foo",
+			Range: &br,
+		}
+
+		requests = append(requests, req)
+	}
+
+	// Make each request.
+	contents, errs := readMultiple(
+		t.ctx,
+		t.bucket,
+		requests)
+
+	AssertEq(len(testCases), len(contents))
+	AssertEq(len(testCases), len(errs))
+	for i, tc := range testCases {
+		desc := fmt.Sprintf("Test case %d, range %v", i, tc.br)
+		ExpectEq(nil, errs[i], "%s", desc)
+		ExpectEq("", string(contents[i]), "%s", desc)
+	}
 }
 
 func (t *readTest) ValidRanges_NonEmptyObject() {
