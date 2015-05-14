@@ -1222,26 +1222,46 @@ func (t *readTest) Ranges_NonEmptyObject() {
 		{gcs.ByteRange{1, 4}, "aco"},
 		{gcs.ByteRange{1, 2}, "a"},
 		{gcs.ByteRange{1, 1}, ""},
+		{gcs.ByteRange{1, 0}, ""},
 
 		// Left edge at right edge of object
 		{gcs.ByteRange{4, math.MaxUint64}, ""},
+		{gcs.ByteRange{4, math.MaxInt64 + 1}, ""},
+		{gcs.ByteRange{4, math.MaxInt64 + 0}, ""},
+		{gcs.ByteRange{4, math.MaxInt64 - 1}, ""},
 		{gcs.ByteRange{4, 17}, ""},
 		{gcs.ByteRange{4, 5}, ""},
 		{gcs.ByteRange{4, 4}, ""},
+		{gcs.ByteRange{4, 1}, ""},
+		{gcs.ByteRange{4, 0}, ""},
 
 		// Left edge past right edge of object
 		{gcs.ByteRange{5, math.MaxUint64}, ""},
 		{gcs.ByteRange{5, 17}, ""},
 		{gcs.ByteRange{5, 5}, ""},
-		{gcs.ByteRange{math.MaxUint64, math.MaxUint64}, ""},
-
-		// Start and limit reversed
-		{gcs.ByteRange{1, 0}, ""},
-		{gcs.ByteRange{4, 0}, ""},
-		{gcs.ByteRange{4, 3}, ""},
-		{gcs.ByteRange{5, 0}, ""},
-		{gcs.ByteRange{5, 3}, ""},
 		{gcs.ByteRange{5, 4}, ""},
+		{gcs.ByteRange{5, 1}, ""},
+		{gcs.ByteRange{5, 0}, ""},
+
+		// Left edge is 2^63 - 1
+		{gcs.ByteRange{math.MaxInt64, math.MaxUint64}, ""},
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64 + 1}, ""},
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64 + 0}, ""},
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64 - 1}, ""},
+		{gcs.ByteRange{math.MaxInt64, 5}, ""},
+		{gcs.ByteRange{math.MaxInt64, 4}, ""},
+		{gcs.ByteRange{math.MaxInt64, 1}, ""},
+		{gcs.ByteRange{math.MaxInt64, 0}, ""},
+
+		// Left edge is 2^64 - 1
+		{gcs.ByteRange{math.MaxUint64, math.MaxUint64}, ""},
+		{gcs.ByteRange{math.MaxUint64, math.MaxInt64 + 1}, ""},
+		{gcs.ByteRange{math.MaxUint64, math.MaxInt64}, ""},
+		{gcs.ByteRange{math.MaxUint64, math.MaxInt64 - 1}, ""},
+		{gcs.ByteRange{math.MaxUint64, 5}, ""},
+		{gcs.ByteRange{math.MaxInt64, 4}, ""},
+		{gcs.ByteRange{math.MaxInt64, 1}, ""},
+		{gcs.ByteRange{math.MaxInt64, 0}, ""},
 	}
 
 	// Turn test cases into read requests.
