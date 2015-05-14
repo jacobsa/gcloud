@@ -18,8 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/jacobsa/gcloud/httputil"
 	"golang.org/x/net/context"
@@ -225,7 +227,7 @@ func (b *bucket) NewReader(
 		RawQuery: query.Encode(),
 	}
 
-	// Create an HTTP request and set the range header..
+	// Create an HTTP request.
 	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
@@ -233,7 +235,9 @@ func (b *bucket) NewReader(
 	}
 
 	// Set a Range header, if appropriate.
+	var rangeRequested bool
 	if req.Range != nil {
+		rangeRequested = true
 		httpReq.Header.Set("Range", makeRangeHeaderValue(*req.Range))
 	}
 
@@ -252,10 +256,20 @@ func (b *bucket) NewReader(
 
 	// Check for HTTP error statuses.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
-		// Special case: handle not found errors.
 		if typed, ok := err.(*googleapi.Error); ok {
+			// Special case: handle not found errors.
 			if typed.Code == http.StatusNotFound {
 				err = &NotFoundError{Err: typed}
+			}
+
+			// Special case: if the user requested a range and we received HTTP 416
+			// from the server, treat this as an empty body. See makeRangeHeaderValue
+			// for more details.
+			if rangeRequested &&
+				typed.Code == http.StatusRequestedRangeNotSatisfiable {
+				err = nil
+				googleapi.CloseBody(httpRes)
+				rc = ioutil.NopCloser(strings.NewReader(""))
 			}
 		}
 
