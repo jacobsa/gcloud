@@ -127,10 +127,7 @@ func (b *bucket) NewReader(
 			return
 		}
 
-		rc = &limitReadCloser{
-			n:       bodyLimit,
-			wrapped: rc,
-		}
+		rc = newLimitReadCloser(rc, bodyLimit)
 	}
 
 	return
@@ -178,6 +175,32 @@ func makeRangeHeaderValue(br ByteRange) (hdr string, n int64) {
 	// HTTP 416, which we require the user to handle.
 	hdr = fmt.Sprintf("bytes=%d-%d", br.Start, br.Limit)
 	n = int64(br.Limit - br.Start)
+
+	return
+}
+
+type separateReadCloser struct {
+	reader io.Reader
+	closer io.Closer
+}
+
+func (rc *separateReadCloser) Read(p []byte) (n int, err error) {
+	n, err = rc.reader.Read(p)
+	return
+}
+
+func (rc *separateReadCloser) Close() (err error) {
+	err = rc.closer.Close()
+	return
+}
+
+// Create an io.ReadCloser that limits the amount of data returned by a wrapped
+// io.ReadCloser. Like io.LimitReader, but supports closing.
+func newLimitReadCloser(wrapped io.ReadCloser, n int64) (rc io.ReadCloser) {
+	rc = &separateReadCloser{
+		reader: io.LimitReader(wrapped, n),
+		closer: wrapped,
+	}
 
 	return
 }
