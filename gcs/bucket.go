@@ -383,6 +383,10 @@ func newBucket(
 	}
 }
 
+// Format an HTTP 1.1 byte range.
+//
+// REQUIRES: limit == nil || *limit > start
+//
 // Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
 func formatByteRange(
 	start int64,
@@ -392,6 +396,8 @@ func formatByteRange(
 		return
 	}
 
-	s = fmt.Sprintf("%d-%d", start, *limit)
+	// Remember that HTTP byte ranges are inclusive. Sigh.
+	s = fmt.Sprintf("%d-%d", start, *limit-1)
+
 	return
 }
