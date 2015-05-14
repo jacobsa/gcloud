@@ -64,14 +64,6 @@ func waitForCancellation(
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
-
-	// HACK(jacobsa): The http package's design for cancellation seems flawed:
-	// the canceller must naturally race with the transport receiving the
-	// request. If it wins the race (which is not unlikely if our Do function is
-	// called with a pre-cancelled context), the cancellation will be lost.
-	// Attempt to work around this by sleeping a bit and cancelling again.
-	time.Sleep(10 * time.Millisecond)
-	c.CancelRequest(req)
 }
 
 // Call client.Do with the supplied request, cancelling the request if the
