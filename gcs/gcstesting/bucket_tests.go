@@ -1187,9 +1187,10 @@ func (t *readTest) ValidRanges_NonEmptyObject() {
 	// Turn test cases into read requests.
 	var requests []*gcs.ReadObjectRequest
 	for _, tc := range testCases {
+		br := tc.br
 		req := &gcs.ReadObjectRequest{
 			Name:  "foo",
-			Range: &tc.br,
+			Range: &br,
 		}
 
 		requests = append(requests, req)
