@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -160,6 +161,19 @@ func (b *bucket) NewReader(
 //
 // Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
 func makeRangeHeaderValue(br ByteRange) (hdr string, n int64) {
+	// HACK(jacobsa): Above a certain number N, GCS appears to treat Range
+	// headers containing a last-byte-pos > N as syntactically invalid. I've
+	// experimentally determined that N is 2^63-1, which makes sense if they are
+	// using signed integers.
+	//
+	// Since math.MaxUint64 is a reasonable way to express "infinity" for a
+	// limit, and because we don't intend to support eight-exabyte objects,
+	// handle this by truncating the limit. This also prevents overflow when
+	// casting to int64 below.
+	if br.Limit > math.MaxInt64 {
+		br.Limit = math.MaxInt64
+	}
+
 	// Canonicalize ranges that the server will not like. We must do this because
 	// RFC 2616 §14.35.1 requires the last byte position to be greater than or
 	// equal to the first byte position.
