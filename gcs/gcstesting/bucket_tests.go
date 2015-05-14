@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
-	"io"
 	"io/ioutil"
 	"log"
 	"math"
@@ -1075,96 +1074,47 @@ func (t *readTest) ValidRanges() {
 	AssertEq(nil, t.createObject("foo", "taco"))
 
 	// Test cases.
-	newInt64 := func(n int64) *int64 { return &n }
-	type testCase struct {
-		start            int64
-		limit            *int64
+	testCases := []struct {
+		br               gcs.ByteRange
 		expectedContents string
-		actualContents   string
-	}
-
-	testCases := []testCase{
+	}{
 		// Left anchored
-		testCase{0, nil, "taco", ""},
-		testCase{0, newInt64(math.MaxInt64), "taco", ""},
-		testCase{0, newInt64(5), "taco", ""},
-		testCase{0, newInt64(4), "taco", ""},
-		testCase{0, newInt64(3), "tac", ""},
-		testCase{0, newInt64(1), "t", ""},
+		{makeByteRange(0, math.MaxUint64), "taco"},
+		{makeByteRange(0, 5), "taco"},
+		{makeByteRange(0, 4), "taco"},
+		{makeByteRange(0, 3), "tac"},
+		{makeByteRange(0, 1), "t"},
+		{makeByteRange(0, 0), ""},
 
 		// Floating left edge
-		testCase{1, nil, "aco", ""},
-		testCase{1, newInt64(math.MaxInt64), "aco", ""},
-		testCase{1, newInt64(5), "aco", ""},
-		testCase{1, newInt64(4), "aco", ""},
-		testCase{1, newInt64(2), "a", ""},
+		{makeByteRange(1, math.MaxUint64), "aco"},
+		{makeByteRange(1, 5), "aco"},
+		{makeByteRange(1, 4), "aco"},
+		{makeByteRange(1, 2), "a"},
+		{makeByteRange(1, 1), ""},
 	}
 
-	// Run each test case, with parallelism.
-	b := syncutil.NewBundle(t.ctx)
-
-	c := make(chan *testCase, len(testCases))
-	for i, _ := range testCases {
-		c <- &testCases[i]
-	}
-	close(c)
-
-	const parallelism = 32
-	for i := 0; i < parallelism; i++ {
-		b.Add(func(ctx context.Context) (err error) {
-			for tc := range c {
-				// Call NewReader
-				req := &gcs.ReadObjectRequest{
-					Name:  "foo",
-					Start: tc.start,
-					Limit: tc.limit,
-				}
-
-				var rc io.ReadCloser
-				rc, err = t.bucket.NewReader(ctx, req)
-				if err != nil {
-					var desc string
-					if tc.limit == nil {
-						desc = fmt.Sprintf("[%d, inf)", tc.start)
-					} else {
-						desc = fmt.Sprintf("[%d, %d)", tc.start, *tc.limit)
-					}
-
-					err = fmt.Errorf("%s: NewReader: %v", desc, err)
-					return
-				}
-
-				// Read.
-				var contents []byte
-				contents, err = ioutil.ReadAll(rc)
-				if err != nil {
-					err = fmt.Errorf("ReadFull: %v", err)
-					return
-				}
-
-				// Close.
-				err = rc.Close()
-				if err != nil {
-					err = fmt.Errorf("Close: %v", err)
-					return
-				}
-
-				// Fill in the actual contents.
-				tc.actualContents = string(contents)
-			}
-
-			return
-		})
+	// Turn test cases into read requests.
+	var requests []*gcs.ReadObjectRequest
+	for _, tc := range testCases {
+		req := &gcs.ReadObjectRequest{
+			Name:  "foo",
+			Range: &tc.br,
+		}
 	}
 
-	AssertEq(nil, b.Join())
+	// Make each request.
+	contents, errs := readMultiple(
+		t.ctx,
+		t.bucket,
+		requests)
 
-	// Check each test case.
+	AssertEq(len(testCases), len(contents))
+	AssertEq(len(testCases), len(errs))
 	for i, tc := range testCases {
-		AssertEq(
-			tc.expectedContents,
-			tc.actualContents,
-			"Test case %v: [%v, %v)", i, tc.start, tc.limit)
+		desc := fmt.Sprintf("Test case %d, range %v", i, tc.br)
+		ExpectEq(nil, errs[i], "%s", desc)
+		ExpectEq(tc.expectedContents, contents[i], "%s", desc)
 	}
 }
 
