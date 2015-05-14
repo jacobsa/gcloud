@@ -23,6 +23,7 @@ import (
 	"hash/crc32"
 	"io/ioutil"
 	"log"
+	"math"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -191,6 +192,72 @@ func listDifference(a []string, b []string) (res []string) {
 		}
 	}
 
+	return
+}
+
+// Issue all of the supplied read requests with some degree of parallelism.
+func readMultiple(
+	ctx context.Context,
+	bucket gcs.Bucket,
+	reqs []*gcs.ReadObjectRequest) (contents [][]byte, errs []error) {
+	b := syncutil.NewBundle(ctx)
+
+	// Feed indices into a channel.
+	indices := make(chan int, len(reqs))
+	for i, _ := range reqs {
+		indices <- i
+	}
+	close(indices)
+
+	// Set up a function that deals with one request.
+	contents = make([][]byte, len(reqs))
+	errs = make([]error, len(reqs))
+
+	handleRequest := func(ctx context.Context, i int) {
+		var b []byte
+		var err error
+		defer func() {
+			contents[i] = b
+			errs[i] = err
+		}()
+
+		// Open a reader.
+		rc, err := bucket.NewReader(ctx, reqs[i])
+		if err != nil {
+			err = fmt.Errorf("NewReader: %v", err)
+			return
+		}
+
+		// Read from it.
+		b, err = ioutil.ReadAll(rc)
+		if err != nil {
+			err = fmt.Errorf("ReadAll: %v", err)
+			return
+		}
+
+		// Close it.
+		err = rc.Close()
+		if err != nil {
+			err = fmt.Errorf("Close: %v", err)
+			return
+		}
+
+		return
+	}
+
+	// Run several workers.
+	const parallelsim = 32
+	for i := 0; i < parallelsim; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for i := range indices {
+				handleRequest(ctx, i)
+			}
+
+			return
+		})
+	}
+
+	AssertEq(nil, b.Join())
 	return
 }
 
@@ -1066,6 +1133,142 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 
 	// Close
 	AssertEq(nil, r.Close())
+}
+
+func (t *readTest) Ranges_EmptyObject() {
+	// Create an empty object.
+	AssertEq(nil, t.createObject("foo", ""))
+
+	// Test cases.
+	testCases := []struct {
+		br gcs.ByteRange
+	}{
+		// Empty without knowing object length
+		{gcs.ByteRange{0, 0}},
+
+		{gcs.ByteRange{1, 1}},
+		{gcs.ByteRange{1, 0}},
+
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64}},
+		{gcs.ByteRange{math.MaxInt64, 17}},
+		{gcs.ByteRange{math.MaxInt64, 0}},
+
+		{gcs.ByteRange{math.MaxUint64, math.MaxUint64}},
+		{gcs.ByteRange{math.MaxUint64, 17}},
+		{gcs.ByteRange{math.MaxUint64, 0}},
+
+		// Not empty without knowing object length
+		{gcs.ByteRange{0, 1}},
+		{gcs.ByteRange{0, 17}},
+		{gcs.ByteRange{0, math.MaxInt64}},
+		{gcs.ByteRange{0, math.MaxUint64}},
+
+		{gcs.ByteRange{1, 2}},
+		{gcs.ByteRange{1, 17}},
+		{gcs.ByteRange{1, math.MaxInt64}},
+		{gcs.ByteRange{1, math.MaxUint64}},
+
+		{gcs.ByteRange{math.MaxInt64, math.MaxInt64 + 1}},
+		{gcs.ByteRange{math.MaxInt64, math.MaxUint64}},
+	}
+
+	// Turn test cases into read requests.
+	var requests []*gcs.ReadObjectRequest
+	for _, tc := range testCases {
+		br := tc.br
+		req := &gcs.ReadObjectRequest{
+			Name:  "foo",
+			Range: &br,
+		}
+
+		requests = append(requests, req)
+	}
+
+	// Make each request.
+	contents, errs := readMultiple(
+		t.ctx,
+		t.bucket,
+		requests)
+
+	AssertEq(len(testCases), len(contents))
+	AssertEq(len(testCases), len(errs))
+	for i, tc := range testCases {
+		desc := fmt.Sprintf("Test case %d, range %v", i, tc.br)
+		ExpectEq(nil, errs[i], "%s", desc)
+		ExpectEq("", string(contents[i]), "%s", desc)
+	}
+}
+
+func (t *readTest) Ranges_NonEmptyObject() {
+	// Create an object of length four.
+	AssertEq(nil, t.createObject("foo", "taco"))
+
+	// Test cases.
+	testCases := []struct {
+		br               gcs.ByteRange
+		expectedContents string
+	}{
+		// Left anchored
+		{gcs.ByteRange{0, math.MaxUint64}, "taco"},
+		{gcs.ByteRange{0, 5}, "taco"},
+		{gcs.ByteRange{0, 4}, "taco"},
+		{gcs.ByteRange{0, 3}, "tac"},
+		{gcs.ByteRange{0, 1}, "t"},
+		{gcs.ByteRange{0, 0}, ""},
+
+		// Floating left edge
+		{gcs.ByteRange{1, math.MaxUint64}, "aco"},
+		{gcs.ByteRange{1, 5}, "aco"},
+		{gcs.ByteRange{1, 4}, "aco"},
+		{gcs.ByteRange{1, 2}, "a"},
+		{gcs.ByteRange{1, 1}, ""},
+
+		// Left edge at right edge of object
+		{gcs.ByteRange{4, math.MaxUint64}, ""},
+		{gcs.ByteRange{4, 17}, ""},
+		{gcs.ByteRange{4, 5}, ""},
+		{gcs.ByteRange{4, 4}, ""},
+
+		// Left edge past right edge of object
+		{gcs.ByteRange{5, math.MaxUint64}, ""},
+		{gcs.ByteRange{5, 17}, ""},
+		{gcs.ByteRange{5, 5}, ""},
+		{gcs.ByteRange{math.MaxUint64, math.MaxUint64}, ""},
+
+		// Start and limit reversed
+		{gcs.ByteRange{1, 0}, ""},
+		{gcs.ByteRange{4, 0}, ""},
+		{gcs.ByteRange{4, 3}, ""},
+		{gcs.ByteRange{5, 0}, ""},
+		{gcs.ByteRange{5, 3}, ""},
+		{gcs.ByteRange{5, 4}, ""},
+	}
+
+	// Turn test cases into read requests.
+	var requests []*gcs.ReadObjectRequest
+	for _, tc := range testCases {
+		br := tc.br
+		req := &gcs.ReadObjectRequest{
+			Name:  "foo",
+			Range: &br,
+		}
+
+		requests = append(requests, req)
+	}
+
+	// Make each request.
+	contents, errs := readMultiple(
+		t.ctx,
+		t.bucket,
+		requests)
+
+	AssertEq(len(testCases), len(contents))
+	AssertEq(len(testCases), len(errs))
+	for i, tc := range testCases {
+		desc := fmt.Sprintf("Test case %d, range %v", i, tc.br)
+		ExpectEq(nil, errs[i], "%s", desc)
+		ExpectEq(tc.expectedContents, string(contents[i]), "%s", desc)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////

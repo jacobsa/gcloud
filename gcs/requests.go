@@ -16,6 +16,7 @@ package gcs
 
 import (
 	"crypto/md5"
+	"fmt"
 	"io"
 )
 
@@ -63,6 +64,24 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
+// A [start, limit) range of bytes within an object.
+//
+// Semantics:
+//
+//  *  If Limit is less than or equal to Start, the range is treated as empty.
+//
+//  *  If Limit is greater than the length of the object, the range is
+//     implicitly truncated.
+//
+type ByteRange struct {
+	Start uint64
+	Limit uint64
+}
+
+func (br ByteRange) String() string {
+	return fmt.Sprintf("[%d, %d)", br.Start, br.Limit)
+}
+
 // A request to read the contents of an object at a particular generation.
 type ReadObjectRequest struct {
 	// The name of the object to read.
@@ -70,6 +89,9 @@ type ReadObjectRequest struct {
 
 	// The generation of the object to read. Zero means the latest generation.
 	Generation int64
+
+	// If present, limit the contents returned to a range within the object.
+	Range *ByteRange
 }
 
 type StatObjectRequest struct {

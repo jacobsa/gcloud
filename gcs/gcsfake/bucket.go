@@ -119,6 +119,10 @@ func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	return s.lowerBound(successor)
 }
 
+////////////////////////////////////////////////////////////////////////
+// bucket
+////////////////////////////////////////////////////////////////////////
+
 type bucket struct {
 	clock timeutil.Clock
 	name  string
@@ -292,7 +296,33 @@ func (b *bucket) NewReader(
 		return
 	}
 
-	rc = ioutil.NopCloser(strings.NewReader(o.contents))
+	// Extract the requested range.
+	result := o.contents
+
+	if req.Range != nil {
+		start := req.Range.Start
+		limit := req.Range.Limit
+		l := uint64(len(result))
+
+		if start > limit {
+			start = 0
+			limit = 0
+		}
+
+		if start > l {
+			start = 0
+			limit = 0
+		}
+
+		if limit > l {
+			limit = l
+		}
+
+		result = result[start:limit]
+	}
+
+	rc = ioutil.NopCloser(strings.NewReader(result))
+
 	return
 }
 
