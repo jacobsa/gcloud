@@ -1135,7 +1135,7 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	AssertEq(nil, r.Close())
 }
 
-func (t *readTest) ValidRanges_EmptyObject() {
+func (t *readTest) Ranges_EmptyObject() {
 	// Create an empty object.
 	AssertEq(nil, t.createObject("foo", ""))
 
@@ -1199,7 +1199,7 @@ func (t *readTest) ValidRanges_EmptyObject() {
 	}
 }
 
-func (t *readTest) ValidRanges_NonEmptyObject() {
+func (t *readTest) Ranges_NonEmptyObject() {
 	// Create an object of length four.
 	AssertEq(nil, t.createObject("foo", "taco"))
 
@@ -1269,10 +1269,6 @@ func (t *readTest) ValidRanges_NonEmptyObject() {
 		ExpectEq(nil, errs[i], "%s", desc)
 		ExpectEq(tc.expectedContents, string(contents[i]), "%s", desc)
 	}
-}
-
-func (t *readTest) InvalidRanges() {
-	AssertTrue(false, "TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////
