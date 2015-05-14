@@ -225,14 +225,21 @@ func (b *bucket) NewReader(
 		RawQuery: query.Encode(),
 	}
 
-	// Create an HTTP request.
+	// Choose the HTTP range to request.
+	byteRange, err := formatByteRange(req.Start, req.Limit)
+	if err != nil {
+		err = fmt.Errorf("formatByteRange: %v", err)
+		return
+	}
+
+	// Create an HTTP request and set the range header..
 	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return
 	}
 
-	httpReq.Header.Set("Range", formatByteRange(req.Start, req.Limit))
+	httpReq.Header.Set("Range", byteRange)
 
 	// Call the server.
 	httpRes, err := httputil.Do(ctx, b.client, httpReq)
@@ -383,14 +390,35 @@ func newBucket(
 	}
 }
 
-// Format an HTTP 1.1 byte range.
-//
-// REQUIRES: limit == nil || *limit > start
+func describeRange(
+	start int64,
+	limit *int64) (s string) {
+	if limit == nil {
+		s = fmt.Sprintf("[%d, ∞)", start)
+	} else {
+		s = fmt.Sprintf("[%d, %d)", start, limit)
+	}
+
+	return
+}
+
+// Format an HTTP 1.1 byte range. start must be non-negative. If limit is
+// non-nil, the pointed to value must be greater than start.
 //
 // Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
 func formatByteRange(
 	start int64,
-	limit *int64) (s string) {
+	limit *int64) (s string, err error) {
+
+	// Check requirements.
+	if start < 0 || (limit != nil && *limit <= start) {
+		err = fmt.Errorf(
+			"Invalid HTTP 1.1 byte range %s",
+			describeRange(start, limit))
+		return
+	}
+
+	// Handle the infinite limit case.
 	if limit == nil {
 		s = fmt.Sprintf("bytes=%d-", start)
 		return
