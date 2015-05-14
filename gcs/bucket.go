@@ -392,7 +392,7 @@ func formatByteRange(
 	start int64,
 	limit *int64) (s string) {
 	if limit == nil {
-		s = fmt.Sprintf("%d-", start)
+		s = fmt.Sprintf("bytes=%d-", start)
 		return
 	}
 
