@@ -23,7 +23,6 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/oauthutil"
-	storagev1 "google.golang.org/api/storage/v1"
 )
 
 var fKeyFile = flag.String(
@@ -42,7 +41,7 @@ func IntegrationTestHTTPClient() (client *http.Client, err error) {
 		return
 	}
 
-	const scope = storagev1.DevstorageFull_controlScope
+	const scope = gcs.Scope_FullControl
 	client, err = oauthutil.NewJWTHttpClient(*fKeyFile, []string{scope})
 	if err != nil {
 		err = fmt.Errorf("oauthutil.NewJWTHttpClient: %v", err)

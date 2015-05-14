@@ -25,9 +25,9 @@ import (
 
 // OAuth scopes for GCS. For use with e.g. oauthutil.NewJWTHttpClient.
 const (
-	Scope_FullControl = storagev1.DevstorageFull_controlScope
-	Scope_ReadOnly    = storagev1.DevstorageRead_onlyScope
-	Scope_ReadWrite   = storagev1.DevstorageRead_writeScope
+	Scope_FullControl = storagev1.DevstorageFullControlScope
+	Scope_ReadOnly    = storagev1.DevstorageReadOnlyScope
+	Scope_ReadWrite   = storagev1.DevstorageReadWriteScope
 )
 
 // Conn represents a connection to GCS, pre-bound with a project ID and
