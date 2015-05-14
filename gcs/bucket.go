@@ -235,10 +235,11 @@ func (b *bucket) NewReader(
 	}
 
 	// Set a Range header, if appropriate.
-	var rangeRequested bool
+	var bodyLimit int64
 	if req.Range != nil {
-		rangeRequested = true
-		httpReq.Header.Set("Range", makeRangeHeaderValue(*req.Range))
+		var v string
+		v, bodyLimit = makeRangeHeaderValue(*req.Range)
+		httpReq.Header.Set("Range", v)
 	}
 
 	// Call the server.
@@ -247,9 +248,9 @@ func (b *bucket) NewReader(
 		return
 	}
 
-	// Close the body if we haven't handed it over to the user.
+	// Close the body if we're returning in error.
 	defer func() {
-		if rc == nil {
+		if err != nil {
 			googleapi.CloseBody(httpRes)
 		}
 	}()
@@ -265,7 +266,7 @@ func (b *bucket) NewReader(
 			// Special case: if the user requested a range and we received HTTP 416
 			// from the server, treat this as an empty body. See makeRangeHeaderValue
 			// for more details.
-			if rangeRequested &&
+			if req.Range != nil &&
 				typed.Code == http.StatusRequestedRangeNotSatisfiable {
 				err = nil
 				googleapi.CloseBody(httpRes)
@@ -278,6 +279,24 @@ func (b *bucket) NewReader(
 
 	// The body contains the object data.
 	rc = httpRes.Body
+
+	// If the user requested a range and we didn't see HTTP 416 above, we require
+	// an HTTP 206 response and must truncate the body. See the notes on
+	// makeRangeHeaderValue.
+	if req.Range != nil {
+		if httpRes.StatusCode != http.StatusPartialContent {
+			err = fmt.Errorf(
+				"Received unexpected status code %d instead of HTTP 206",
+				httpRes.StatusCode)
+
+			return
+		}
+
+		rc = &limitReadCloser{
+			n:       bodyLimit,
+			wrapped: rc,
+		}
+	}
 
 	return
 }
@@ -420,8 +439,8 @@ func describeRange(
 //     body as if it is empty.
 //
 //  *  If GCS returns HTTP 206 (Partial Content), truncate the body to at most
-//     `start-limit` bytes. Do not treat the body already being shorter than
-//     this length as an error.
+//     the returned number of bytes. Do not treat the body already being
+//     shorter than this length as an error.
 //
 //  *  If GCS returns any other status code, regard it as an error.
 //
@@ -438,7 +457,7 @@ func describeRange(
 //     appears to be.
 //
 // Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
-func makeRangeHeaderValue(br ByteRange) (hdr string) {
+func makeRangeHeaderValue(br ByteRange) (hdr string, n int64) {
 	// Canonicalize ranges that the server will not like. We must do this because
 	// RFC 2616 §14.35.1 requires the last byte position to be greater than or
 	// equal to the first byte position.
@@ -453,6 +472,7 @@ func makeRangeHeaderValue(br ByteRange) (hdr string) {
 	// it truncates. If the range starts after the end of the object, it returns
 	// HTTP 416, which we require the user to handle.
 	hdr = fmt.Sprintf("bytes=%d-%d", br.Start, br.Limit)
+	n = int64(br.Limit - br.Start)
 
 	return
 }
