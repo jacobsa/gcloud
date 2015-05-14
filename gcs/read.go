@@ -33,11 +33,10 @@ func (b *bucket) NewReader(
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
 	// Construct an appropriate URL.
 	//
-	// The documentation (http://goo.gl/JKf25r) is extremely vague about how this
-	// is supposed to work. As of 2015-03-25, it has no prose but gives the
-	// example:
+	// The documentation (https://goo.gl/9zeA98) is vague about how this is
+	// supposed to work. As of 2015-05-14, it has no prose but gives the example:
 	//
-	//     GET https://www.googleapis.com/storage/v1/b/<bucket>/o/<object>
+	//     www.googleapis.com/download/storage/v1/b/<bucket>/o/<object>?alt=media
 	//
 	// In Google-internal bug 19718068, it was clarified that the intent is that
 	// each of the bucket and object names are encoded into a single path
@@ -45,7 +44,7 @@ func (b *bucket) NewReader(
 	bucketSegment := httputil.EncodePathSegment(b.name)
 	objectSegment := httputil.EncodePathSegment(req.Name)
 	opaque := fmt.Sprintf(
-		"//www.googleapis.com/storage/v1/b/%s/o/%s",
+		"//www.googleapis.com/download/storage/v1/b/%s/o/%s",
 		bucketSegment,
 		objectSegment)
 
