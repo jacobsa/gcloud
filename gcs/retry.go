@@ -57,6 +57,14 @@ func shouldRetry(err error) (b bool) {
 		}
 	}
 
+	// HTTP 429 errors (GCS uses these for rate limiting).
+	if typed, ok := err.(*googleapi.Error); ok {
+		if typed.Code == 429 {
+			b = true
+			return
+		}
+	}
+
 	// Network errors, which tend to show up transiently when doing lots of
 	// operations in parallel. For example:
 	//
@@ -91,6 +99,8 @@ func shouldRetry(err error) (b bool) {
 //  *  The random component scales with the delay, so that the first sleep
 //     cannot be as long as one second. The algorithm used matches the
 //     description at http://en.wikipedia.org/wiki/Exponential_backoff.
+//
+//  *  We retry more types of errors; see shouldRetry above.
 //
 func expBackoff(
 	ctx context.Context,
