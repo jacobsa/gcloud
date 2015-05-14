@@ -136,18 +136,6 @@ func (b *bucket) NewReader(
 	return
 }
 
-func describeRange(
-	start int64,
-	limit *int64) (s string) {
-	if limit == nil {
-		s = fmt.Sprintf("[%d, ∞)", start)
-	} else {
-		s = fmt.Sprintf("[%d, %d)", start, limit)
-	}
-
-	return
-}
-
 // Given a [start, limit) range, create an HTTP 1.1 Range header which ensures
 // that the resulting body is what the user intended, given the following
 // protocol:
