@@ -1169,7 +1169,74 @@ func (t *readTest) ValidRanges() {
 }
 
 func (t *readTest) InvalidRanges() {
-	AssertTrue(false, "TODO")
+	// Create an object of length four.
+	AssertEq(nil, t.createObject("foo", "taco"))
+
+	// Test cases.
+	newInt64 := func(n int64) *int64 { return &n }
+	type testCase struct {
+		start int64
+		limit *int64
+	}
+
+	testCases := []testCase{
+		// Negative start
+		testCase{-1, nil},
+		testCase{-1, newInt64(3)},
+		testCase{math.MinInt64, nil},
+		testCase{math.MinInt64, newInt64(3)},
+
+		// Start not less than length of object
+		testCase{4, newInt64(5)},
+		testCase{4, newInt64(math.MaxInt64)},
+		testCase{5, newInt64(17)},
+		testCase{5, newInt64(math.MaxInt64)},
+
+		// Limit not greater than start
+		testCase{2, newInt64(2)},
+		testCase{2, newInt64(1)},
+		testCase{2, newInt64(-3)},
+	}
+
+	// Run each test case, with parallelism.
+	b := syncutil.NewBundle(t.ctx)
+
+	c := make(chan *testCase, len(testCases))
+	for i, _ := range testCases {
+		c <- &testCases[i]
+	}
+	close(c)
+
+	const parallelism = 32
+	for i := 0; i < parallelism; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for tc := range c {
+				var desc string
+				if tc.limit == nil {
+					desc = fmt.Sprintf("[%d, inf)", tc.start)
+				} else {
+					desc = fmt.Sprintf("[%d, %d)", tc.start, *tc.limit)
+				}
+
+				// Call NewReader
+				req := &gcs.ReadObjectRequest{
+					Name:  "foo",
+					Start: tc.start,
+					Limit: tc.limit,
+				}
+
+				_, readErr := t.bucket.NewReader(ctx, req)
+				ExpectThat(
+					readErr,
+					Error(HasSubstr("range")),
+					"Test case: %s", desc)
+			}
+
+			return
+		})
+	}
+
+	AssertEq(nil, b.Join())
 }
 
 ////////////////////////////////////////////////////////////////////////
