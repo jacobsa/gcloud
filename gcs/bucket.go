@@ -225,13 +225,6 @@ func (b *bucket) NewReader(
 		RawQuery: query.Encode(),
 	}
 
-	// Choose the HTTP range to request.
-	byteRange, err := formatByteRange(req.Start, req.Limit)
-	if err != nil {
-		err = fmt.Errorf("formatByteRange: %v", err)
-		return
-	}
-
 	// Create an HTTP request and set the range header..
 	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
 	if err != nil {
@@ -239,7 +232,10 @@ func (b *bucket) NewReader(
 		return
 	}
 
-	httpReq.Header.Set("Range", byteRange)
+	// Set a Range header, if appropriate.
+	if req.Range != nil {
+		httpReq.Header.Set("Range", makeRangeHeaderValue(*req.Range))
+	}
 
 	// Call the server.
 	httpRes, err := httputil.Do(ctx, b.client, httpReq)

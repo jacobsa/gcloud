@@ -78,7 +78,7 @@ type ByteRange struct {
 	Limit uint64
 }
 
-func (br ByteRange) String() {
+func (br ByteRange) String() string {
 	return fmt.Sprintf("[%d, %d)", br.Start, br.Limit)
 }
 
