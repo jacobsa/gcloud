@@ -428,4 +428,21 @@ func describeRange(
 //     appears to be.
 //
 // Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
-func makeRangeHeaderValue(br ByteRange) (hdr string)
+func makeRangeHeaderValue(br ByteRange) (hdr string) {
+	// Canonicalize ranges that the server will not like. We must do this because
+	// RFC 2616 §14.35.1 requires the last byte position to be greater than or
+	// equal to the first byte position.
+	if br.Limit < br.Start {
+		br.Start = 0
+		br.Limit = 0
+	}
+
+	// HTTP byte range specifiers are [min, max] double-inclusive, ugh. But we
+	// require the user to truncate, so there is no harm in requesting one byte
+	// extra at the end. If the range GCS sees goes past the end of the object,
+	// it truncates. If the range starts after the end of the object, it returns
+	// HTTP 416, which we require the user to handle.
+	hdr = fmt.Sprintf("bytes=%d-%d", br.Start, br.Limit)
+
+	return
+}
