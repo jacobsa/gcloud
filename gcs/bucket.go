@@ -402,30 +402,30 @@ func describeRange(
 	return
 }
 
-// Format an HTTP 1.1 byte range. start must be non-negative. If limit is
-// non-nil, the pointed to value must be greater than start.
+// Given a [start, limit) range, create an HTTP 1.1 Range header which ensures
+// that the resulting body is what the user intended, given the following
+// protocol:
+//
+//  *  If GCS returns HTTP 416 (Requested range not satisfiable), treat the
+//     body as if it is empty.
+//
+//  *  If GCS returns HTTP 206 (Partial Content), truncate the body to at most
+//     `start-limit` bytes. Do not treat the body already being shorter than
+//     this length as an error.
+//
+//  *  If GCS returns any other status code, regard it as an error.
+//
+// This monkeying around is necessary because of various shitty aspects of the
+// HTTP 1.1 Range header:
+//
+//  *  Ranges are [min, max] and require min <= max.
+//
+//  *  Therefore users cannot request empty ranges, even though the status code
+//     and headers may still be meaningful without actual entity body content.
+//
+//  *  min must be less than the entity body length, unless the server is
+//     polite enough to send HTTP 416 when this is not the case. Luckily GCS
+//     appears to be.
 //
 // Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
-func formatByteRange(
-	start int64,
-	limit *int64) (s string, err error) {
-
-	// Check requirements.
-	if start < 0 || (limit != nil && *limit <= start) {
-		err = fmt.Errorf(
-			"Invalid HTTP 1.1 byte range %s",
-			describeRange(start, limit))
-		return
-	}
-
-	// Handle the infinite limit case.
-	if limit == nil {
-		s = fmt.Sprintf("bytes=%d-", start)
-		return
-	}
-
-	// Remember that HTTP byte ranges are inclusive. Sigh.
-	s = fmt.Sprintf("bytes=%d-%d", start, *limit-1)
-
-	return
-}
+func makeRangeHeaderValue(br ByteRange) (hdr string)

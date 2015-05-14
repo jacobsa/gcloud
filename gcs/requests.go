@@ -68,10 +68,7 @@ type CreateObjectRequest struct {
 //
 // Requirements and semantics:
 //
-//  *  Start must be less than the length of the object. (Unfortunately HTTP
-//     forces this on us.)
-//
-//  *  Start must be less than or equal to Limit.
+//  *  If Limit is less than or equal to Start, the range is treated as empty.
 //
 //  *  If Limit is greater than the length of the object, the range is
 //     implicitly truncated.
