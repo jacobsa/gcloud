@@ -1070,7 +1070,7 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	AssertEq(nil, r.Close())
 }
 
-func (t *readTest) Ranges() {
+func (t *readTest) ValidRanges() {
 	// Create an object of length four.
 	AssertEq(nil, t.createObject("foo", "taco"))
 
@@ -1178,6 +1178,10 @@ func (t *readTest) Ranges() {
 			tc.actualContents,
 			"Test case %v: [%v, %v)", i, tc.start, tc.limit)
 	}
+}
+
+func (t *readTest) InvalidRanges() {
+	AssertTrue(false, "TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////
