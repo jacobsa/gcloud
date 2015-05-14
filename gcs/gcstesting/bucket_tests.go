@@ -21,8 +21,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"sort"
 	"strings"
 	"testing/iotest"
@@ -1066,6 +1068,109 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 
 	// Close
 	AssertEq(nil, r.Close())
+}
+
+func (t *readTest) Ranges() {
+	// Create an object of length four.
+	AssertEq(nil, t.createObject("foo", "taco"))
+
+	// Test cases.
+	newInt64 := func(n int64) *int64 { return &n }
+	type testCase struct {
+		start            int64
+		limit            *int64
+		expectedContents string
+		actualContents   string
+	}
+
+	testCases := []testCase{
+		// Left anchored
+		testCase{0, nil, "taco", ""},
+		testCase{0, newInt64(math.MaxInt64), "taco", ""},
+		testCase{0, newInt64(5), "taco", ""},
+		testCase{0, newInt64(4), "taco", ""},
+		testCase{0, newInt64(3), "tac", ""},
+		testCase{0, newInt64(1), "t", ""},
+		testCase{0, newInt64(0), "", ""},
+
+		// Left edge is strictly within object
+		testCase{1, nil, "aco", ""},
+		testCase{1, newInt64(math.MaxInt64), "aco", ""},
+		testCase{1, newInt64(5), "aco", ""},
+		testCase{1, newInt64(4), "aco", ""},
+		testCase{1, newInt64(2), "a", ""},
+		testCase{1, newInt64(1), "", ""},
+
+		// Left edge is at right edge of object
+		testCase{4, nil, "", ""},
+		testCase{4, newInt64(17), "", ""},
+		testCase{4, newInt64(math.MaxInt64), "", ""},
+
+		// Left edge is past right edge of object
+		testCase{17, nil, "", ""},
+		testCase{17, newInt64(17), "", ""},
+		testCase{17, newInt64(math.MaxInt64), "", ""},
+	}
+
+	// Run each test case, with parallelism.
+	b := syncutil.NewBundle(t.ctx)
+
+	c := make(chan *testCase, len(testCases))
+	for i, _ := range testCases {
+		c <- &testCases[i]
+	}
+	close(c)
+
+	const parallelism = 32
+	for i := 0; i < parallelism; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for tc := range c {
+				// Call NewReader
+				req := &gcs.ReadObjectRequest{
+					Name:  "foo",
+					Start: tc.start,
+					Limit: tc.limit,
+				}
+
+				var rc io.ReadCloser
+				rc, err = t.bucket.NewReader(ctx, req)
+				if err != nil {
+					err = fmt.Errorf("NewReader: %v", err)
+					return
+				}
+
+				// Read.
+				var contents []byte
+				contents, err = ioutil.ReadAll(rc)
+				if err != nil {
+					err = fmt.Errorf("ReadFull: %v", err)
+					return
+				}
+
+				// Close.
+				err = rc.Close()
+				if err != nil {
+					err = fmt.Errorf("Close: %v", err)
+					return
+				}
+
+				// Fill in the actual contents.
+				tc.actualContents = string(contents)
+			}
+
+			return
+		})
+	}
+
+	AssertEq(nil, b.Join())
+
+	// Check each test case.
+	for i, tc := range testCases {
+		AssertEq(
+			tc.expectedContents,
+			tc.actualContents,
+			"Test case %v: [%v, %v)", i, tc.start, tc.limit)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
