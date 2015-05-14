@@ -71,11 +71,19 @@ type ReadObjectRequest struct {
 	// The generation of the object to read. Zero means the latest generation.
 	Generation int64
 
-	// A [start, limit) range of the object to read. If the range extends beyond
-	// the end of the object, it is truncated.
+	// A [start, limit) range of the object to read.
 	//
-	// Start must be at least zero. If Limit is non-nil, *Limit must be greater
-	// than or equal to Start. If it is nil, the limit is treated as infinity.
+	// Requirements:
+	//
+	//  *  Start must be at least zero.
+	//  *  Start must be less than the length of the object.
+	//  *  If Limit is non-nil, *Limit must be greater than Start.
+	//
+	// Semantics:
+	//
+	//  *  If Limit is nil, the limit is treated as infinity.
+	//  *  If the range extends beyond the end of the object, it is truncated.
+	//
 	Start int64
 	Limit *int64
 }
