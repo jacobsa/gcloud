@@ -18,10 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/jacobsa/gcloud/httputil"
 	"golang.org/x/net/context"
@@ -192,115 +190,6 @@ func (b *bucket) ListObjects(
 	return
 }
 
-func (b *bucket) NewReader(
-	ctx context.Context,
-	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	// Construct an appropriate URL.
-	//
-	// The documentation (http://goo.gl/JKf25r) is extremely vague about how this
-	// is supposed to work. As of 2015-03-25, it has no prose but gives the
-	// example:
-	//
-	//     GET https://www.googleapis.com/storage/v1/b/<bucket>/o/<object>
-	//
-	// In Google-internal bug 19718068, it was clarified that the intent is that
-	// each of the bucket and object names are encoded into a single path
-	// segment, as defined by RFC 3986.
-	bucketSegment := httputil.EncodePathSegment(b.name)
-	objectSegment := httputil.EncodePathSegment(req.Name)
-	opaque := fmt.Sprintf(
-		"//www.googleapis.com/storage/v1/b/%s/o/%s",
-		bucketSegment,
-		objectSegment)
-
-	query := make(url.Values)
-	query.Set("alt", "media")
-
-	if req.Generation != 0 {
-		query.Set("generation", fmt.Sprintf("%v", req.Generation))
-	}
-
-	url := &url.URL{
-		Scheme:   "https",
-		Host:     "www.googleapis.com",
-		Opaque:   opaque,
-		RawQuery: query.Encode(),
-	}
-
-	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("GET", url, nil, b.userAgent)
-	if err != nil {
-		err = fmt.Errorf("httputil.NewRequest: %v", err)
-		return
-	}
-
-	// Set a Range header, if appropriate.
-	var bodyLimit int64
-	if req.Range != nil {
-		var v string
-		v, bodyLimit = makeRangeHeaderValue(*req.Range)
-		httpReq.Header.Set("Range", v)
-	}
-
-	// Call the server.
-	httpRes, err := httputil.Do(ctx, b.client, httpReq)
-	if err != nil {
-		return
-	}
-
-	// Close the body if we're returning in error.
-	defer func() {
-		if err != nil {
-			googleapi.CloseBody(httpRes)
-		}
-	}()
-
-	// Check for HTTP error statuses.
-	if err = googleapi.CheckResponse(httpRes); err != nil {
-		if typed, ok := err.(*googleapi.Error); ok {
-			// Special case: handle not found errors.
-			if typed.Code == http.StatusNotFound {
-				err = &NotFoundError{Err: typed}
-			}
-
-			// Special case: if the user requested a range and we received HTTP 416
-			// from the server, treat this as an empty body. See makeRangeHeaderValue
-			// for more details.
-			if req.Range != nil &&
-				typed.Code == http.StatusRequestedRangeNotSatisfiable {
-				err = nil
-				googleapi.CloseBody(httpRes)
-				rc = ioutil.NopCloser(strings.NewReader(""))
-			}
-		}
-
-		return
-	}
-
-	// The body contains the object data.
-	rc = httpRes.Body
-
-	// If the user requested a range and we didn't see HTTP 416 above, we require
-	// an HTTP 206 response and must truncate the body. See the notes on
-	// makeRangeHeaderValue.
-	if req.Range != nil {
-		if httpRes.StatusCode != http.StatusPartialContent {
-			err = fmt.Errorf(
-				"Received unexpected status code %d instead of HTTP 206",
-				httpRes.StatusCode)
-
-			return
-		}
-
-		rc = &limitReadCloser{
-			n:       bodyLimit,
-			wrapped: rc,
-		}
-	}
-
-	return
-}
-
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
@@ -417,62 +306,4 @@ func newBucket(
 		userAgent: userAgent,
 		name:      name,
 	}
-}
-
-func describeRange(
-	start int64,
-	limit *int64) (s string) {
-	if limit == nil {
-		s = fmt.Sprintf("[%d, ∞)", start)
-	} else {
-		s = fmt.Sprintf("[%d, %d)", start, limit)
-	}
-
-	return
-}
-
-// Given a [start, limit) range, create an HTTP 1.1 Range header which ensures
-// that the resulting body is what the user intended, given the following
-// protocol:
-//
-//  *  If GCS returns HTTP 416 (Requested range not satisfiable), treat the
-//     body as if it is empty.
-//
-//  *  If GCS returns HTTP 206 (Partial Content), truncate the body to at most
-//     the returned number of bytes. Do not treat the body already being
-//     shorter than this length as an error.
-//
-//  *  If GCS returns any other status code, regard it as an error.
-//
-// This monkeying around is necessary because of various shitty aspects of the
-// HTTP 1.1 Range header:
-//
-//  *  Ranges are [min, max] and require min <= max.
-//
-//  *  Therefore users cannot request empty ranges, even though the status code
-//     and headers may still be meaningful without actual entity body content.
-//
-//  *  min must be less than the entity body length, unless the server is
-//     polite enough to send HTTP 416 when this is not the case. Luckily GCS
-//     appears to be.
-//
-// Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
-func makeRangeHeaderValue(br ByteRange) (hdr string, n int64) {
-	// Canonicalize ranges that the server will not like. We must do this because
-	// RFC 2616 §14.35.1 requires the last byte position to be greater than or
-	// equal to the first byte position.
-	if br.Limit < br.Start {
-		br.Start = 0
-		br.Limit = 0
-	}
-
-	// HTTP byte range specifiers are [min, max] double-inclusive, ugh. But we
-	// require the user to truncate, so there is no harm in requesting one byte
-	// extra at the end. If the range GCS sees goes past the end of the object,
-	// it truncates. If the range starts after the end of the object, it returns
-	// HTTP 416, which we require the user to handle.
-	hdr = fmt.Sprintf("bytes=%d-%d", br.Start, br.Limit)
-	n = int64(br.Limit - br.Start)
-
-	return
 }
