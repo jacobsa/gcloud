@@ -1083,39 +1083,39 @@ func (t *readTest) ValidRanges_NonEmptyObject() {
 		expectedContents string
 	}{
 		// Left anchored
-		{makeByteRange(0, math.MaxUint64), "taco"},
-		{makeByteRange(0, 5), "taco"},
-		{makeByteRange(0, 4), "taco"},
-		{makeByteRange(0, 3), "tac"},
-		{makeByteRange(0, 1), "t"},
-		{makeByteRange(0, 0), ""},
+		{gcs.ByteRange{0, math.MaxUint64}, "taco"},
+		{gcs.ByteRange{0, 5}, "taco"},
+		{gcs.ByteRange{0, 4}, "taco"},
+		{gcs.ByteRange{0, 3}, "tac"},
+		{gcs.ByteRange{0, 1}, "t"},
+		{gcs.ByteRange{0, 0}, ""},
 
 		// Floating left edge
-		{makeByteRange(1, math.MaxUint64), "aco"},
-		{makeByteRange(1, 5), "aco"},
-		{makeByteRange(1, 4), "aco"},
-		{makeByteRange(1, 2), "a"},
-		{makeByteRange(1, 1), ""},
+		{gcs.ByteRange{1, math.MaxUint64}, "aco"},
+		{gcs.ByteRange{1, 5}, "aco"},
+		{gcs.ByteRange{1, 4}, "aco"},
+		{gcs.ByteRange{1, 2}, "a"},
+		{gcs.ByteRange{1, 1}, ""},
 
 		// Left edge at right edge of object
-		{makeByteRange(4, math.MaxUint64), ""},
-		{makeByteRange(4, 17), ""},
-		{makeByteRange(4, 5), ""},
-		{makeByteRange(4, 4), ""},
+		{gcs.ByteRange{4, math.MaxUint64}, ""},
+		{gcs.ByteRange{4, 17}, ""},
+		{gcs.ByteRange{4, 5}, ""},
+		{gcs.ByteRange{4, 4}, ""},
 
 		// Left edge past right edge of object
-		{makeByteRange(5, math.MaxUint64), ""},
-		{makeByteRange(5, 17), ""},
-		{makeByteRange(5, 5), ""},
-		{makeByteRange(math.MaxUint64, math.MaxUint64), ""},
+		{gcs.ByteRange{5, math.MaxUint64}, ""},
+		{gcs.ByteRange{5, 17}, ""},
+		{gcs.ByteRange{5, 5}, ""},
+		{gcs.ByteRange{math.MaxUint64, math.MaxUint64}, ""},
 
 		// Start and limit reversed
-		{makeByteRange(1, 0), ""},
-		{makeByteRange(4, 0), ""},
-		{makeByteRange(4, 3), ""},
-		{makeByteRange(5, 0), ""},
-		{makeByteRange(5, 3), ""},
-		{makeByteRange(5, 4), ""},
+		{gcs.ByteRange{1, 0}, ""},
+		{gcs.ByteRange{4, 0}, ""},
+		{gcs.ByteRange{4, 3}, ""},
+		{gcs.ByteRange{5, 0}, ""},
+		{gcs.ByteRange{5, 3}, ""},
+		{gcs.ByteRange{5, 4}, ""},
 	}
 
 	// Turn test cases into read requests.
