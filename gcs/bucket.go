@@ -232,6 +232,8 @@ func (b *bucket) NewReader(
 		return
 	}
 
+	httpReq.Header.Set("Range", formatByteRange(req.Start, req.Limit))
+
 	// Call the server.
 	httpRes, err := httputil.Do(ctx, b.client, httpReq)
 	if err != nil {
@@ -379,4 +381,17 @@ func newBucket(
 		userAgent: userAgent,
 		name:      name,
 	}
+}
+
+// Cf. http://tools.ietf.org/html/rfc2616#section-14.35.1
+func formatByteRange(
+	start int64,
+	limit *int64) (s string) {
+	if limit == nil {
+		s = fmt.Sprintf("%d-", start)
+		return
+	}
+
+	s = fmt.Sprintf("%d-%d", start, *limit)
+	return
 }
