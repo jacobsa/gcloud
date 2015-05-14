@@ -66,9 +66,9 @@ type CreateObjectRequest struct {
 
 // A [start, limit) range of bytes within an object.
 //
-// Start must be less than the length of the object, and less than Limit
-// (because HTTP 1.1 forces only non-empty ranges on us). If Limit is greater
-// than the length of the object, the range is implicitly truncated.
+// Start must be less than the length of the object, and less than or equal to
+// Limit. If Limit is greater than the length of the object, the range is
+// implicitly truncated.
 type ByteRange struct {
 	Start uint64
 	Limit uint64
