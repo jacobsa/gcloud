@@ -199,7 +199,67 @@ func listDifference(a []string, b []string) (res []string) {
 func readMultiple(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	reqs []*gcs.ReadObjectRequest) (contents [][]byte, errs []error)
+	reqs []*gcs.ReadObjectRequest) (contents [][]byte, errs []error) {
+	b := syncutil.NewBundle(ctx)
+
+	// Feed indices into a channel.
+	indices := make(chan int, len(reqs))
+	for i, _ := range reqs {
+		indices <- i
+	}
+	close(indices)
+
+	// Set up a function that deals with one request.
+	contents = make([][]byte, len(reqs))
+	errs = make([]error, len(reqs))
+
+	handleRequest := func(ctx context.Context, i int) {
+		var b []byte
+		var err error
+		defer func() {
+			contents[i] = b
+			errs[i] = err
+		}()
+
+		// Open a reader.
+		rc, err := bucket.NewReader(ctx, reqs[i])
+		if err != nil {
+			err = fmt.Errorf("NewReader: %v", err)
+			return
+		}
+
+		// Read from it.
+		b, err = ioutil.ReadAll(rc)
+		if err != nil {
+			err = fmt.Errorf("ReadAll: %v", err)
+			return
+		}
+
+		// Close it.
+		err = rc.Close()
+		if err != nil {
+			err = fmt.Errorf("Close: %v", err)
+			return
+		}
+
+		return
+	}
+
+	// Run several workers.
+	const parallelsim = 32
+	for i := 0; i < parallelsim; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for i := range indices {
+				handleRequest(ctx, i)
+			}
+
+			return
+		})
+	}
+
+	AssertEq(nil, b.Join())
+	return
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Common
