@@ -15,7 +15,6 @@
 package gcs
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -109,6 +108,38 @@ func (b *debugBucket) finishRequest(
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Reader
+////////////////////////////////////////////////////////////////////////
+
+type debugReader struct {
+	bucket    *debugBucket
+	requestID uint64
+	desc      string
+	startTime time.Time
+	wrapped   io.ReadCloser
+}
+
+func (dr *debugReader) Read(p []byte) (n int, err error) {
+	n, err = dr.wrapped.Read(p)
+	if err != nil {
+		dr.bucket.requestLogf(dr.requestID, "-> Read error: %v", err)
+	}
+
+	return
+}
+
+func (dr *debugReader) Close() (err error) {
+	defer dr.bucket.finishRequest(
+		dr.requestID,
+		dr.desc,
+		dr.startTime,
+		&err)
+
+	err = dr.wrapped.Close()
+	return
+}
+
+////////////////////////////////////////////////////////////////////////
 // Bucket interface
 ////////////////////////////////////////////////////////////////////////
 
@@ -119,7 +150,24 @@ func (b *debugBucket) Name() string {
 func (b *debugBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	err = errors.New("TODO: NewReader")
+	id, desc, start := b.startRequest("Read(%q)", req.Name)
+
+	// Call through.
+	rc, err = b.wrapped.NewReader(ctx, req)
+	if err != nil {
+		b.finishRequest(id, desc, start, &err)
+		return
+	}
+
+	// Return a special reader that prings debug info.
+	rc = &debugReader{
+		bucket:    b,
+		requestID: id,
+		desc:      desc,
+		startTime: start,
+		wrapped:   rc,
+	}
+
 	return
 }
 
