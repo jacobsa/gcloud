@@ -39,7 +39,7 @@ func toObjects(in []*storagev1.Object) (out []*Object, err error) {
 		var o *Object
 		o, err = toObject(rawObject)
 		if err != nil {
-			err = fmt.Errorf("toObject: %v", err)
+			err = fmt.Errorf("toObject(%q): %v", o.Name, err)
 			return
 		}
 
@@ -105,7 +105,7 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 	}
 
 	if len(md5Slice) != len(out.MD5) {
-		err = fmt.Errorf("Unexpected Md5Hash field: %v", in.Md5Hash)
+		err = fmt.Errorf("Unexpected Md5Hash field: %q", in.Md5Hash)
 		return
 	}
 
