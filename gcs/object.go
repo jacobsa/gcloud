@@ -34,7 +34,7 @@ type Object struct {
 	Owner           string
 	Size            uint64
 	ContentEncoding string
-	MD5             [md5.Size]byte
+	MD5             *[md5.Size]byte // Missing for composite objects
 	CRC32C          uint32
 	MediaLink       string
 	Metadata        map[string]string

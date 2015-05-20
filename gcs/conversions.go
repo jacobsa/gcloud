@@ -15,6 +15,7 @@
 package gcs
 
 import (
+	"crypto/md5"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -98,18 +99,22 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 	}
 
 	// MD5
-	md5Slice, err := base64.StdEncoding.DecodeString(in.Md5Hash)
-	if err != nil {
-		err = fmt.Errorf("Decoding Md5Hash field: %v", err)
-		return
-	}
+	if in.Md5Hash != "" {
+		var md5Slice []byte
+		md5Slice, err = base64.StdEncoding.DecodeString(in.Md5Hash)
+		if err != nil {
+			err = fmt.Errorf("Decoding Md5Hash field: %v", err)
+			return
+		}
 
-	if len(md5Slice) != len(out.MD5) {
-		err = fmt.Errorf("Unexpected Md5Hash field: %q", in.Md5Hash)
-		return
-	}
+		out.MD5 = new([md5.Size]byte)
+		if len(md5Slice) != len(out.MD5) {
+			err = fmt.Errorf("Unexpected Md5Hash field: %q", in.Md5Hash)
+			return
+		}
 
-	copy(out.MD5[:], md5Slice)
+		copy(out.MD5[:], md5Slice)
+	}
 
 	// CRC32C
 	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)

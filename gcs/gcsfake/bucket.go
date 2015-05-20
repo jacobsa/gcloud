@@ -483,6 +483,8 @@ func (b *bucket) DeleteObject(
 func (b *bucket) mintObject(
 	req *gcs.CreateObjectRequest,
 	contents string) (o fakeObject) {
+	md5Sum := md5.Sum([]byte(contents))
+
 	// Set up basic info.
 	b.prevGeneration++
 	o.entry = gcs.Object{
@@ -493,7 +495,7 @@ func (b *bucket) mintObject(
 		Owner:           "user-fake",
 		Size:            uint64(len(contents)),
 		ContentEncoding: req.ContentEncoding,
-		MD5:             md5.Sum([]byte(contents)),
+		MD5:             &md5Sum,
 		CRC32C:          crc32.Checksum([]byte(contents), crc32cTable),
 		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
 		Metadata:        req.Metadata,
