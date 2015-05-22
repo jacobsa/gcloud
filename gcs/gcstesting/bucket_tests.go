@@ -389,9 +389,30 @@ func (t *createTest) NonEmptyObject() {
 }
 
 func (t *createTest) Overwrite() {
-	// Create two versions of an object in sequence.
-	AssertEq(nil, t.createObject("foo", "taco"))
-	AssertEq(nil, t.createObject("foo", "burrito"))
+	var err error
+
+	// Create a first version of an object, with some custom metadata.
+	_, err = t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name: "foo",
+			Metadata: map[string]string{
+				"foo": "bar",
+			},
+			Contents: strings.NewReader("taco"),
+		})
+
+	AssertEq(nil, err)
+
+	// Overwrite it with another version.
+	_, err = t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "foo",
+			Contents: strings.NewReader("burrito"),
+		})
+
+	AssertEq(nil, err)
 
 	// The second version should show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
@@ -405,6 +426,7 @@ func (t *createTest) Overwrite() {
 
 	AssertEq("foo", o.Name)
 	ExpectEq(len("burrito"), o.Size)
+	ExpectEq(0, len(o.Metadata))
 
 	// The second version should be what we get when we read the object.
 	contents, err := t.readObject("foo")
