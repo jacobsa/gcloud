@@ -1040,7 +1040,23 @@ func (t *copyTest) DestinationDoesntExist() {
 	dst, err := t.bucket.CopyObject(t.ctx, req)
 
 	AssertEq(nil, err)
-	ExpectThat(dst, Pointee(DeepEquals(*src)))
+	ExpectEq("bar", dst.Name)
+	ExpectEq("image/png", dst.ContentType)
+	ExpectEq("fr", dst.ContentLanguage)
+	ExpectEq("public", dst.CacheControl)
+	ExpectThat(dst.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("taco"), dst.Size)
+	ExpectEq("gzip", dst.ContentEncoding)
+	ExpectThat(dst.MD5, Pointee(DeepEquals(md5.Sum([]byte("taco")))))
+	ExpectEq(computeCrc32C("taco"), dst.CRC32C)
+	ExpectThat(dst.MediaLink, MatchesRegexp("download/storage.*bar"))
+	ExpectThat(dst.Metadata, DeepEquals(src.Metadata))
+	ExpectLt(0, dst.Generation)
+	ExpectEq(1, dst.MetaGeneration)
+	ExpectEq("STANDARD", dst.StorageClass)
+	ExpectThat(dst.Deleted, DeepEquals(time.Time{}))
+	ExpectThat(dst.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(dst.Updated, t.matchesStartTime(createTime))
 
 	// The object should be readable.
 	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "bar")
@@ -1049,12 +1065,12 @@ func (t *copyTest) DestinationDoesntExist() {
 	ExpectEq("taco", contents)
 
 	// And stat'able.
-	dst, err = t.bucket.StatObject(
+	statO, err := t.bucket.StatObject(
 		t.ctx,
 		&gcs.StatObjectRequest{Name: "bar"})
 
 	AssertEq(nil, err)
-	ExpectThat(dst, Pointee(DeepEquals(*src)))
+	ExpectThat(statO, Pointee(DeepEquals(*dst)))
 }
 
 func (t *copyTest) DestinationExists() {
