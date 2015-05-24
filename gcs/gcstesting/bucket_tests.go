@@ -982,7 +982,26 @@ type copyTest struct {
 }
 
 func (t *copyTest) SourceDoesntExist() {
-	AssertFalse(true, "TODO")
+	var err error
+
+	// Create
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// List
+	objects, runs, err := gcsutil.List(
+		t.ctx,
+		t.bucket,
+		&gcs.ListObjectsRequest{})
+
+	AssertEq(nil, err)
+	ExpectThat(objects, ElementsAre())
+	ExpectThat(runs, ElementsAre())
 }
 
 func (t *copyTest) DestinationDoesntExist() {
@@ -990,6 +1009,10 @@ func (t *copyTest) DestinationDoesntExist() {
 }
 
 func (t *copyTest) DestinationExists() {
+	AssertFalse(true, "TODO")
+}
+
+func (t *copyTest) DestinationIsSameName() {
 	AssertFalse(true, "TODO")
 }
 

@@ -70,6 +70,8 @@ type Bucket interface {
 	//
 	// Returns a record for the new object.
 	//
+	// If the source object doesn't exist, err will be of type *NotFoundError.
+	//
 	// Official documentation:
 	//     https://cloud.google.com/storage/docs/json_api/v1/objects/copy
 	CopyObject(
