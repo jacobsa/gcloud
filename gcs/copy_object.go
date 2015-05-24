@@ -15,7 +15,16 @@
 package gcs
 
 import (
-	"errors"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/jacobsa/gcloud/httputil"
+	"google.golang.org/api/googleapi"
+	storagev1 "google.golang.org/api/storage/v1"
 
 	"golang.org/x/net/context"
 )
@@ -23,6 +32,67 @@ import (
 func (b *bucket) CopyObject(
 	ctx context.Context,
 	req *CopyObjectRequest) (o *Object, err error) {
-	err = errors.New("TODO: CopyObject")
+	// Construct an appropriate URL (cf. https://goo.gl/A41CyJ).
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o/%s/copyTo/b/%s/o/%s",
+		httputil.EncodePathSegment(b.Name()),
+		httputil.EncodePathSegment(req.SrcName),
+		httputil.EncodePathSegment(b.Name()),
+		httputil.EncodePathSegment(req.DstName))
+
+	query := make(url.Values)
+	query.Set("projection", "full")
+
+	url := &url.URL{
+		Scheme:   "https",
+		Host:     "www.googleapis.com",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
+	}
+
+	// We don't want to update any metadata.
+	body := ioutil.NopCloser(strings.NewReader(""))
+
+	// Create an HTTP request.
+	httpReq, err := httputil.NewRequest("POST", url, body, b.userAgent)
+	if err != nil {
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Execute the HTTP request.
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	// Check for HTTP-level errors.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle not found errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusNotFound {
+				err = &NotFoundError{Err: typed}
+			}
+		}
+
+		return
+	}
+
+	// Parse the response.
+	var rawObject *storagev1.Object
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = toObject(rawObject); err != nil {
+		err = fmt.Errorf("toObject: %v", err)
+		return
+	}
+
 	return
 }
