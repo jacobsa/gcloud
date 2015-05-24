@@ -1072,7 +1072,87 @@ func (t *copyTest) DestinationDoesntExist() {
 }
 
 func (t *copyTest) DestinationExists() {
-	AssertFalse(true, "TODO")
+	var err error
+
+	// Create a source object with explicit attributes set.
+	createTime := t.clock.Now()
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:            "foo",
+			ContentType:     "text/plain",
+			ContentLanguage: "fr",
+			CacheControl:    "public",
+			Metadata: map[string]string{
+				"foo": "bar",
+				"baz": "qux",
+			},
+
+			Contents: strings.NewReader("taco"),
+		})
+
+	AssertEq(nil, err)
+	AssertThat(src.Updated, t.matchesStartTime(createTime))
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
+
+	// Create an existing object with the destination name with other explicit
+	// attributes set.
+	_, err = t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:            "bar",
+			ContentType:     "application/octet-stream",
+			ContentLanguage: "de",
+			Metadata: map[string]string{
+				"foo": "blah",
+			},
+
+			Contents: strings.NewReader("burrito"),
+		})
+
+	AssertEq(nil, err)
+
+	// Copy over the existing object.
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+	}
+
+	dst, err := t.bucket.CopyObject(t.ctx, req)
+
+	AssertEq(nil, err)
+	ExpectEq("bar", dst.Name)
+	ExpectEq("text/plain", dst.ContentType)
+	ExpectEq("fr", dst.ContentLanguage)
+	ExpectEq("public", dst.CacheControl)
+	ExpectThat(dst.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("taco"), dst.Size)
+	ExpectThat(dst.MD5, Pointee(DeepEquals(md5.Sum([]byte("taco")))))
+	ExpectEq(computeCrc32C("taco"), dst.CRC32C)
+	ExpectThat(dst.MediaLink, MatchesRegexp("download/storage.*bar"))
+	ExpectThat(dst.Metadata, DeepEquals(src.Metadata))
+	ExpectLt(0, dst.Generation)
+	ExpectEq(1, dst.MetaGeneration)
+	ExpectEq("STANDARD", dst.StorageClass)
+	ExpectThat(dst.Deleted, DeepEquals(time.Time{}))
+	ExpectThat(dst.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(dst.Updated, t.matchesStartTime(createTime))
+
+	// The object should be readable.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "bar")
+
+	AssertEq(nil, err)
+	ExpectEq("taco", contents)
+
+	// And stat'able.
+	statO, err := t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "bar"})
+
+	AssertEq(nil, err)
+	ExpectThat(statO, Pointee(DeepEquals(*dst)))
 }
 
 func (t *copyTest) DestinationIsSameName() {
