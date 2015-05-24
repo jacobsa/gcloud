@@ -181,6 +181,20 @@ func (b *debugBucket) CreateObject(
 	return
 }
 
+func (b *debugBucket) CopyObject(
+	ctx context.Context,
+	req *CopyObjectRequest) (o *Object, err error) {
+	id, desc, start := b.startRequest(
+		"CopyObject(%q, %q)",
+		req.SrcName,
+		req.DstName)
+
+	defer b.finishRequest(id, desc, start, &err)
+
+	o, err = b.wrapped.CopyObject(ctx, req)
+	return
+}
+
 func (b *debugBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {

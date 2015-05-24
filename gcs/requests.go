@@ -64,6 +64,12 @@ type CreateObjectRequest struct {
 	GenerationPrecondition *int64
 }
 
+// A request to copy an object to a new name, preserving all metadata.
+type CopyObjectRequest struct {
+	SrcName string
+	DstName string
+}
+
 // A [start, limit) range of bytes within an object.
 //
 // Semantics:

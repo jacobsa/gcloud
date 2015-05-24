@@ -189,6 +189,20 @@ func (rb *retryBucket) CreateObject(
 	return
 }
 
+func (rb *retryBucket) CopyObject(
+	ctx context.Context,
+	req *CopyObjectRequest) (o *Object, err error) {
+	err = expBackoff(
+		ctx,
+		rb.maxSleep,
+		func() (err error) {
+			o, err = rb.wrapped.CopyObject(ctx, req)
+			return
+		})
+
+	return
+}
+
 func (rb *retryBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {

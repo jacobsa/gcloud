@@ -130,6 +130,7 @@ func RegisterBucketTests(makeDeps func(context.Context) BucketTestDeps) {
 	// A list of empty instances of the test suites we want to register.
 	suitePrototypes := []bucketTestSetUpInterface{
 		&createTest{},
+		&copyTest{},
 		&readTest{},
 		&statTest{},
 		&updateTest{},

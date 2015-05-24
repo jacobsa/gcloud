@@ -65,6 +65,19 @@ type Bucket interface {
 		ctx context.Context,
 		req *CreateObjectRequest) (*Object, error)
 
+	// Copy an object to a new name, preserving all metadata. Any existing
+	// generation of the destination name will be overwritten.
+	//
+	// Returns a record for the new object.
+	//
+	// If the source object doesn't exist, err will be of type *NotFoundError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/copy
+	CopyObject(
+		ctx context.Context,
+		req *CopyObjectRequest) (*Object, error)
+
 	// Return current information about the object with the given name.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.

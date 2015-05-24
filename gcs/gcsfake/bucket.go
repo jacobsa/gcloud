@@ -326,6 +326,7 @@ func (b *bucket) NewReader(
 	return
 }
 
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
@@ -363,6 +364,40 @@ func (b *bucket) CreateObject(
 	}
 
 	o = &obj
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *bucket) CopyObject(
+	ctx context.Context,
+	req *gcs.CopyObjectRequest) (o *gcs.Object, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Does the object exist?
+	srcIndex := b.objects.find(req.SrcName)
+	if srcIndex == len(b.objects) {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %q not found", req.SrcName),
+		}
+
+		return
+	}
+
+	// Copy it, replacing anything that already exists.
+	dst := b.objects[srcIndex]
+	dst.entry.Name = req.DstName
+	dst.entry.MediaLink = "http://localhost/download/storage/fake/" + req.DstName
+
+	existingIndex := b.objects.find(req.DstName)
+	if existingIndex < len(b.objects) {
+		b.objects[existingIndex] = dst
+	} else {
+		b.objects = append(b.objects, dst)
+		sort.Sort(b.objects)
+	}
+
+	o = &dst.entry
 	return
 }
 
