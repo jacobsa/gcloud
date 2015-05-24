@@ -68,6 +68,8 @@ type Bucket interface {
 	// Copy an object to a new name, preserving all metadata. Any existing
 	// generation of the destination name will be overwritten.
 	//
+	// Returns a record for the new object.
+	//
 	// Official documentation:
 	//     https://cloud.google.com/storage/docs/json_api/v1/objects/copy
 	CopyObject(
