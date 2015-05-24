@@ -1013,9 +1013,8 @@ func (t *copyTest) DestinationDoesntExist() {
 		t.ctx,
 		&gcs.CreateObjectRequest{
 			Name:            "foo",
-			ContentType:     "image/png",
+			ContentType:     "text/plain",
 			ContentLanguage: "fr",
-			ContentEncoding: "gzip",
 			CacheControl:    "public",
 			Metadata: map[string]string{
 				"foo": "bar",
@@ -1041,12 +1040,11 @@ func (t *copyTest) DestinationDoesntExist() {
 
 	AssertEq(nil, err)
 	ExpectEq("bar", dst.Name)
-	ExpectEq("image/png", dst.ContentType)
+	ExpectEq("text/plain", dst.ContentType)
 	ExpectEq("fr", dst.ContentLanguage)
 	ExpectEq("public", dst.CacheControl)
 	ExpectThat(dst.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("taco"), dst.Size)
-	ExpectEq("gzip", dst.ContentEncoding)
 	ExpectThat(dst.MD5, Pointee(DeepEquals(md5.Sum([]byte("taco")))))
 	ExpectEq(computeCrc32C("taco"), dst.CRC32C)
 	ExpectThat(dst.MediaLink, MatchesRegexp("download/storage.*bar"))
