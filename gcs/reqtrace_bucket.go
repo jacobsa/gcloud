@@ -132,6 +132,16 @@ func (b *reqtraceBucket) CreateObject(
 	return
 }
 
+func (b *reqtraceBucket) CopyObject(
+	ctx context.Context,
+	req *CopyObjectRequest) (o *Object, err error) {
+	desc := fmt.Sprintf("CopyObject: %q -> %q", req.SrcName, req.DstName)
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
+
+	o, err = b.Wrapped.CopyObject(ctx, req)
+	return
+}
+
 func (b *reqtraceBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
