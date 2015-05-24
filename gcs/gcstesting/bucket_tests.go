@@ -984,7 +984,7 @@ type copyTest struct {
 func (t *copyTest) SourceDoesntExist() {
 	var err error
 
-	// Create
+	// Copy
 	req := &gcs.CopyObjectRequest{
 		SrcName: "foo",
 		DstName: "bar",
@@ -1005,7 +1005,56 @@ func (t *copyTest) SourceDoesntExist() {
 }
 
 func (t *copyTest) DestinationDoesntExist() {
-	AssertFalse(true, "TODO")
+	var err error
+
+	// Create a source object with explicit attributes set.
+	createTime := t.clock.Now()
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:            "foo",
+			ContentType:     "image/png",
+			ContentLanguage: "fr",
+			ContentEncoding: "gzip",
+			CacheControl:    "public",
+			Metadata: map[string]string{
+				"foo": "bar",
+				"baz": "qux",
+			},
+
+			Contents: strings.NewReader("taco"),
+		})
+
+	AssertEq(nil, err)
+	AssertThat(src.Updated, t.matchesStartTime(createTime))
+
+	// Ensure the time below doesn't match exactly.
+	t.advanceTime()
+
+	// Copy to a destination object.
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+	}
+
+	dst, err := t.bucket.CopyObject(t.ctx, req)
+
+	AssertEq(nil, err)
+	ExpectThat(dst, Pointee(DeepEquals(*src)))
+
+	// The object should be readable.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "bar")
+
+	AssertEq(nil, err)
+	ExpectEq("taco", contents)
+
+	// And stat'able.
+	dst, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "bar"})
+
+	AssertEq(nil, err)
+	ExpectThat(dst, Pointee(DeepEquals(*src)))
 }
 
 func (t *copyTest) DestinationExists() {
