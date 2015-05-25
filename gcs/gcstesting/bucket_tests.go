@@ -994,7 +994,7 @@ func (t *copyTest) SourceDoesntExist() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 
 	// List
-	objects, runs, err := gcsutil.List(
+	objects, runs, err := gcsutil.ListAll(
 		t.ctx,
 		t.bucket,
 		&gcs.ListObjectsRequest{})
