@@ -23,7 +23,7 @@ import (
 // returning all objects and collapsed runs encountered.
 //
 // May modify *req.
-func List(
+func ListAll(
 	ctx context.Context,
 	bucket gcs.Bucket,
 	req *gcs.ListObjectsRequest) (
