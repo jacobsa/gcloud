@@ -136,6 +136,85 @@ func (t *CreateObjectTest) WrappedSucceeds() {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// CopyObject
+////////////////////////////////////////////////////////////////////////
+
+type CopyObjectTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&CopyObjectTest{}) }
+
+func (t *CopyObjectTest) CallsEraseAndWrapped() {
+	const srcName = "taco"
+	const dstName = "burrito"
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(dstName)
+
+	// Wrapped
+	var wrappedReq *gcs.CopyObjectRequest
+	ExpectCall(t.wrapped, "CopyObject")(Any(), Any()).
+		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(nil, errors.New(""))))
+
+	// Call
+	req := &gcs.CopyObjectRequest{
+		SrcName: srcName,
+		DstName: dstName,
+	}
+
+	_, _ = t.bucket.CopyObject(nil, req)
+
+	AssertNe(nil, wrappedReq)
+	ExpectEq(req, wrappedReq)
+}
+
+func (t *CopyObjectTest) WrappedFails() {
+	const srcName = ""
+	const dstName = ""
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	ExpectCall(t.wrapped, "CopyObject")(Any(), Any()).
+		WillOnce(Return(nil, errors.New("taco")))
+
+	// Call
+	_, err = t.bucket.CopyObject(nil, &gcs.CopyObjectRequest{})
+
+	ExpectThat(err, Error(HasSubstr("taco")))
+}
+
+func (t *CopyObjectTest) WrappedSucceeds() {
+	const srcName = "taco"
+	const dstName = "burrito"
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	obj := &gcs.Object{
+		Name:       dstName,
+		Generation: 1234,
+	}
+
+	ExpectCall(t.wrapped, "CopyObject")(Any(), Any()).
+		WillOnce(Return(obj, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(obj, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	o, err := t.bucket.CopyObject(nil, &gcs.CopyObjectRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(obj, o)
+}
+
+////////////////////////////////////////////////////////////////////////
 // StatObject
 ////////////////////////////////////////////////////////////////////////
 

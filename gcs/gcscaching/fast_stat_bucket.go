@@ -146,6 +146,25 @@ func (b *fastStatBucket) CreateObject(
 }
 
 // LOCKS_EXCLUDED(b.mu)
+func (b *fastStatBucket) CopyObject(
+	ctx context.Context,
+	req *gcs.CopyObjectRequest) (o *gcs.Object, err error) {
+	// Throw away any existing record for the destination name.
+	b.invalidate(req.DstName)
+
+	// Copy the object.
+	o, err = b.wrapped.CopyObject(ctx, req)
+	if err != nil {
+		return
+	}
+
+	// Record the new version.
+	b.insert(o)
+
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) StatObject(
 	ctx context.Context,
 	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
