@@ -150,7 +150,7 @@ func (b *debugBucket) Name() string {
 func (b *debugBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	id, desc, start := b.startRequest("Read(%q)", req.Name)
+	id, desc, start := b.startRequest("Read(%q, %v)", req.Name, req.Range)
 
 	// Call through.
 	rc, err = b.wrapped.NewReader(ctx, req)
