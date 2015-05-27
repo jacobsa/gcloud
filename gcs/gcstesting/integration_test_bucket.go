@@ -21,30 +21,23 @@ import (
 	"log"
 	"net/http"
 
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+
 	"github.com/jacobsa/gcloud/gcs"
-	"github.com/jacobsa/gcloud/oauthutil"
 )
 
 var fBucket = flag.String(
 	"bucket", "",
 	"Bucket to use for testing.")
 
-// Return an HTTP client configured according to the --bucket flag defined by
-// this package, using application default credentials (https://goo.gl/ZAhqjq).
+// Return an HTTP client configured to use application default credentials
+// (https://goo.gl/ZAhqjq).
+//
 // For use in integration tests that use GCS.
 func IntegrationTestHTTPClient() (client *http.Client, err error) {
-	if *fKeyFile == "" {
-		err = errors.New("You must set --key_file.")
-		return
-	}
-
 	const scope = gcs.Scope_FullControl
-	client, err = oauthutil.NewJWTHttpClient(*fKeyFile, []string{scope})
-	if err != nil {
-		err = fmt.Errorf("oauthutil.NewJWTHttpClient: %v", err)
-		return
-	}
-
+	client, err = google.DefaultClient(context.Background(), scope)
 	return
 }
 
@@ -58,8 +51,10 @@ func bucketName() (name string, err error) {
 	return
 }
 
-// Return a bucket configured according to the --bucket and --key_file flags
-// defined by this package. For use in integration tests that use GCS.
+// Return a bucket configured according to the --bucket flag defined by this
+// package, using application default credentials (https://goo.gl/ZAhqjq).
+//
+// For use in integration tests that use GCS.
 func IntegrationTestBucket() (b gcs.Bucket, err error) {
 	// Grab the bucket name.
 	name, err := bucketName()
