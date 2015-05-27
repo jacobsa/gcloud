@@ -25,16 +25,13 @@ import (
 	"github.com/jacobsa/gcloud/oauthutil"
 )
 
-var fKeyFile = flag.String(
-	"key_file", "",
-	"Path to a JSON key for a service account created on the Developers Console.")
-
 var fBucket = flag.String(
 	"bucket", "",
 	"Bucket to use for testing.")
 
-// Return an HTTP client configured according to the --key_file flag defined by
-// this package. For use in integration tests that use GCS.
+// Return an HTTP client configured according to the --bucket flag defined by
+// this package, using application default credentials (https://goo.gl/ZAhqjq).
+// For use in integration tests that use GCS.
 func IntegrationTestHTTPClient() (client *http.Client, err error) {
 	if *fKeyFile == "" {
 		err = errors.New("You must set --key_file.")
