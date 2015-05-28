@@ -39,7 +39,7 @@ type canceller interface {
 // the cancellation will be lost). This is especially a problem with wrapper
 // transports like the oauth2 one, which may do extra work before calling
 // through to http.Transport.
-func waitForCancellation(
+func propagateCancellation(
 	ctx context.Context,
 	allDone chan struct{},
 	c canceller,
