@@ -29,43 +29,43 @@ type canceller interface {
 	CancelRequest(*http.Request)
 }
 
-// Wait until the context is cancelled, then cancel the supplied HTTP request.
-// If the caller closes finished before this happens, return early.
+// Wait for the allDone channel to be closed. If the context is cancelled
+// before then, cancel the HTTP request via the canceller repeatedly until
+// allDone is closed.
 //
-// HACK(jacobsa): The http package's design for cancellation is flawed: the
-// canceller must naturally race with the transport receiving the request --
-// CancelRequest may be called before RoundTrip, and in this case the
-// cancellation will be lost. This is especially a problem with wrapper
+// We must cancel repeatedly because the http package's design for cancellation
+// is flawed: the canceller must naturally race with the transport receiving
+// the request (CancelRequest may be called before RoundTrip, and in this case
+// the cancellation will be lost). This is especially a problem with wrapper
 // transports like the oauth2 one, which may do extra work before calling
-// through to http.Transport. Work around this by repeatedly cancelling until
-// the finished channel is closed.
+// through to http.Transport.
 func waitForCancellation(
 	ctx context.Context,
+	allDone chan struct{},
 	c canceller,
-	finished chan struct{},
 	req *http.Request) {
-	// If there is no done channel, there's nothing we can do.
+	// If the context is not cancellable, there is nothing interesting we can do.
 	cancelChan := ctx.Done()
 	if cancelChan == nil {
 		return
 	}
 
-	// Wait for the context to be cancelled or for the caller to say they no
-	// longer care because the HTTP request has been completed.
+	// If the user closes allDone before the context is cancelled, we can return
+	// immediately.
 	select {
-	case <-cancelChan:
-
-	case <-finished:
+	case <-allDone:
 		return
+
+	case <-cancelChan:
 	}
 
-	// Keep cancelling the HTTP request until the finished channel is closed, as
-	// discussed above.
+	// The context has been cancelled. Repeatedly cancel the HTTP request as
+	// described above until the user closes allDone.
 	for {
 		c.CancelRequest(req)
 
 		select {
-		case <-finished:
+		case <-allDone:
 			return
 
 		case <-time.After(10 * time.Millisecond):
