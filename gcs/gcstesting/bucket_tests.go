@@ -18,9 +18,11 @@ package gcstesting
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"io/ioutil"
 	"log"
 	"math"
@@ -2617,4 +2619,50 @@ func (t *cancellationTest) CreateObject() {
 
 	_, err = t.bucket.StatObject(t.ctx, statReq)
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *cancellationTest) ReadObject() {
+	const name = "foo"
+	var err error
+
+	if !t.supportsCancellation {
+		log.Println("Cancellation not supported; skipping test.")
+		return
+	}
+
+	// Create an object that is larger than we are likely to buffer in total
+	// throughout the HTTP library, etc.
+	const size = 1 << 23
+	_, err = t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     name,
+			Contents: io.LimitReader(rand.Reader, size),
+		})
+
+	AssertEq(nil, err)
+
+	// Create a reader for the object using a cancellable context.
+	ctx, cancel := context.WithCancel(t.ctx)
+	rc, err := t.bucket.NewReader(
+		ctx,
+		&gcs.ReadObjectRequest{
+			Name: name,
+		})
+
+	defer rc.Close()
+
+	// Read a few bytes; nothing should go wrong.
+	_, err = io.ReadFull(rc, make([]byte, 32))
+	AssertEq(nil, err)
+
+	// Cancel the context.
+	cancel()
+
+	// The next read should return quickly in error.
+	before := time.Now()
+	_, err = io.ReadFull(rc, make([]byte, size))
+
+	ExpectThat(err, Error(HasSubstr("TODO")))
+	ExpectLt(time.Since(before), 50*time.Millisecond)
 }
