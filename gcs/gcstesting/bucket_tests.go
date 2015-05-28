@@ -2664,6 +2664,6 @@ func (t *cancellationTest) ReadObject() {
 	before := time.Now()
 	_, err = io.ReadFull(rc, make([]byte, size-firstReadSize))
 
-	ExpectThat(err, Error(HasSubstr("TODO")))
+	ExpectThat(err, Error(HasSubstr("use of closed network connection")))
 	ExpectLt(time.Since(before), 50*time.Millisecond)
 }
