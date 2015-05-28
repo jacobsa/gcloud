@@ -30,6 +30,7 @@ type canceller interface {
 }
 
 // Wait until the context is cancelled, then cancel the supplied HTTP request.
+// If the caller closes finished before this happens, return early.
 //
 // HACK(jacobsa): The http package's design for cancellation is flawed: the
 // canceller must naturally race with the transport receiving the request --
@@ -44,13 +45,19 @@ func waitForCancellation(
 	finished chan struct{},
 	req *http.Request) {
 	// If there is no done channel, there's nothing we can do.
-	done := ctx.Done()
-	if done == nil {
+	cancelChan := ctx.Done()
+	if cancelChan == nil {
 		return
 	}
 
-	// Wait for the context to be cancelled.
-	<-done
+	// Wait for the context to be cancelled or for the caller to say they no
+	// longer care because the HTTP request has been completed.
+	select {
+	case <-cancelChan:
+
+	case <-finished:
+		return
+	}
 
 	// Keep cancelling the HTTP request until the finished channel is closed, as
 	// discussed above.
@@ -82,9 +89,8 @@ func Do(
 		return
 	}
 
-	// Wait for cancellation in the background. Note that this goroutine should
-	// eventually return, because context.WithCancel requires the caller to
-	// arrange for cancellation to happen eventually.
+	// Wait for cancellation in the background, returning early if this function
+	// returns.
 	finished := make(chan struct{})
 	defer close(finished)
 	go waitForCancellation(ctx, c, finished, req)
