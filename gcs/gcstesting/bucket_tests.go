@@ -2653,7 +2653,8 @@ func (t *cancellationTest) ReadObject() {
 	defer rc.Close()
 
 	// Read a few bytes; nothing should go wrong.
-	_, err = io.ReadFull(rc, make([]byte, 32))
+	const firstReadSize = 32
+	_, err = io.ReadFull(rc, make([]byte, firstReadSize))
 	AssertEq(nil, err)
 
 	// Cancel the context.
@@ -2661,7 +2662,7 @@ func (t *cancellationTest) ReadObject() {
 
 	// The next read should return quickly in error.
 	before := time.Now()
-	_, err = io.ReadFull(rc, make([]byte, size))
+	_, err = io.ReadFull(rc, make([]byte, size-firstReadSize))
 
 	ExpectThat(err, Error(HasSubstr("TODO")))
 	ExpectLt(time.Since(before), 50*time.Millisecond)
