@@ -53,7 +53,14 @@ type ConnConfig struct {
 	// exponential backoff for failed requests. The default of zero disables
 	// automatic retries.
 	//
-	// If you enable automatic retries, beware of idempotency issues.
+	// If you enable automatic retries, beware of the following:
+	//
+	//  *  Bucket.CreateObject will buffer the entire object contents in memory,
+	//     so your object contents must not be too large to fit.
+	//
+	//  *  Make sure your operations are idempotent, or that your application can
+	//     tolerate it if not.
+	//
 	MaxBackoffSleep time.Duration
 }
 

@@ -15,7 +15,10 @@
 package gcs
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -178,11 +181,27 @@ func (rb *retryBucket) NewReader(
 func (rb *retryBucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
+	// We can't simply replay the request multiple times, because the first
+	// attempt might exhaust some of the req.Contents reader, leaving missing
+	// contents for the second attempt.
+	//
+	// So, copy out all contents and create a modified request that serves from
+	// memory.
+	contents, err := ioutil.ReadAll(req.Contents)
+	if err != nil {
+		err = fmt.Errorf("ioutil.ReadAll: %v", err)
+		return
+	}
+
+	reqCopy := *req
+	reqCopy.Contents = bytes.NewReader(contents)
+
+	// Call through with that request.
 	err = expBackoff(
 		ctx,
 		rb.maxSleep,
 		func() (err error) {
-			o, err = rb.wrapped.CreateObject(ctx, req)
+			o, err = rb.wrapped.CreateObject(ctx, &reqCopy)
 			return
 		})
 
