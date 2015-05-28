@@ -16,6 +16,7 @@ package httputil
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"time"
@@ -73,6 +74,28 @@ func propagateCancellation(
 	}
 }
 
+// An io.ReadCloser that closes a channel when it is closed. Used to clean up
+// the propagateCancellation helper.
+type closeChannelReadCloser struct {
+	wrapped io.ReadCloser
+	c       chan struct{}
+}
+
+func (rc *closeChannelReadCloser) Read(p []byte) (n int, err error) {
+	n, err = rc.wrapped.Read(p)
+	return
+}
+
+func (rc *closeChannelReadCloser) Close() (err error) {
+	if rc.c != nil {
+		close(rc.c)
+		rc.c = nil
+	}
+
+	err = rc.wrapped.Close()
+	return
+}
+
 // Call client.Do with the supplied request, cancelling the request if the
 // context is cancelled. Return an error if the client does not support
 // cancellation.
@@ -89,14 +112,24 @@ func Do(
 		return
 	}
 
-	// Wait for cancellation in the background, returning early if this function
-	// returns.
-	finished := make(chan struct{})
-	defer close(finished)
-	go waitForCancellation(ctx, c, finished, req)
+	// Set up a goroutine that will watch the context for cancellation, and a
+	// channel that tells it that it can return.
+	allDone := make(chan struct{})
+	go propagateCancellation(ctx, allDone, c, req)
 
-	// Call through.
+	// Call through. On error, clean up the helper function.
 	resp, err = client.Do(req)
+	if err != nil {
+		close(allDone)
+		return
+	}
+
+	// Otherwise, wrap the body in a layer that will tell the helper function
+	// that it can return when it is closed.
+	resp.Body = &closeChannelReadCloser{
+		wrapped: resp.Body,
+		c:       allDone,
+	}
 
 	return
 }
