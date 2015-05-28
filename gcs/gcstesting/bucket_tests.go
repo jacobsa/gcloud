@@ -2632,7 +2632,7 @@ func (t *cancellationTest) ReadObject() {
 
 	// Create an object that is larger than we are likely to buffer in total
 	// throughout the HTTP library, etc.
-	const size = 1 << 23
+	const size = 1 << 20
 	_, err = t.bucket.CreateObject(
 		t.ctx,
 		&gcs.CreateObjectRequest{
