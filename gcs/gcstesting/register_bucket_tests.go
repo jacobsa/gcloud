@@ -41,6 +41,9 @@ type BucketTestDeps struct {
 
 	// Does the bucket support cancellation?
 	SupportsCancellation bool
+
+	// Does the bucket buffer all contents before creating in GCS?
+	BuffersEntireContentsForCreate bool
 }
 
 // An interface that all bucket tests must implement.

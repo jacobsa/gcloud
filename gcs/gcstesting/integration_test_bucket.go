@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
@@ -31,12 +30,6 @@ import (
 var fBucket = flag.String(
 	"bucket", "",
 	"Bucket to use for testing.")
-
-var fUseRetry = flag.Bool(
-	"use_retry",
-	false,
-	"Whether to use retry with exponential backoff in buckets returned by "+
-		"IntegrationTestBucket.")
 
 // Return an HTTP client configured to use application default credentials
 // (https://goo.gl/ZAhqjq).
@@ -78,10 +71,6 @@ func IntegrationTestBucket() (b gcs.Bucket, err error) {
 	// Set up a GCS connection.
 	cfg := &gcs.ConnConfig{
 		HTTPClient: client,
-	}
-
-	if *fUseRetry {
-		cfg.MaxBackoffSleep = 5 * time.Minute
 	}
 
 	conn, err := gcs.NewConn(cfg)

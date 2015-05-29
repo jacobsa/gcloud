@@ -29,31 +29,68 @@
 package gcs_test
 
 import (
+	"flag"
 	"testing"
+	"time"
 
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
+	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
-	"github.com/jacobsa/ogletest"
+	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
 )
+
+var fBucket = flag.String(
+	"bucket", "",
+	"Bucket to use for testing.")
+
+var fUseRetry = flag.Bool(
+	"use_retry",
+	false,
+	"Whether to use retry with exponential backoff.")
 
 ////////////////////////////////////////////////////////////////////////
 // Registration
 ////////////////////////////////////////////////////////////////////////
 
-func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
+func TestOgletest(t *testing.T) { RunTests(t) }
 
 func init() {
 	makeDeps := func(ctx context.Context) (deps gcstesting.BucketTestDeps) {
-		deps.Bucket = gcstesting.IntegrationTestBucketOrDie()
-		deps.Clock = timeutil.RealClock()
-		deps.SupportsCancellation = true
+		var err error
 
-		err := gcsutil.DeleteAllObjects(ctx, deps.Bucket)
+		// Set up the HTTP client.
+		const scope = gcs.Scope_FullControl
+		httpClient, err := google.DefaultClient(context.Background(), scope)
+		AssertEq(nil, err)
+
+		// Use that to create a GCS connection, enabling retry if requested.
+		cfg := &gcs.ConnConfig{
+			HTTPClient: httpClient,
+		}
+
+		if *fUseRetry {
+			cfg.MaxBackoffSleep = 5 * time.Minute
+			deps.BuffersEntireContentsForCreate = true
+		}
+
+		conn, err := gcs.NewConn(cfg)
+		AssertEq(nil, err)
+
+		// Open the bucket.
+		deps.Bucket = conn.GetBucket(*fBucket)
+
+		// Clear the bucket.
+		err = gcsutil.DeleteAllObjects(ctx, deps.Bucket)
 		if err != nil {
 			panic("DeleteAllObjects: " + err.Error())
 		}
+
+		// Set up other information.
+		deps.Clock = timeutil.RealClock()
+		deps.SupportsCancellation = true
 
 		return
 	}

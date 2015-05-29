@@ -268,10 +268,11 @@ func readMultiple(
 ////////////////////////////////////////////////////////////////////////
 
 type bucketTest struct {
-	ctx                  context.Context
-	bucket               gcs.Bucket
-	clock                timeutil.Clock
-	supportsCancellation bool
+	ctx                            context.Context
+	bucket                         gcs.Bucket
+	clock                          timeutil.Clock
+	supportsCancellation           bool
+	buffersEntireContentsForCreate bool
 }
 
 var _ bucketTestSetUpInterface = &bucketTest{}
@@ -281,6 +282,7 @@ func (t *bucketTest) setUpBucketTest(deps BucketTestDeps) {
 	t.bucket = deps.Bucket
 	t.clock = deps.Clock
 	t.supportsCancellation = deps.SupportsCancellation
+	t.buffersEntireContentsForCreate = deps.BuffersEntireContentsForCreate
 }
 
 func (t *bucketTest) createObject(name string, contents string) error {
@@ -2589,6 +2591,11 @@ func (t *cancellationTest) CreateObject() {
 
 	if !t.supportsCancellation {
 		log.Println("Cancellation not supported; skipping test.")
+		return
+	}
+
+	if t.buffersEntireContentsForCreate {
+		log.Println("Can't use a bottomless reader. Skipping test.")
 		return
 	}
 
