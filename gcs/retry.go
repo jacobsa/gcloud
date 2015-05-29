@@ -167,7 +167,7 @@ type retryObjectReader struct {
 	name       string
 	generation int64
 
-	// nil when we start or have seen an error.
+	// nil when we start or have seen a permanent error.
 	wrapped io.ReadCloser
 
 	// If we've seen an error that we shouldn't retry for, this will be non-nil
@@ -183,6 +183,35 @@ type retryObjectReader struct {
 	sleepDuration time.Duration
 }
 
+// Set up the wrapped reader.
+func (rc *retryObjectReader) setUpWrapped() (err error)
+
+// Set up the wrapped reader if necessary, and make one attempt to read through
+// it.
+//
+// Clears the wrapped reader on error.
+func (rc *retryObjectReader) readOnce(p []byte) (n int, err error) {
+	// Set up the wrapped reader if it's not already around.
+	if rc.wrapped == nil {
+		err = rc.setUpWrapped()
+		if err != nil {
+			return
+		}
+	}
+
+	// Attempt to read from it.
+	n, err = rc.wrapped.Read(p)
+	if err != nil {
+		rc.wrapped = nil
+		return
+	}
+
+	return
+}
+
+// Invariant: we never return an error from this function unless we've given up
+// on retrying. In particular, we won't return a short read because the wrapped
+// reader returned a short read and an error.
 func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 	// Whatever we do, accumulate the bytes that we're returning to the user.
 	defer func() {
@@ -196,6 +225,7 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 	// If we've already decided on a permanent error, return that.
 	if rc.permanentErr != nil {
 		err = rc.permanentErr
+		rc.wrapped = nil
 		return
 	}
 
@@ -205,6 +235,46 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 			rc.permanentErr = err
 		}
 	}()
+
+	for {
+		// Make one attempt. Make sure to accumulate the result.
+		var bytesRead int
+		bytesRead, err = rc.readOnce(p)
+		n += bytesRead
+		p = p[bytesRead:]
+
+		// If we were successful, we're done.
+		if err == nil {
+			return
+		}
+
+		// Do we want to retry?
+		if !shouldRetry(err) {
+			log.Printf(
+				"Not retrying read error of type %T (%q): %#v",
+				err,
+				err.Error(),
+				err)
+
+			return
+		}
+
+		// Choose a delay.
+		d := chooseDelay(rc.sleepCount)
+		rc.sleepCount++
+
+		// Sleep, returning early if cancelled.
+		log.Printf("Retrying after read error of type %T (%q) in %v", err, err, d)
+
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return
+
+		case <-time.After(d):
+			rc.sleepDuration += d
+		}
+	}
 }
 
 func (rc *retryObjectReader) Close() (err error) {
