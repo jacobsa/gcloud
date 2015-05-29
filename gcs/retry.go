@@ -278,45 +278,26 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 		}
 	}()
 
-	for {
-		// Make one attempt. Make sure to accumulate the result.
+	// We will repeatedly make single attempts until we get a successful request.
+	// Don't forget to accumulate the result each time.
+	tryOnce := func() (err error) {
 		var bytesRead int
 		bytesRead, err = rc.readOnce(p)
 		n += bytesRead
 		p = p[bytesRead:]
 
-		// If we were successful, we're done.
-		if err == nil {
-			return
-		}
-
-		// Do we want to retry?
-		if !shouldRetry(err) {
-			log.Printf(
-				"Not retrying read error of type %T (%q): %#v",
-				err,
-				err.Error(),
-				err)
-
-			return
-		}
-
-		// Choose a delay.
-		d := chooseDelay(rc.sleepCount)
-		rc.sleepCount++
-
-		// Sleep, returning early if cancelled.
-		log.Printf("Retrying after read error of type %T (%q) in %v", err, err, d)
-
-		select {
-		case <-rc.ctx.Done():
-			err = rc.ctx.Err()
-			return
-
-		case <-time.After(d):
-			rc.sleepDuration += d
-		}
+		return
 	}
+
+	err = expBackoff(
+		rc.ctx,
+		fmt.Sprintf("Read(%q, %d)", rc.name, rc.generation),
+		rc.maxSleep,
+		tryOnce,
+		&rc.sleepCount,
+		&rc.sleepDuration)
+
+	return
 }
 
 func (rc *retryObjectReader) Close() (err error) {
