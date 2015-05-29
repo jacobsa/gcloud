@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/rand"
 	"net"
 	"net/url"
@@ -259,6 +260,7 @@ func (rc *retryObjectReader) readOnce(p []byte) (n int, err error) {
 	// Attempt to read from it.
 	n, err = rc.wrapped.Read(p)
 	if err != nil {
+		rc.wrapped.Close()
 		rc.wrapped = nil
 		return
 	}
@@ -282,7 +284,6 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 	// If we've already decided on a permanent error, return that.
 	if rc.permanentErr != nil {
 		err = rc.permanentErr
-		rc.wrapped = nil
 		return
 	}
 
@@ -340,14 +341,62 @@ func (rb *retryBucket) Name() (name string) {
 func (rb *retryBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	err = oneShotExpBackoff(
-		ctx,
-		fmt.Sprintf("NewReader(%q)", req.Name),
-		rb.maxSleep,
-		func() (err error) {
-			rc, err = rb.wrapped.NewReader(ctx, req)
+	// If the user specified the latest generation, we need to figure out what
+	// that is so that we can create a reader that knows how to keep a stable
+	// generation despite retrying repeatedly.
+	var generation int64 = req.Generation
+	var sleepCount uint
+	var sleepDuration time.Duration
+
+	if generation == 0 {
+		findGeneration := func() (err error) {
+			o, err := rb.wrapped.StatObject(
+				ctx,
+				&StatObjectRequest{
+					Name: req.Name,
+				})
+
+			if err != nil {
+				return
+			}
+
+			generation = o.Generation
 			return
-		})
+		}
+
+		err = expBackoff(
+			ctx,
+			fmt.Sprintf("FindLatestGeneration(%q)", req.Name),
+			rb.maxSleep,
+			findGeneration,
+			&sleepCount,
+			&sleepDuration)
+
+		if err != nil {
+			return
+		}
+	}
+
+	// Choose an appropriate byte range.
+	byteRange := ByteRange{0, math.MaxUint64}
+	if req.Range != nil {
+		byteRange = *req.Range
+	}
+
+	// Now that we know what generation we're looking for, return an appropriate
+	// reader that knows how to retry when the connection fails. Make sure to
+	// inherit the time spent sleeping above.
+	rc = &retryObjectReader{
+		bucket: rb,
+		ctx:    ctx,
+
+		name:       req.Name,
+		generation: generation,
+		byteRange:  byteRange,
+
+		sleepCount:    sleepCount,
+		sleepDuration: sleepDuration,
+	}
 
 	return
 }
