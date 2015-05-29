@@ -1237,7 +1237,11 @@ func (t *readTest) ObjectNameDoesntExist() {
 		Name: "foobar",
 	}
 
-	_, err := t.bucket.NewReader(t.ctx, req)
+	rc, err := t.bucket.NewReader(t.ctx, req)
+	if err == nil {
+		defer rc.Close()
+		_, err = rc.Read(make([]byte, 1))
+	}
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
@@ -1300,7 +1304,11 @@ func (t *readTest) ParticularGeneration_NeverExisted() {
 		Generation: o.Generation + 1,
 	}
 
-	_, err = t.bucket.NewReader(t.ctx, req)
+	rc, err := t.bucket.NewReader(t.ctx, req)
+	if err == nil {
+		defer rc.Close()
+		_, err = rc.Read(make([]byte, 1))
+	}
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
@@ -1327,7 +1335,11 @@ func (t *readTest) ParticularGeneration_HasBeenDeleted() {
 		Generation: o.Generation,
 	}
 
-	_, err = t.bucket.NewReader(t.ctx, req)
+	rc, err := t.bucket.NewReader(t.ctx, req)
+	if err == nil {
+		defer rc.Close()
+		_, err = rc.Read(make([]byte, 1))
+	}
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
@@ -1389,7 +1401,11 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 		Generation: o.Generation,
 	}
 
-	_, err = t.bucket.NewReader(t.ctx, req)
+	rc, err := t.bucket.NewReader(t.ctx, req)
+	if err == nil {
+		defer rc.Close()
+		_, err = rc.Read(make([]byte, 1))
+	}
 
 	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 	ExpectThat(err, Error(MatchesRegexp("(?i)not found|404")))
@@ -1397,15 +1413,15 @@ func (t *readTest) ParticularGeneration_ObjectHasBeenOverwritten() {
 	// Reading by the new generation should work.
 	req.Generation = o2.Generation
 
-	r, err := t.bucket.NewReader(t.ctx, req)
+	rc, err = t.bucket.NewReader(t.ctx, req)
 	AssertEq(nil, err)
 
-	contents, err := ioutil.ReadAll(r)
+	contents, err := ioutil.ReadAll(rc)
 	AssertEq(nil, err)
 	ExpectEq("burrito", string(contents))
 
 	// Close
-	AssertEq(nil, r.Close())
+	AssertEq(nil, rc.Close())
 }
 
 func (t *readTest) Ranges_EmptyObject() {
@@ -2046,7 +2062,12 @@ func (t *deleteTest) Successful() {
 		Name: "a",
 	}
 
-	_, err = t.bucket.NewReader(t.ctx, req)
+	rc, err := t.bucket.NewReader(t.ctx, req)
+	if err == nil {
+		defer rc.Close()
+		_, err = rc.Read(make([]byte, 1))
+	}
+
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
