@@ -171,7 +171,7 @@ func expBackoff(
 
 		select {
 		case <-ctx.Done():
-			err = ctx.Err()
+			// On cancellation, return the last error we saw.
 			return
 
 		case <-time.After(d):
