@@ -137,12 +137,16 @@ func expBackoff(
 
 		// Do we want to retry?
 		if !shouldRetry(err) {
-			log.Printf(
-				"Not retrying %s after error of type %T (%q): %#v",
-				desc,
-				err,
-				err.Error(),
-				err)
+			// Special case: don't spam up the logs for EOF, which io.Reader returns
+			// in the normal course of things.
+			if err != io.EOF {
+				log.Printf(
+					"Not retrying %s after error of type %T (%q): %#v",
+					desc,
+					err,
+					err.Error(),
+					err)
+			}
 
 			return
 		}
