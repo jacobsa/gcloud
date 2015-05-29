@@ -79,18 +79,27 @@ func shouldRetry(err error) (b bool) {
 		return
 	}
 
-	// Sometimes the HTTP package helpfully encapsulates the real error in a URL
-	// error.
-	if urlErr, ok := err.(*url.Error); ok {
-		b = shouldRetry(urlErr.Err)
-		return
-	}
-
 	// The HTTP package returns ErrUnexpectedEOF in several places. This seems to
 	// come up when the server terminates the connection in the middle of an
 	// object read.
 	if err == io.ErrUnexpectedEOF {
 		b = true
+		return
+	}
+
+	// The HTTP library also appears to leak EOF errors from... somewhere in its
+	// guts as URL errors sometimes.
+	if urlErr, ok := err.(*url.Error); ok {
+		if urlErr.Err == io.EOF {
+			b = true
+			return
+		}
+	}
+
+	// Sometimes the HTTP package helpfully encapsulates the real error in a URL
+	// error.
+	if urlErr, ok := err.(*url.Error); ok {
+		b = shouldRetry(urlErr.Err)
 		return
 	}
 
