@@ -202,15 +202,15 @@ func oneShotExpBackoff(
 ////////////////////////////////////////////////////////////////////////
 
 type retryObjectReader struct {
+	bucket *retryBucket
+
 	// The context we should watch when sleeping for retries.
 	ctx context.Context
 
-	// The object name and generation we want to read.
+	// What we are trying to read.
 	name       string
 	generation int64
-
-	// Our total budget for sleeping.
-	maxSleep time.Duration
+	byteRange  ByteRange
 
 	// nil when we start or have seen a permanent error.
 	wrapped io.ReadCloser
@@ -219,9 +219,6 @@ type retryObjectReader struct {
 	// and should be returned permanently.
 	permanentErr error
 
-	// How many bytes we've already passed on to the user.
-	bytesRead uint64
-
 	// The number of times we've slept so far, and the total amount of time we've
 	// spent sleeping.
 	sleepCount    uint
@@ -229,7 +226,22 @@ type retryObjectReader struct {
 }
 
 // Set up the wrapped reader.
-func (rc *retryObjectReader) setUpWrapped() (err error)
+func (rc *retryObjectReader) setUpWrapped() (err error) {
+	// Call through to create the reader.
+	req := &ReadObjectRequest{
+		Name:       rc.name,
+		Generation: rc.generation,
+		Range:      &rc.byteRange,
+	}
+
+	wrapped, err := rc.bucket.wrapped.NewReader(rc.ctx, req)
+	if err != nil {
+		return
+	}
+
+	rc.wrapped = wrapped
+	return
+}
 
 // Set up the wrapped reader if necessary, and make one attempt to read through
 // it.
@@ -264,7 +276,7 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 			panic(fmt.Sprintf("Negative byte count: %d", n))
 		}
 
-		rc.bytesRead += uint64(n)
+		rc.byteRange.Start += uint64(n)
 	}()
 
 	// If we've already decided on a permanent error, return that.
@@ -295,7 +307,7 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 	err = expBackoff(
 		rc.ctx,
 		fmt.Sprintf("Read(%q, %d)", rc.name, rc.generation),
-		rc.maxSleep,
+		rc.bucket.maxSleep,
 		tryOnce,
 		&rc.sleepCount,
 		&rc.sleepDuration)
