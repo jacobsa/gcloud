@@ -117,13 +117,17 @@ func chooseDelay(prevSleepCount uint) (d time.Duration) {
 //
 //  *  We retry more types of errors; see shouldRetry above.
 //
+// State for total sleep time and number of previous sleeps is housed outside
+// of this function to allow it to be "resumed" by multiple invocations of
+// retryObjectReader.Read.
 func expBackoff(
 	ctx context.Context,
+	desc string,
 	maxSleep time.Duration,
-	f func() error) (err error) {
-	var totalSleep time.Duration
-
-	for n := uint(0); ; n++ {
+	f func() error,
+	prevSleepCount *uint,
+	prevSleepDuration *time.Duration) (err error) {
+	for {
 		// Make an attempt. Stop if successful.
 		err = f()
 		if err == nil {
@@ -133,7 +137,8 @@ func expBackoff(
 		// Do we want to retry?
 		if !shouldRetry(err) {
 			log.Printf(
-				"Not retrying error of type %T (%q): %#v",
+				"Not retrying %s after error of type %T (%q): %#v",
+				desc,
 				err,
 				err.Error(),
 				err)
@@ -142,16 +147,22 @@ func expBackoff(
 		}
 
 		// Choose a a delay.
-		d := chooseDelay(n)
+		d := chooseDelay(*prevSleepCount)
+		*prevSleepCount++
 
 		// Are we out of credit?
-		if totalSleep+d > maxSleep {
+		if *prevSleepDuration+d > maxSleep {
 			// Return the most recent error.
 			return
 		}
 
 		// Sleep, returning early if cancelled.
-		log.Printf("Retrying after error of type %T (%q) in %v", err, err, d)
+		log.Printf(
+			"Retrying %s after error of type %T (%q) in %v",
+			desc,
+			err,
+			err,
+			d)
 
 		select {
 		case <-ctx.Done():
@@ -159,10 +170,31 @@ func expBackoff(
 			return
 
 		case <-time.After(d):
-			totalSleep += d
+			*prevSleepDuration += d
 			continue
 		}
 	}
+}
+
+// Like expBackoff, but assumes that we've never slept before (and won't need
+// to sleep again).
+func oneShotExpBackoff(
+	ctx context.Context,
+	desc string,
+	maxSleep time.Duration,
+	f func() error) (err error) {
+	var prevSleepCount uint
+	var prevSleepDuration time.Duration
+
+	err = expBackoff(
+		ctx,
+		desc,
+		maxSleep,
+		f,
+		&prevSleepCount,
+		&prevSleepDuration)
+
+	return
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -312,8 +344,9 @@ func (rb *retryBucket) Name() (name string) {
 func (rb *retryBucket) NewReader(
 	ctx context.Context,
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("NewReader(%q)", req.Name),
 		rb.maxSleep,
 		func() (err error) {
 			rc, err = rb.wrapped.NewReader(ctx, req)
@@ -342,8 +375,9 @@ func (rb *retryBucket) CreateObject(
 	reqCopy.Contents = bytes.NewReader(contents)
 
 	// Call through with that request.
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("CreateObject(%q)", req.Name),
 		rb.maxSleep,
 		func() (err error) {
 			o, err = rb.wrapped.CreateObject(ctx, &reqCopy)
@@ -356,8 +390,9 @@ func (rb *retryBucket) CreateObject(
 func (rb *retryBucket) CopyObject(
 	ctx context.Context,
 	req *CopyObjectRequest) (o *Object, err error) {
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("CopyObject(%q, %q)", req.SrcName, req.DstName),
 		rb.maxSleep,
 		func() (err error) {
 			o, err = rb.wrapped.CopyObject(ctx, req)
@@ -370,8 +405,9 @@ func (rb *retryBucket) CopyObject(
 func (rb *retryBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("StatObject(%q)", req.Name),
 		rb.maxSleep,
 		func() (err error) {
 			o, err = rb.wrapped.StatObject(ctx, req)
@@ -384,8 +420,9 @@ func (rb *retryBucket) StatObject(
 func (rb *retryBucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("ListObjects(%q)", req.Prefix),
 		rb.maxSleep,
 		func() (err error) {
 			listing, err = rb.wrapped.ListObjects(ctx, req)
@@ -397,8 +434,9 @@ func (rb *retryBucket) ListObjects(
 func (rb *retryBucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("UpdateObject(%q)", req.Name),
 		rb.maxSleep,
 		func() (err error) {
 			o, err = rb.wrapped.UpdateObject(ctx, req)
@@ -411,8 +449,9 @@ func (rb *retryBucket) UpdateObject(
 func (rb *retryBucket) DeleteObject(
 	ctx context.Context,
 	name string) (err error) {
-	err = expBackoff(
+	err = oneShotExpBackoff(
 		ctx,
+		fmt.Sprintf("DeleteObject(%q)", name),
 		rb.maxSleep,
 		func() (err error) {
 			err = rb.wrapped.DeleteObject(ctx, name)
