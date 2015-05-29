@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
@@ -70,7 +71,8 @@ func IntegrationTestBucket() (b gcs.Bucket, err error) {
 
 	// Set up a GCS connection.
 	cfg := &gcs.ConnConfig{
-		HTTPClient: client,
+		HTTPClient:      client,
+		MaxBackoffSleep: 5 * time.Minute,
 	}
 
 	conn, err := gcs.NewConn(cfg)
