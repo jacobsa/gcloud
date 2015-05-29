@@ -86,6 +86,14 @@ func shouldRetry(err error) (b bool) {
 		return
 	}
 
+	// The HTTP package returns ErrUnexpectedEOF in several places. This seems to
+	// come up when the server terminates the connection in the middle of an
+	// object read.
+	if err == io.ErrUnexpectedEOF {
+		b = true
+		return
+	}
+
 	return
 }
 
