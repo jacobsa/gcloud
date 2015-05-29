@@ -209,6 +209,9 @@ type retryObjectReader struct {
 	name       string
 	generation int64
 
+	// Our total budget for sleeping.
+	maxSleep time.Duration
+
 	// nil when we start or have seen a permanent error.
 	wrapped io.ReadCloser
 
