@@ -88,6 +88,18 @@ func shouldRetry(err error) (b bool) {
 	return
 }
 
+// Choose an appropriate delay for exponential backoff, given that we have
+// already slept the given number of times for this logical request.
+func chooseDelay(prevSleepCount uint) (d time.Duration) {
+	const baseDelay = time.Millisecond
+
+	// Choose a a delay in [0, 2^prevSleepCount * baseDelay).
+	d = (1 << prevSleepCount) * baseDelay
+	d = time.Duration(float64(d) * rand.Float64())
+
+	return
+}
+
 // Exponential backoff for a function that might fail.
 //
 // This is essentially what is described in the "Best practices" section of the
@@ -109,7 +121,6 @@ func expBackoff(
 	ctx context.Context,
 	maxSleep time.Duration,
 	f func() error) (err error) {
-	const baseDelay = time.Millisecond
 	var totalSleep time.Duration
 
 	for n := uint(0); ; n++ {
@@ -130,9 +141,8 @@ func expBackoff(
 			return
 		}
 
-		// Choose a a delay in [0, 2^n * baseDelay).
-		d := (1 << n) * baseDelay
-		d = time.Duration(float64(d) * rand.Float64())
+		// Choose a a delay.
+		d := chooseDelay(n)
 
 		// Are we out of credit?
 		if totalSleep+d > maxSleep {
