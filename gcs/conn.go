@@ -58,6 +58,10 @@ type ConnConfig struct {
 	//  *  Bucket.CreateObject will buffer the entire object contents in memory,
 	//     so your object contents must not be too large to fit.
 	//
+	//  *  Bucket.NewReader needs to perform an additional round trip to GCS in
+	//     order to find the latest object generation if you don't specify a
+	//     particular generation.
+	//
 	//  *  Make sure your operations are idempotent, or that your application can
 	//     tolerate it if not.
 	//

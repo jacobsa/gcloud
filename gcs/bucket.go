@@ -39,10 +39,11 @@ type Bucket interface {
 	Name() string
 
 	// Create a reader for the contents of a particular generation of an object.
-	// The caller must arrange for the reader to be closed when it is no longer
-	// needed.
+	// On a nil error, the caller must arrange for the reader to be closed when
+	// it is no longer needed.
 	//
-	// If the object doesn't exist, err will be of type *NotFoundError.
+	// Non-existent objects cause either this method or the first read from the
+	// resulting reader to return an error of type *NotFoundError.
 	//
 	// Official documentation:
 	//     https://cloud.google.com/storage/docs/json_api/v1/objects/get
