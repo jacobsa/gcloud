@@ -156,6 +156,71 @@ func expBackoff(
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Read support
+////////////////////////////////////////////////////////////////////////
+
+type retryObjectReader struct {
+	// The context we should watch when sleeping for retries.
+	ctx context.Context
+
+	// The object name and generation we want to read.
+	name       string
+	generation int64
+
+	// nil when we start or have seen an error.
+	wrapped io.ReadCloser
+
+	// If we've seen an error that we shouldn't retry for, this will be non-nil
+	// and should be returned permanently.
+	permanentErr error
+
+	// How many bytes we've already passed on to the user.
+	bytesRead uint64
+
+	// The number of times we've slept so far, and the total amount of time we've
+	// spent sleeping.
+	sleepCount    uint
+	sleepDuration time.Duration
+}
+
+func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
+	// Whatever we do, accumulate the bytes that we're returning to the user.
+	defer func() {
+		if n < 0 {
+			panic(fmt.Sprintf("Negative byte count: %d", n))
+		}
+
+		rc.bytesRead += uint64(n)
+	}()
+
+	// If we've already decided on a permanent error, return that.
+	if rc.permanentErr != nil {
+		err = rc.permanentErr
+		return
+	}
+
+	// If we let an error escape below, it must be a permanent one.
+	defer func() {
+		if err != nil {
+			rc.permanentErr = err
+		}
+	}()
+}
+
+func (rc *retryObjectReader) Close() (err error) {
+	// If we don't have a wrapped reader, there is nothing useful that we can or
+	// need to do here.
+	if rc.wrapped == nil {
+		return
+	}
+
+	// Call through.
+	err = rc.wrapped.Close()
+
+	return
+}
+
+////////////////////////////////////////////////////////////////////////
 // Public interface
 ////////////////////////////////////////////////////////////////////////
 
