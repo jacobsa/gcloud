@@ -277,8 +277,8 @@ func (rc *retryObjectReader) Read(p []byte) (n int, err error) {
 		log.Printf("Retrying after read error of type %T (%q) in %v", err, err, d)
 
 		select {
-		case <-ctx.Done():
-			err = ctx.Err()
+		case <-rc.ctx.Done():
+			err = rc.ctx.Err()
 			return
 
 		case <-time.After(d):
