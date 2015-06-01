@@ -20,42 +20,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-// List all object names in the bucket into the supplied channel.
-// Responsibility for closing the channel is not transferred.
-func listIntoChannel(
-	ctx context.Context,
-	bucket gcs.Bucket,
-	objectNames chan<- string) (err error) {
-	req := &gcs.ListObjectsRequest{}
-	for {
-		// Call the bucket.
-		var listing *gcs.Listing
-
-		listing, err = bucket.ListObjects(ctx, req)
-		if err != nil {
-			return
-		}
-
-		// Send the names down the channel.
-		for _, obj := range listing.Objects {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case objectNames <- obj.Name:
-			}
-		}
-
-		// Are we done?
-		if listing.ContinuationToken == "" {
-			break
-		}
-
-		req.ContinuationToken = listing.ContinuationToken
-	}
-
-	return
-}
-
 // Delete all objects from the supplied bucket. Results are undefined if the
 // bucket is being concurrently updated.
 func DeleteAllObjects(
@@ -64,10 +28,27 @@ func DeleteAllObjects(
 	bundle := syncutil.NewBundle(ctx)
 
 	// List all of the objects in the bucket.
-	objectNames := make(chan string, 100)
+	objects := make(chan *gcs.Object, 100)
 	bundle.Add(func(ctx context.Context) error {
+		defer close(objects)
+		return ListPrefix(ctx, bucket, "", objects)
+	})
+
+	// Strip everything but the name.
+	objectNames := make(chan string, 10e3)
+	bundle.Add(func(ctx context.Context) (err error) {
 		defer close(objectNames)
-		return listIntoChannel(ctx, bucket, objectNames)
+		for o := range objects {
+			select {
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
+
+			case objectNames <- o.Name:
+			}
+		}
+
+		return
 	})
 
 	// Delete the objects in parallel.
