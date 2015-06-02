@@ -15,14 +15,103 @@
 package gcs
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+
+	"github.com/jacobsa/gcloud/httputil"
+	"google.golang.org/api/googleapi"
+	storagev1 "google.golang.org/api/storage/v1"
 
 	"golang.org/x/net/context"
 )
 
+func (b *bucket) makeComposeObjectsBody(
+	req *ComposeObjectsRequest) (rc io.ReadCloser, err error) {
+	err = errors.New("TODO")
+	return
+}
+
 func (b *bucket) ComposeObjects(
 	ctx context.Context,
 	req *ComposeObjectsRequest) (o *Object, err error) {
-	err = errors.New("TODO")
+	// Construct an appropriate URL.
+	bucketSegment := httputil.EncodePathSegment(b.Name())
+	objectSegment := httputil.EncodePathSegment(req.DstName)
+
+	opaque := fmt.Sprintf(
+		"//www.googleapis.com/storage/v1/b/%s/o/%s/compose",
+		bucketSegment,
+		objectSegment)
+
+	query := make(url.Values)
+	if req.DstGenerationPrecondition != nil {
+		query.Set("ifGenerationMatch", fmt.Sprint(*req.DstGenerationPrecondition))
+	}
+
+	url := &url.URL{
+		Scheme:   "https",
+		Host:     "www.googleapis.com",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
+	}
+
+	// Set up the request body.
+	body, err := b.makeComposeObjectsBody(req)
+	if err != nil {
+		err = fmt.Errorf("makeComposeObjectsBody: %v", err)
+		return
+	}
+
+	// Create the HTTP request.
+	httpReq, err := httputil.NewRequest(
+		"POST",
+		url,
+		body,
+		b.userAgent)
+
+	if err != nil {
+		err = fmt.Errorf("httputil.NewRequest: %v", err)
+		return
+	}
+
+	// Set up HTTP request headers.
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Execute the HTTP request.
+	httpRes, err := httputil.Do(ctx, b.client, httpReq)
+	if err != nil {
+		return
+	}
+
+	defer googleapi.CloseBody(httpRes)
+
+	// Check for HTTP-level errors.
+	if err = googleapi.CheckResponse(httpRes); err != nil {
+		// Special case: handle precondition errors.
+		if typed, ok := err.(*googleapi.Error); ok {
+			if typed.Code == http.StatusPreconditionFailed {
+				err = &PreconditionError{Err: typed}
+			}
+		}
+
+		return
+	}
+
+	// Parse the response.
+	var rawObject *storagev1.Object
+	if err = json.NewDecoder(httpRes.Body).Decode(&rawObject); err != nil {
+		return
+	}
+
+	// Convert the response.
+	if o, err = toObject(rawObject); err != nil {
+		err = fmt.Errorf("toObject: %v", err)
+		return
+	}
+
 	return
 }
