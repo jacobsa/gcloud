@@ -1240,7 +1240,41 @@ type composeTest struct {
 }
 
 func (t *composeTest) ZeroSources() {
-	AssertTrue(false, "TODO")
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "bar",
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	ExpectEq("bar", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(0, o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(0, o.ComponentCount)
+	ExpectThat(o.MD5, Pointee(DeepEquals(md5.Sum([]byte("")))))
+	ExpectEq(computeCrc32C(""), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*bar"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(0, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "bar")
+
+	AssertEq(nil, err)
+	ExpectEq("", string(contents))
 }
 
 func (t *composeTest) OneSource() {
