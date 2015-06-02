@@ -23,7 +23,7 @@ import (
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
-// OAuth scopes for GCS. For use with e.g. oauthutil.NewJWTHttpClient.
+// OAuth scopes for GCS. For use with e.g. google.DefaultTokenSource.
 const (
 	Scope_FullControl = storagev1.DevstorageFullControlScope
 	Scope_ReadOnly    = storagev1.DevstorageReadOnlyScope
