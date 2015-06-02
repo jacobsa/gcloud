@@ -27,31 +27,30 @@ import (
 
 	"github.com/jacobsa/fuse/fsutil"
 	"github.com/jacobsa/gcloud/gcs"
-	"github.com/jacobsa/gcloud/oauthutil"
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 var fBucket = flag.String("bucket", "", "Name of bucket.")
-var fKeyFile = flag.String("key_file", "", "Path to JSON key file.")
 var fSize = flag.Int64("size", 1<<26, "Size of content to write.")
 var fFile = flag.String("file", "", "If set, use pre-existing contents.")
 var fRepeat = flag.Int("repeat", 1, "Repeat the content this many times.")
 
 func createBucket() (bucket gcs.Bucket, err error) {
 	// Create an authenticated HTTP client.
-	if *fKeyFile == "" {
-		err = errors.New("You must set --key_file.")
-		return
-	}
-
-	httpClient, err := oauthutil.NewJWTHttpClient(
-		*fKeyFile,
-		[]string{gcs.Scope_FullControl})
+	tokenSrc, err := google.DefaultTokenSource(
+		context.Background(),
+		gcs.Scope_FullControl)
 
 	if err != nil {
-		err = fmt.Errorf("NewJWTHttpClient: %v", err)
+		err = fmt.Errorf("DefaultTokenSource: %v", err)
 		return
 	}
+
+	httpClient := oauth2.NewClient(
+		context.Background(),
+		tokenSrc)
 
 	// Use that to create a connection.
 	connCfg := &gcs.ConnConfig{
