@@ -28,10 +28,18 @@ var fDebug = flag.Bool(
 	false,
 	"Dump information about HTTP requests.")
 
+// An interface for transports that support the signature of
+// http.Transport.CancelRequest.
+type CancellableRoundTripper interface {
+	http.RoundTripper
+	CancelRequest(*http.Request)
+}
+
 // When the flag --httputil.debug is set, wrap the supplied round tripper in a
 // layer that dumps information about HTTP requests. Otherwise, return it
 // unmodified.
-func DebuggingRoundTripper(in http.RoundTripper) (out http.RoundTripper) {
+func DebuggingRoundTripper(
+	in CancellableRoundTripper) (out CancellableRoundTripper) {
 	if *fDebug {
 		out = &debuggingRoundTripper{wrapped: in}
 	} else {
@@ -72,7 +80,7 @@ func snarfBody(rc *io.ReadCloser) string {
 ////////////////////////////////////////////////////////////////////////
 
 type debuggingRoundTripper struct {
-	wrapped http.RoundTripper
+	wrapped CancellableRoundTripper
 }
 
 func (t *debuggingRoundTripper) RoundTrip(
@@ -111,4 +119,8 @@ func (t *debuggingRoundTripper) RoundTrip(
 	fmt.Println("==============================")
 
 	return res, err
+}
+
+func (t *debuggingRoundTripper) CancelRequest(req *http.Request) {
+	t.wrapped.CancelRequest(req)
 }

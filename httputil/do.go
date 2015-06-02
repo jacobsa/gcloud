@@ -24,12 +24,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-// An interface for transports that support the signature of
-// http.Transport.CancelRequest.
-type canceller interface {
-	CancelRequest(*http.Request)
-}
-
 // Wait for the allDone channel to be closed. If the context is cancelled
 // before then, cancel the HTTP request via the canceller repeatedly until
 // allDone is closed.
@@ -43,7 +37,7 @@ type canceller interface {
 func propagateCancellation(
 	ctx context.Context,
 	allDone chan struct{},
-	c canceller,
+	c CancellableRoundTripper,
 	req *http.Request) {
 	// If the context is not cancellable, there is nothing interesting we can do.
 	cancelChan := ctx.Done()
@@ -104,7 +98,7 @@ func Do(
 	client *http.Client,
 	req *http.Request) (resp *http.Response, err error) {
 	// Make sure the transport supports cancellation.
-	c, ok := client.Transport.(canceller)
+	c, ok := client.Transport.(CancellableRoundTripper)
 	if !ok {
 		err = fmt.Errorf(
 			"Transport of type %v doesn't support cancellation",
