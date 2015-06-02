@@ -82,6 +82,12 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		StorageClass:    in.StorageClass,
 	}
 
+	// Work around Google-internal bug 21572928. See notes on the ComponentCount
+	// field.
+	if out.ComponentCount == 0 {
+		out.ComponentCount = 1
+	}
+
 	// Owner
 	if in.Owner != nil {
 		out.Owner = in.Owner.Entity

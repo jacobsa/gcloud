@@ -34,7 +34,6 @@ type Object struct {
 	Owner           string
 	Size            uint64
 	ContentEncoding string
-	ComponentCount  int64
 	MD5             *[md5.Size]byte // Missing for composite objects
 	CRC32C          uint32
 	MediaLink       string
@@ -44,4 +43,25 @@ type Object struct {
 	StorageClass    string
 	Deleted         time.Time
 	Updated         time.Time
+
+	// NOTE(jacobsa): As of 2015-06-03, the official GCS documentation for this
+	// property (https://goo.gl/GwD5Dq) says this:
+	//
+	//     Newly uploaded objects have a component count of 1, and composing a
+	//     sequence of objects creates an object whose component count is equal
+	//     to the sum of component counts in the sequence.
+	//
+	// However, in Google-internal bug 21572928 it was clarified that this
+	// doesn't match the actual implementation, which can be documented as:
+	//
+	//     Newly uploaded objects do not have a component count. Composing a
+	//     sequence of objects creates an object whose component count is equal
+	//     to the sum of the component counts of the objects in the sequence,
+	//     where objects that do not have a component count are treated as having
+	//     a component count of 1.
+	//
+	// This is a much less elegant and convenient rule, so this package emulates
+	// the officially documented behavior above. That is, it synthesizes a
+	// component count of 1 for objects that do not have a component count.
+	ComponentCount int64
 }
