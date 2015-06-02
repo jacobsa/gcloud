@@ -27,7 +27,7 @@ import (
 func ReadObject(
 	ctx context.Context,
 	bucket gcs.Bucket,
-	name string) (contents string, err error) {
+	name string) (contents []byte, err error) {
 	// Call the bucket.
 	req := &gcs.ReadObjectRequest{
 		Name: name,
@@ -47,12 +47,11 @@ func ReadObject(
 	}()
 
 	// Read the contents.
-	slice, err := ioutil.ReadAll(rc)
+	contents, err = ioutil.ReadAll(rc)
 	if err != nil {
 		err = fmt.Errorf("ReadAll: %v", err)
 		return
 	}
 
-	contents = string(slice)
 	return
 }

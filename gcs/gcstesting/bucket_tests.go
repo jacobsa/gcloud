@@ -1064,7 +1064,7 @@ func (t *copyTest) DestinationDoesntExist() {
 	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "bar")
 
 	AssertEq(nil, err)
-	ExpectEq("taco", contents)
+	ExpectEq("taco", string(contents))
 
 	// And stattable.
 	statO, err := t.bucket.StatObject(
@@ -1148,7 +1148,7 @@ func (t *copyTest) DestinationExists() {
 	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "bar")
 
 	AssertEq(nil, err)
-	ExpectEq("taco", contents)
+	ExpectEq("taco", string(contents))
 
 	// And stattable.
 	statO, err := t.bucket.StatObject(
@@ -1215,7 +1215,7 @@ func (t *copyTest) DestinationIsSameName() {
 	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
 
 	AssertEq(nil, err)
-	ExpectEq("taco", contents)
+	ExpectEq("taco", string(contents))
 
 	// And stattable.
 	statO, err := t.bucket.StatObject(

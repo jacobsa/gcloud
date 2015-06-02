@@ -238,7 +238,7 @@ func verifyObjects(
 			}
 
 			// Attempt to read the object.
-			var contents string
+			var contents []byte
 			contents, err = gcsutil.ReadObject(ctx, bucket, name)
 			if err != nil {
 				err = fmt.Errorf("ReadObject(%q): %v", name, err)
@@ -246,7 +246,7 @@ func verifyObjects(
 			}
 
 			// Check the contents.
-			actual := sha1.Sum([]byte(contents))
+			actual := sha1.Sum(contents)
 			if actual != r.sha1 {
 				err = fmt.Errorf(
 					"SHA1 mismatch for %q: %x vs. %x",
