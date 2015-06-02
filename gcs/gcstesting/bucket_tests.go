@@ -1488,7 +1488,82 @@ func (t *composeTest) ManySimpleSources() {
 }
 
 func (t *composeTest) CompositeSources() {
-	AssertTrue(false, "TODO")
+	// Create two source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them to form another source object.
+	sources = append(sources, nil)
+	sources[2], err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "2",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	// Now compose that a couple of times along with one of the originals.
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[2].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[2].Name,
+				},
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburritotacotacoburrito"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(5, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburritotacotacoburrito"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[2].Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburritotacotacoburrito", string(contents))
 }
 
 func (t *composeTest) RepeatedSources() {
