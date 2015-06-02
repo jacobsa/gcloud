@@ -1409,7 +1409,7 @@ func (t *composeTest) TwoSimpleSources() {
 	ExpectEq(len("tacoburrito"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq(2, o.ComponentCount)
-	ExpectThat(o.MD5, Pointee(DeepEquals(md5.Sum([]byte("tacoburrito")))))
+	ExpectEq(nil, o.MD5)
 	ExpectEq(computeCrc32C("tacoburrito"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectEq(nil, o.Metadata)
