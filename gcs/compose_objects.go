@@ -33,7 +33,12 @@ import (
 func (b *bucket) makeComposeObjectsBody(
 	req *ComposeObjectsRequest) (rc io.ReadCloser, err error) {
 	// Create a request in the form expected by the API.
-	r := storagev1.ComposeRequest{}
+	r := storagev1.ComposeRequest{
+		Destination: &storagev1.Object{
+			Name: req.DstName,
+		},
+	}
+
 	for _, src := range req.Sources {
 		s := &storagev1.ComposeRequestSourceObjects{
 			Name:       src.Name,
