@@ -1239,7 +1239,47 @@ type composeTest struct {
 	bucketTest
 }
 
-func (t *composeTest) DoesFoo() {
+func (t *composeTest) ZeroSources() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) OneSource() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) MultipleSources() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) OneSourceMissing_NoGenerations() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) OneSourceMissing_WrongGeneration() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) DestinationExists_NoPrecondition() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) DestinationExists_PreconditionSatisfied() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) DestinationDoesntExist_PreconditionNotSatisfied() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) ComponentCountLimits() {
 	AssertTrue(false, "TODO")
 }
 
