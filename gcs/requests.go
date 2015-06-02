@@ -70,6 +70,29 @@ type CopyObjectRequest struct {
 	DstName string
 }
 
+// A request to compose multiple objects into a single composite object.
+type ComposeObjectsRequest struct {
+	// The name of the destination composite object.
+	DstName string
+
+	// If non-nil, the destination object will be created/overwritten only if the
+	// current generation for its name is equal to the given value. Zero means
+	// the object does not exist.
+	DstGenerationPrecondition *int64
+
+	// The source objects from which to compose.
+	Sources []ComposeSource
+}
+
+type ComposeSource struct {
+	// The name of the source object.
+	Name string
+
+	// The generation of the source object to compose from. Zero means the latest
+	// generation.
+	Generation int64
+}
+
 // A [start, limit) range of bytes within an object.
 //
 // Semantics:
