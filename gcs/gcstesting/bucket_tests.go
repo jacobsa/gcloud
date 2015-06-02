@@ -1278,6 +1278,7 @@ func (t *composeTest) OneSource() {
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("", o.ContentEncoding)
+	ExpectEq(1, o.ComponentCount)
 	ExpectThat(o.MD5, Pointee(DeepEquals(md5.Sum([]byte("taco")))))
 	ExpectEq(computeCrc32C("taco"), o.CRC32C)
 	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*bar"))
