@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauthutil
+package httputil
 
 import (
 	"bytes"
@@ -21,49 +21,28 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
-var fDebugHttp = flag.Bool(
-	"oauthutil.debug_http",
+var fDebug = flag.Bool(
+	"httputil.debug",
 	false,
 	"Dump information about HTTP requests.")
 
-// Set up an authenticated HTTP client that fetches tokens using the OAuth 2.0
-// JSON Web Token flow ("two-legged OAuth 2.0"). The path must point at a
-// readable JSON key file for a service account downloaded from the Google
-// Developers Console.
-func NewJWTHttpClient(jsonPath string, scopes []string) (*http.Client, error) {
-	// Attempt to read the JSON file.
-	contents, err := ioutil.ReadFile(jsonPath)
-	if err != nil {
-		return nil, err
+// When the flag --httputil.debug is set, wrap the supplied round tripper in a
+// layer that dumps information about HTTP requests. Otherwise, return it
+// unmodified.
+func DebuggingRoundTripper(in http.RoundTripper) (out http.RoundTripper) {
+	if *fDebug {
+		out = &debuggingRoundTripper{wrapped: in}
+	} else {
+		out = in
 	}
 
-	// Create a config struct based on its contents.
-	jwtConfig, err := google.JWTConfigFromJSON(contents, scopes...)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create the HTTP transport.
-	transport := &oauth2.Transport{
-		Source: jwtConfig.TokenSource(oauth2.NoContext),
-		Base:   http.DefaultTransport,
-	}
-
-	// Enable debugging if requested.
-	if *fDebugHttp {
-		transport.Base = &debuggingTransport{wrapped: transport.Base}
-	}
-
-	return &http.Client{Transport: transport}, nil
+	return
 }
 
 ////////////////////////////////////////////////////////////////////////
-// HTTP debugging
+// Helpers
 ////////////////////////////////////////////////////////////////////////
 
 func readAllAndClose(rc io.ReadCloser) string {
@@ -88,11 +67,16 @@ func snarfBody(rc *io.ReadCloser) string {
 	return contents
 }
 
-type debuggingTransport struct {
+////////////////////////////////////////////////////////////////////////
+// debuggingRoundTripper
+////////////////////////////////////////////////////////////////////////
+
+type debuggingRoundTripper struct {
 	wrapped http.RoundTripper
 }
 
-func (t *debuggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *debuggingRoundTripper) RoundTrip(
+	req *http.Request) (*http.Response, error) {
 	// Print information about the request.
 	fmt.Println("========== REQUEST ===========")
 	fmt.Println(req.Method, req.URL, req.Proto)
