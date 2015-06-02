@@ -15,10 +15,11 @@
 package gcs
 
 import (
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -31,7 +32,27 @@ import (
 
 func (b *bucket) makeComposeObjectsBody(
 	req *ComposeObjectsRequest) (rc io.ReadCloser, err error) {
-	err = errors.New("TODO")
+	// Create a request in the form expected by the API.
+	r := storagev1.ComposeRequest{}
+	for _, src := range req.Sources {
+		s := &storagev1.ComposeRequestSourceObjects{
+			Name:       src.Name,
+			Generation: src.Generation,
+		}
+
+		r.SourceObjects = append(r.SourceObjects, s)
+	}
+
+	// Serialize it.
+	j, err := json.Marshal(&r)
+	if err != nil {
+		err = fmt.Errorf("json.Marshal: %v", err)
+		return
+	}
+
+	// Create a ReadCloser.
+	rc = ioutil.NopCloser(bytes.NewReader(j))
+
 	return
 }
 
