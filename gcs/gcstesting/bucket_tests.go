@@ -1401,6 +1401,7 @@ func (t *composeTest) TwoSimpleSources() {
 	t.advanceTime()
 	AssertEq(nil, err)
 
+	// Check the result.
 	ExpectEq("foo", o.Name)
 	ExpectEq("application/octet-stream", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
@@ -1427,8 +1428,63 @@ func (t *composeTest) TwoSimpleSources() {
 	ExpectEq("tacoburrito", string(contents))
 }
 
-func (t *composeTest) ThreeSimpleSources() {
-	AssertTrue(false, "TODO")
+func (t *composeTest) ManySimpleSources() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"",
+		"burrito",
+		"enchilada",
+		"queso",
+		"",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them.
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+	}
+
+	for _, src := range sources {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: src.Name})
+	}
+
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(t.ctx, req)
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburritoenchiladaqueso"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(6, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburritoenchiladaqueso"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	for _, src := range sources {
+		ExpectLt(src.Generation, o.Generation)
+	}
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburritoenchiladaqueso", string(contents))
 }
 
 func (t *composeTest) CompositeSources() {
