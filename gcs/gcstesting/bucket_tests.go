@@ -1239,6 +1239,46 @@ type composeTest struct {
 	bucketTest
 }
 
+func (t *composeTest) createSources(
+	contents []string) (objs []*gcs.Object, err error) {
+	objs = make([]*gcs.Object, len(contents))
+
+	// Write indices into a channel.
+	indices := make(chan int, len(contents))
+	for i := range contents {
+		indices <- i
+	}
+	close(indices)
+
+	// Run a bunch of workers.
+	b := syncutil.NewBundle(t.ctx)
+
+	const parallelism = 128
+	for i := 0; i < parallelism; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for i := range indices {
+				objs[i], err = t.bucket.CreateObject(
+					ctx,
+					&gcs.CreateObjectRequest{
+						Name:     fmt.Sprint(i),
+						Contents: strings.NewReader(contents[i]),
+					},
+				)
+
+				if err != nil {
+					err = fmt.Errorf("CreateObject: %v", err)
+					return
+				}
+			}
+
+			return
+		})
+	}
+
+	err = b.Join()
+	return
+}
+
 func (t *composeTest) ZeroSources() {
 	t.advanceTime()
 	composeTime := t.clock.Now()
@@ -1331,7 +1371,60 @@ func (t *composeTest) OneSource() {
 }
 
 func (t *composeTest) TwoSimpleSources() {
-	AssertTrue(false, "TODO")
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them.
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(2, o.ComponentCount)
+	ExpectThat(o.MD5, Pointee(DeepEquals(md5.Sum([]byte("tacoburrito")))))
+	ExpectEq(computeCrc32C("tacoburrito"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
 }
 
 func (t *composeTest) ThreeSimpleSources() {
