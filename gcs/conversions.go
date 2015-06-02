@@ -73,6 +73,7 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
 		ContentEncoding: in.ContentEncoding,
+		ComponentCount:  in.ComponentCount,
 		Size:            in.Size,
 		MediaLink:       in.MediaLink,
 		Metadata:        in.Metadata,
