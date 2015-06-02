@@ -195,6 +195,19 @@ func (b *debugBucket) CopyObject(
 	return
 }
 
+func (b *debugBucket) ComposeObjects(
+	ctx context.Context,
+	req *ComposeObjectsRequest) (o *Object, err error) {
+	id, desc, start := b.startRequest(
+		"ComposeObjects(%q)",
+		req.DstName)
+
+	defer b.finishRequest(id, desc, start, &err)
+
+	o, err = b.wrapped.ComposeObjects(ctx, req)
+	return
+}
+
 func (b *debugBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
