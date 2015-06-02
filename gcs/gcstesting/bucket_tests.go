@@ -1330,7 +1330,15 @@ func (t *composeTest) OneSource() {
 	ExpectEq("taco", string(contents))
 }
 
-func (t *composeTest) MultipleSources() {
+func (t *composeTest) TwoSimpleSources() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) ThreeSimpleSources() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) CompositeSources() {
 	AssertTrue(false, "TODO")
 }
 
