@@ -140,7 +140,7 @@ type bucket struct {
 	prevGeneration int64 // GUARDED_BY(mu)
 }
 
-// SHARED_LOCKS_REQUIRED(b.mu)
+// LOCKS_REQUIRED(b.mu)
 func (b *bucket) checkInvariants() {
 	// Make sure 'objects' is strictly increasing.
 	for i := 1; i < len(b.objects); i++ {
@@ -175,8 +175,8 @@ func (b *bucket) Name() string {
 func (b *bucket) ListObjects(
 	ctx context.Context,
 	req *gcs.ListObjectsRequest) (listing *gcs.Listing, err error) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	// Set up the result object.
 	listing = new(gcs.Listing)
@@ -271,8 +271,8 @@ func (b *bucket) ListObjects(
 func (b *bucket) NewReader(
 	ctx context.Context,
 	req *gcs.ReadObjectRequest) (rc io.ReadCloser, err error) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	// Find the object with the requested name.
 	index := b.objects.find(req.Name)
@@ -405,8 +405,8 @@ func (b *bucket) CopyObject(
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	// Does the object exist?
 	index := b.objects.find(req.Name)
@@ -514,7 +514,7 @@ func (b *bucket) DeleteObject(
 
 // Create an object struct for the given attributes and contents.
 //
-// EXCLUSIVE_LOCKS_REQUIRED(b.mu)
+// LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
 	req *gcs.CreateObjectRequest,
 	contents string) (o fakeObject) {
@@ -553,7 +553,7 @@ func (b *bucket) mintObject(
 
 // Add a record and return a copy of the minted entry.
 //
-// EXCLUSIVE_LOCKS_REQUIRED(b.mu)
+// LOCKS_REQUIRED(b.mu)
 func (b *bucket) addObjectLocked(
 	req *gcs.CreateObjectRequest,
 	contents string) (entry gcs.Object, err error) {
