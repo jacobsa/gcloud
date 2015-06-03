@@ -43,6 +43,10 @@ func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 	return b
 }
 
+////////////////////////////////////////////////////////////////////////
+// Helper types
+////////////////////////////////////////////////////////////////////////
+
 type fakeObject struct {
 	// An Object representing a GCS entry for this object.
 	entry gcs.Object
@@ -120,7 +124,7 @@ func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// bucket
+// Helpers
 ////////////////////////////////////////////////////////////////////////
 
 type bucket struct {
@@ -166,6 +170,164 @@ func (b *bucket) checkInvariants() {
 		}
 	}
 }
+
+// Create an object struct for the given attributes and contents.
+//
+// LOCKS_REQUIRED(b.mu)
+func (b *bucket) mintObject(
+	req *gcs.CreateObjectRequest,
+	contents []byte) (o fakeObject) {
+	md5Sum := md5.Sum(contents)
+
+	// Set up basic info.
+	b.prevGeneration++
+	o.entry = gcs.Object{
+		Name:            req.Name,
+		ContentType:     req.ContentType,
+		ContentLanguage: req.ContentLanguage,
+		CacheControl:    req.CacheControl,
+		Owner:           "user-fake",
+		Size:            uint64(len(contents)),
+		ContentEncoding: req.ContentEncoding,
+		MD5:             &md5Sum,
+		CRC32C:          crc32.Checksum(contents, crc32cTable),
+		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
+		Metadata:        req.Metadata,
+		Generation:      b.prevGeneration,
+		MetaGeneration:  1,
+		StorageClass:    "STANDARD",
+		Updated:         b.clock.Now(),
+	}
+
+	// Set up contents.
+	o.contents = contents
+
+	// Support the same default content type as GCS.
+	if o.entry.ContentType == "" {
+		o.entry.ContentType = "application/octet-stream"
+	}
+
+	return
+}
+
+// LOCKS_REQUIRED(b.mu)
+func (b *bucket) createObjectLocked(
+	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
+	// Check that the name is legal.
+	name := req.Name
+	if len(name) == 0 || len(name) > 1024 {
+		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
+	}
+
+	if !utf8.ValidString(name) {
+		return nil, errors.New("Invalid object name: not valid UTF-8")
+	}
+
+	for _, r := range name {
+		if r == 0x0a || r == 0x0d {
+			return nil, errors.New("Invalid object name: must not contain CR or LF")
+		}
+	}
+
+	// Snarf the contents.
+	contents, err := ioutil.ReadAll(req.Contents)
+	if err != nil {
+		err = fmt.Errorf("ReadAll: %v", err)
+		return
+	}
+
+	// Find any existing record for this name.
+	existingIndex := b.objects.find(req.Name)
+
+	var existingRecord *fakeObject
+	if existingIndex < len(b.objects) {
+		existingRecord = &b.objects[existingIndex]
+	}
+
+	// Check the provided checksum, if any.
+	if req.CRC32C != nil {
+		actual := crc32.Checksum(contents, crc32cTable)
+		if actual != *req.CRC32C {
+			err = fmt.Errorf(
+				"CRC32C mismatch: got 0x%08x, expected 0x%08x",
+				actual,
+				*req.CRC32C)
+
+			return
+		}
+	}
+
+	// Check the provided hash, if any.
+	if req.MD5 != nil {
+		actual := md5.Sum(contents)
+		if actual != *req.MD5 {
+			err = fmt.Errorf(
+				"MD5 mismatch: got %s, expected %s",
+				hex.EncodeToString(actual[:]),
+				hex.EncodeToString(req.MD5[:]))
+
+			return
+		}
+	}
+
+	// Check preconditions.
+	if req.GenerationPrecondition != nil {
+		if *req.GenerationPrecondition == 0 && existingRecord != nil {
+			err = &gcs.PreconditionError{
+				Err: errors.New("Precondition failed: object exists"),
+			}
+
+			return
+		}
+
+		if *req.GenerationPrecondition > 0 {
+			if existingRecord == nil {
+				err = &gcs.PreconditionError{
+					Err: errors.New("Precondition failed: object doesn't exist"),
+				}
+
+				return
+			}
+
+			existingGen := existingRecord.entry.Generation
+			if existingGen != *req.GenerationPrecondition {
+				err = &gcs.PreconditionError{
+					Err: fmt.Errorf(
+						"Precondition failed: object has generation %v",
+						existingGen),
+				}
+
+				return
+			}
+		}
+	}
+
+	// Create an object record from the given attributes.
+	var fo fakeObject = b.mintObject(req, contents)
+	o = &fo.entry
+
+	// Replace an entry in or add an entry to our list of objects.
+	if existingIndex < len(b.objects) {
+		b.objects[existingIndex] = fo
+	} else {
+		b.objects = append(b.objects, fo)
+		sort.Sort(b.objects)
+	}
+
+	return
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////
+// Public interface
+////////////////////////////////////////////////////////////////////////
 
 func (b *bucket) Name() string {
 	return b.name
@@ -518,166 +680,4 @@ func (b *bucket) DeleteObject(
 	b.objects = append(b.objects[:index], b.objects[index+1:]...)
 
 	return
-}
-
-// Create an object struct for the given attributes and contents.
-//
-// LOCKS_REQUIRED(b.mu)
-func (b *bucket) mintObject(
-	req *gcs.CreateObjectRequest,
-	contents []byte) (o fakeObject) {
-	md5Sum := md5.Sum(contents)
-
-	// Set up basic info.
-	b.prevGeneration++
-	o.entry = gcs.Object{
-		Name:            req.Name,
-		ContentType:     req.ContentType,
-		ContentLanguage: req.ContentLanguage,
-		CacheControl:    req.CacheControl,
-		Owner:           "user-fake",
-		Size:            uint64(len(contents)),
-		ContentEncoding: req.ContentEncoding,
-		MD5:             &md5Sum,
-		CRC32C:          crc32.Checksum(contents, crc32cTable),
-		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
-		Metadata:        req.Metadata,
-		Generation:      b.prevGeneration,
-		MetaGeneration:  1,
-		StorageClass:    "STANDARD",
-		Updated:         b.clock.Now(),
-	}
-
-	// Set up contents.
-	o.contents = contents
-
-	// Support the same default content type as GCS.
-	if o.entry.ContentType == "" {
-		o.entry.ContentType = "application/octet-stream"
-	}
-
-	return
-}
-
-// LOCKS_REQUIRED(b.mu)
-func (b *bucket) createObjectLocked(
-	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
-	// Check that the name is legal.
-	name := req.Name
-	if len(name) == 0 || len(name) > 1024 {
-		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
-	}
-
-	if !utf8.ValidString(name) {
-		return nil, errors.New("Invalid object name: not valid UTF-8")
-	}
-
-	for _, r := range name {
-		if r == 0x0a || r == 0x0d {
-			return nil, errors.New("Invalid object name: must not contain CR or LF")
-		}
-	}
-
-	// Snarf the contents.
-	contents, err := ioutil.ReadAll(req.Contents)
-	if err != nil {
-		err = fmt.Errorf("ReadAll: %v", err)
-		return
-	}
-
-	// Find any existing record for this name.
-	existingIndex := b.objects.find(req.Name)
-
-	var existingRecord *fakeObject
-	if existingIndex < len(b.objects) {
-		existingRecord = &b.objects[existingIndex]
-	}
-
-	// Check the provided checksum, if any.
-	if req.CRC32C != nil {
-		actual := crc32.Checksum(contents, crc32cTable)
-		if actual != *req.CRC32C {
-			err = fmt.Errorf(
-				"CRC32C mismatch: got 0x%08x, expected 0x%08x",
-				actual,
-				*req.CRC32C)
-
-			return
-		}
-	}
-
-	// Check the provided hash, if any.
-	if req.MD5 != nil {
-		actual := md5.Sum(contents)
-		if actual != *req.MD5 {
-			err = fmt.Errorf(
-				"MD5 mismatch: got %s, expected %s",
-				hex.EncodeToString(actual[:]),
-				hex.EncodeToString(req.MD5[:]))
-
-			return
-		}
-	}
-
-	// Check preconditions.
-	if req.GenerationPrecondition != nil {
-		if *req.GenerationPrecondition == 0 && existingRecord != nil {
-			err = &gcs.PreconditionError{
-				Err: errors.New("Precondition failed: object exists"),
-			}
-
-			return
-		}
-
-		if *req.GenerationPrecondition > 0 {
-			if existingRecord == nil {
-				err = &gcs.PreconditionError{
-					Err: errors.New("Precondition failed: object doesn't exist"),
-				}
-
-				return
-			}
-
-			existingGen := existingRecord.entry.Generation
-			if existingGen != *req.GenerationPrecondition {
-				err = &gcs.PreconditionError{
-					Err: fmt.Errorf(
-						"Precondition failed: object has generation %v",
-						existingGen),
-				}
-
-				return
-			}
-		}
-	}
-
-	// Create an object record from the given attributes.
-	var fo fakeObject = b.mintObject(req, contents)
-	o = &fo.entry
-
-	// Replace an entry in or add an entry to our list of objects.
-	if existingIndex < len(b.objects) {
-		b.objects[existingIndex] = fo
-	} else {
-		b.objects = append(b.objects, fo)
-		sort.Sort(b.objects)
-	}
-
-	return
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
 }
