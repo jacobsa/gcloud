@@ -1954,6 +1954,10 @@ func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
 	ExpectEq("tacoburrito", string(contents))
 }
 
+func (t *composeTest) SourceCountLimit() {
+	AssertTrue(false, "TODO")
+}
+
 func (t *composeTest) ComponentCountLimits() {
 	const divider = 8
 	AssertEq(0, gcs.MaxComponentCount%divider)
