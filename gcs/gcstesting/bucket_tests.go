@@ -1955,7 +1955,28 @@ func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
 }
 
 func (t *composeTest) SourceCountLimit() {
-	AssertTrue(false, "TODO")
+	// Create an original object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "src",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose too many copies of it.
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+	}
+
+	for i := 0; i < gcs.MaxSourcesPerComposeRequest+1; i++ {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: src.Name})
+	}
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+
+	ExpectThat(err, Error(HasSubstr("source components")))
 }
 
 func (t *composeTest) ComponentCountLimits() {
