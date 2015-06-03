@@ -237,7 +237,7 @@ func (t *ComposeObjectsTest) CallsEraseAndWrapped() {
 		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(nil, errors.New(""))))
 
 	// Call
-	req := &gcs.CopyObjectRequest{
+	req := &gcs.ComposeObjectsRequest{
 		DstName: dstName,
 		Sources: []gcs.ComposeSource{
 			gcs.ComposeSource{Name: srcName},
