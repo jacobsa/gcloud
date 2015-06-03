@@ -1959,61 +1959,65 @@ func (t *composeTest) SourceCountLimit() {
 }
 
 func (t *composeTest) ComponentCountLimits() {
-	const divider = 8
-	AssertEq(0, gcs.MaxComponentCount%divider)
+	// The tests below assume that we can hit the max component count with two
+	// rounds of composing.
+	AssertEq(
+		gcs.MaxComponentCount,
+		gcs.MaxSourcesPerComposeRequest*gcs.MaxSourcesPerComposeRequest)
 
-	// Create a bunch of source objects.
-	var sourceContents []string
-	for i := 0; i < gcs.MaxComponentCount/divider; i++ {
-		sourceContents = append(sourceContents, fmt.Sprint(i))
-	}
+	// Create a single original object.
+	small, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "small",
+			Contents: strings.NewReader("a"),
+		})
 
-	sources, err := t.createSources(sourceContents)
 	AssertEq(nil, err)
 
-	// Compose them into a single object with the maximum component count.
+	// Compose as many copies of it as possible.
 	req := &gcs.ComposeObjectsRequest{
-		DstName: "foo",
+		DstName: "medium",
 	}
 
-	var expectedContents string
-	for repeat := 0; repeat < divider; repeat++ {
-		for i, o := range sources {
-			req.Sources = append(req.Sources, gcs.ComposeSource{Name: o.Name})
-			expectedContents = expectedContents + sourceContents[i]
-		}
+	for i := 0; i < gcs.MaxSourcesPerComposeRequest; i++ {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: small.Name})
 	}
 
-	AssertEq(gcs.MaxComponentCount, len(req.Sources))
-
-	o, err := t.bucket.ComposeObjects(t.ctx, req)
+	medium, err := t.bucket.ComposeObjects(t.ctx, req)
 
 	AssertEq(nil, err)
-	AssertEq(gcs.MaxComponentCount, o.ComponentCount)
+	AssertEq(gcs.MaxSourcesPerComposeRequest, medium.ComponentCount)
+	AssertEq(gcs.MaxSourcesPerComposeRequest, medium.Size)
 
-	// Check the contents.
-	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+	// Compose that many copies over again to hit the maximum component count
+	// limit.
+	req = &gcs.ComposeObjectsRequest{
+		DstName: "large",
+	}
+
+	for i := 0; i < gcs.MaxSourcesPerComposeRequest; i++ {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: medium.Name})
+	}
+
+	large, err := t.bucket.ComposeObjects(t.ctx, req)
 
 	AssertEq(nil, err)
-	ExpectEq(expectedContents, string(contents))
+	AssertEq(gcs.MaxComponentCount, large.ComponentCount)
+	AssertEq(gcs.MaxComponentCount, large.Size)
 
-	// Creating with one more component should not work.
-	req.Sources = append(req.Sources, req.Sources[0])
-
-	_, err = t.bucket.ComposeObjects(t.ctx, req)
-	ExpectThat(err, Error(HasSubstr("TODO")))
-
-	// Nor should appending one component.
+	// Attempting to add one more component should fail.
 	req = &gcs.ComposeObjectsRequest{
 		DstName: "foo",
 		Sources: []gcs.ComposeSource{
-			gcs.ComposeSource{Name: "foo"},
-			gcs.ComposeSource{Name: sources[0].Name},
+			gcs.ComposeSource{Name: large.Name},
+			gcs.ComposeSource{Name: small.Name},
 		},
 	}
 
 	_, err = t.bucket.ComposeObjects(t.ctx, req)
-	ExpectThat(err, Error(HasSubstr("TODO")))
+
+	ExpectThat(err, Error(HasSubstr("too many components")))
 }
 
 ////////////////////////////////////////////////////////////////////////
