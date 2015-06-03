@@ -317,6 +317,61 @@ func (b *bucket) createObjectLocked(
 	return
 }
 
+// LOCKS_REQUIRED(b.mu)
+func (b *bucket) newReaderLocked(
+	req *gcs.ReadObjectRequest) (rc io.ReadCloser, err error) {
+	// Find the object with the requested name.
+	index := b.objects.find(req.Name)
+	if index == len(b.objects) {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", req.Name),
+		}
+
+		return
+	}
+
+	o := b.objects[index]
+
+	// Does the generation match?
+	if req.Generation != 0 && req.Generation != o.entry.Generation {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf(
+				"Object %s generation %v not found", req.Name, req.Generation),
+		}
+
+		return
+	}
+
+	// Extract the requested range.
+	result := o.contents
+
+	if req.Range != nil {
+		start := req.Range.Start
+		limit := req.Range.Limit
+		l := uint64(len(result))
+
+		if start > limit {
+			start = 0
+			limit = 0
+		}
+
+		if start > l {
+			start = 0
+			limit = 0
+		}
+
+		if limit > l {
+			limit = l
+		}
+
+		result = result[start:limit]
+	}
+
+	rc = ioutil.NopCloser(bytes.NewReader(result))
+
+	return
+}
+
 func minInt(a, b int) int {
 	if a < b {
 		return a
@@ -436,55 +491,7 @@ func (b *bucket) NewReader(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// Find the object with the requested name.
-	index := b.objects.find(req.Name)
-	if index == len(b.objects) {
-		err = &gcs.NotFoundError{
-			Err: fmt.Errorf("Object %s not found", req.Name),
-		}
-
-		return
-	}
-
-	o := b.objects[index]
-
-	// Does the generation match?
-	if req.Generation != 0 && req.Generation != o.entry.Generation {
-		err = &gcs.NotFoundError{
-			Err: fmt.Errorf(
-				"Object %s generation %v not found", req.Name, req.Generation),
-		}
-
-		return
-	}
-
-	// Extract the requested range.
-	result := o.contents
-
-	if req.Range != nil {
-		start := req.Range.Start
-		limit := req.Range.Limit
-		l := uint64(len(result))
-
-		if start > limit {
-			start = 0
-			limit = 0
-		}
-
-		if start > l {
-			start = 0
-			limit = 0
-		}
-
-		if limit > l {
-			limit = l
-		}
-
-		result = result[start:limit]
-	}
-
-	rc = ioutil.NopCloser(bytes.NewReader(result))
-
+	rc, err = b.newReaderLocked(req)
 	return
 }
 
