@@ -1753,7 +1753,42 @@ func (t *composeTest) DestinationExists_NoPrecondition() {
 }
 
 func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
-	AssertTrue(false, "TODO")
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	precond := sources[0].Generation + 1
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   sources[0].Name,
+			DstGenerationPrecondition: &precond,
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// Make sure the object wasn't overwritten.
+	o, err := t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: sources[0].Name})
+
+	AssertEq(nil, err)
+	ExpectEq(sources[0].Generation, o.Generation)
+	ExpectEq(len("taco"), o.Size)
 }
 
 func (t *composeTest) DestinationExists_PreconditionSatisfied() {
