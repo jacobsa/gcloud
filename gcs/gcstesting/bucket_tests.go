@@ -1955,7 +1955,61 @@ func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
 }
 
 func (t *composeTest) ComponentCountLimits() {
-	AssertTrue(false, "TODO")
+	const divider = 8
+	AssertEq(0, gcs.MaxComponentCount%divider)
+
+	// Create a bunch of source objects.
+	var sourceContents []string
+	for i := 0; i < gcs.MaxComponentCount/divider; i++ {
+		sourceContents = append(sourceContents, fmt.Sprint(i))
+	}
+
+	sources, err := t.createSources(sourceContents)
+	AssertEq(nil, err)
+
+	// Compose them into a single object with the maximum component count.
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+	}
+
+	var expectedContents string
+	for repeat := 0; repeat < divider; repeat++ {
+		for i, o := range sources {
+			req.Sources = append(req.Sources, gcs.ComposeSource{Name: o.Name})
+			expectedContents = expectedContents + sourceContents[i]
+		}
+	}
+
+	AssertEq(gcs.MaxComponentCount, len(req.Sources))
+
+	o, err := t.bucket.ComposeObjects(t.ctx, req)
+
+	AssertEq(nil, err)
+	AssertEq(gcs.MaxComponentCount, o.ComponentCount)
+
+	// Check the contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq(expectedContents, string(contents))
+
+	// Creating with one more component should not work.
+	req.Sources = append(req.Sources, req.Sources[0])
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+	ExpectThat(err, Error(HasSubstr("TODO")))
+
+	// Nor should appending one component.
+	req = &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+		Sources: []gcs.ComposeSource{
+			gcs.ComposeSource{Name: "foo"},
+			gcs.ComposeSource{Name: sources[0].Name},
+		},
+	}
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+	ExpectThat(err, Error(HasSubstr("TODO")))
 }
 
 ////////////////////////////////////////////////////////////////////////
