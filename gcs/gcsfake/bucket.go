@@ -186,6 +186,7 @@ func (b *bucket) mintObject(
 		Owner:           "user-fake",
 		Size:            uint64(len(contents)),
 		ContentEncoding: req.ContentEncoding,
+		ComponentCount:  1,
 		MD5:             &md5Sum,
 		CRC32C:          crc32.Checksum(contents, crc32cTable),
 		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
@@ -571,7 +572,24 @@ func (b *bucket) ComposeObjects(
 		Contents: io.MultiReader(srcReaders...),
 	}
 
-	o, err = b.createObjectLocked(createReq)
+	_, err = b.createObjectLocked(createReq)
+	if err != nil {
+		return
+	}
+
+	dstIndex := b.objects.find(req.DstName)
+	metadata := &b.objects[dstIndex].metadata
+
+	// Touchup: fix the component count.
+	metadata.ComponentCount = 0
+	for _, src := range req.Sources {
+		srcIndex := b.objects.find(src.Name)
+		metadata.ComponentCount += b.objects[srcIndex].metadata.ComponentCount
+	}
+
+	oCopy := *metadata
+	o = &oCopy
+
 	return
 }
 
