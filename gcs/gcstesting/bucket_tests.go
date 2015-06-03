@@ -1805,6 +1805,7 @@ func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
 		&gcs.ComposeObjectsRequest{
 			DstName:                   sources[0].Name,
 			DstGenerationPrecondition: &precond,
+
 			Sources: []gcs.ComposeSource{
 				gcs.ComposeSource{
 					Name: sources[0].Name,
@@ -1829,7 +1830,46 @@ func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
 }
 
 func (t *composeTest) DestinationExists_PreconditionSatisfied() {
-	AssertTrue(false, "TODO")
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   sources[0].Name,
+			DstGenerationPrecondition: &sources[0].Generation,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq(sources[0].Name, o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, sources[0].Name)
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
 }
 
 func (t *composeTest) DestinationDoesntExist_PreconditionNotSatisfied() {
