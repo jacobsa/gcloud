@@ -48,7 +48,7 @@ type fakeObject struct {
 	entry gcs.Object
 
 	// The contents of the object. These never change.
-	contents string
+	contents []byte
 }
 
 // A slice of objects compared by name.
@@ -321,7 +321,7 @@ func (b *bucket) NewReader(
 		result = result[start:limit]
 	}
 
-	rc = ioutil.NopCloser(strings.NewReader(result))
+	rc = ioutil.NopCloser(bytes.NewReader(result))
 
 	return
 }
@@ -330,40 +330,10 @@ func (b *bucket) NewReader(
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
-	// Check that the object name is legal.
-	name := req.Name
-	if len(name) == 0 || len(name) > 1024 {
-		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
-	}
-
-	if !utf8.ValidString(name) {
-		return nil, errors.New("Invalid object name: not valid UTF-8")
-	}
-
-	for _, r := range name {
-		if r == 0x0a || r == 0x0d {
-			return nil, errors.New("Invalid object name: must not contain CR or LF")
-		}
-	}
-
-	// Snarf the object contents.
-	buf := new(bytes.Buffer)
-	if _, err = io.Copy(buf, req.Contents); err != nil {
-		return
-	}
-
-	contents := buf.String()
-
-	// Lock and proceed.
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	obj, err := b.addObjectLocked(req, contents)
-	if err != nil {
-		return
-	}
-
-	o = &obj
+	o, err = b.createObjectLocked(req)
 	return
 }
 
@@ -429,17 +399,13 @@ func (b *bucket) ComposeObjects(
 		dstContents = append(dstContents, b.objects[srcIndex].contents...)
 	}
 
-	// Create a new record, replacing anything that already exists.
+	// Create the new object.
 	createReq := &gcs.CreateObjectRequest{
-		Name: req.DstName,
+		Name:     req.DstName,
+		Contents: bytes.NewReader(dstContents),
 	}
 
-	obj, err := b.addObjectLocked(createReq, string(dstContents))
-	if err != nil {
-		return
-	}
-
-	o = &obj
+	o, err = b.createObjectLocked(createReq)
 	return
 }
 
@@ -559,8 +525,8 @@ func (b *bucket) DeleteObject(
 // LOCKS_REQUIRED(b.mu)
 func (b *bucket) mintObject(
 	req *gcs.CreateObjectRequest,
-	contents string) (o fakeObject) {
-	md5Sum := md5.Sum([]byte(contents))
+	contents []byte) (o fakeObject) {
+	md5Sum := md5.Sum(contents)
 
 	// Set up basic info.
 	b.prevGeneration++
@@ -573,7 +539,7 @@ func (b *bucket) mintObject(
 		Size:            uint64(len(contents)),
 		ContentEncoding: req.ContentEncoding,
 		MD5:             &md5Sum,
-		CRC32C:          crc32.Checksum([]byte(contents), crc32cTable),
+		CRC32C:          crc32.Checksum(contents, crc32cTable),
 		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
 		Metadata:        req.Metadata,
 		Generation:      b.prevGeneration,
@@ -593,12 +559,32 @@ func (b *bucket) mintObject(
 	return
 }
 
-// Add a record and return a copy of the minted entry.
-//
 // LOCKS_REQUIRED(b.mu)
-func (b *bucket) addObjectLocked(
-	req *gcs.CreateObjectRequest,
-	contents string) (entry gcs.Object, err error) {
+func (b *bucket) createObjectLocked(
+	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
+	// Check that the name is legal.
+	name := req.Name
+	if len(name) == 0 || len(name) > 1024 {
+		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
+	}
+
+	if !utf8.ValidString(name) {
+		return nil, errors.New("Invalid object name: not valid UTF-8")
+	}
+
+	for _, r := range name {
+		if r == 0x0a || r == 0x0d {
+			return nil, errors.New("Invalid object name: must not contain CR or LF")
+		}
+	}
+
+	// Snarf the contents.
+	contents, err := ioutil.ReadAll(req.Contents)
+	if err != nil {
+		err = fmt.Errorf("ReadAll: %v", err)
+		return
+	}
+
 	// Find any existing record for this name.
 	existingIndex := b.objects.find(req.Name)
 
@@ -609,7 +595,7 @@ func (b *bucket) addObjectLocked(
 
 	// Check the provided checksum, if any.
 	if req.CRC32C != nil {
-		actual := crc32.Checksum([]byte(contents), crc32cTable)
+		actual := crc32.Checksum(contents, crc32cTable)
 		if actual != *req.CRC32C {
 			err = fmt.Errorf(
 				"CRC32C mismatch: got 0x%08x, expected 0x%08x",
@@ -622,7 +608,7 @@ func (b *bucket) addObjectLocked(
 
 	// Check the provided hash, if any.
 	if req.MD5 != nil {
-		actual := md5.Sum([]byte(contents))
+		actual := md5.Sum(contents)
 		if actual != *req.MD5 {
 			err = fmt.Errorf(
 				"MD5 mismatch: got %s, expected %s",
@@ -666,17 +652,17 @@ func (b *bucket) addObjectLocked(
 	}
 
 	// Create an object record from the given attributes.
-	var o fakeObject = b.mintObject(req, contents)
+	var fo fakeObject = b.mintObject(req, contents)
+	o = &fo.entry
 
 	// Replace an entry in or add an entry to our list of objects.
 	if existingIndex < len(b.objects) {
-		b.objects[existingIndex] = o
+		b.objects[existingIndex] = fo
 	} else {
-		b.objects = append(b.objects, o)
+		b.objects = append(b.objects, fo)
 		sort.Sort(b.objects)
 	}
 
-	entry = o.entry
 	return
 }
 
