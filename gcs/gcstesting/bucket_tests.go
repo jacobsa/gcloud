@@ -1911,7 +1911,47 @@ func (t *composeTest) DestinationDoesntExist_PreconditionNotSatisfied() {
 }
 
 func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
-	AssertTrue(false, "TODO")
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them.
+	var precond int64 = 0
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   "foo",
+			DstGenerationPrecondition: &precond,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
 }
 
 func (t *composeTest) ComponentCountLimits() {
