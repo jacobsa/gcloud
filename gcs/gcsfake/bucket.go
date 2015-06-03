@@ -48,11 +48,8 @@ func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 ////////////////////////////////////////////////////////////////////////
 
 type fakeObject struct {
-	// An Object representing a GCS entry for this object.
-	entry gcs.Object
-
-	// The contents of the object. These never change.
-	contents []byte
+	metadata gcs.Object
+	data     []byte
 }
 
 // A slice of objects compared by name.
@@ -63,28 +60,28 @@ func (s fakeObjectSlice) Len() int {
 }
 
 func (s fakeObjectSlice) Less(i, j int) bool {
-	return s[i].entry.Name < s[j].entry.Name
+	return s[i].metadata.Name < s[j].metadata.Name
 }
 
 func (s fakeObjectSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// Return the smallest i such that s[i].entry.Name >= name, or len(s) if there
-// is no such i.
+// Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
+// there is no such i.
 func (s fakeObjectSlice) lowerBound(name string) int {
 	pred := func(i int) bool {
-		return s[i].entry.Name >= name
+		return s[i].metadata.Name >= name
 	}
 
 	return sort.Search(len(s), pred)
 }
 
-// Return the smallest i such that s[i].entry.Name == name, or len(s) if there
-// is no such i.
+// Return the smallest i such that s[i].metadata.Name == name, or len(s) if
+// there is no such i.
 func (s fakeObjectSlice) find(name string) int {
 	lb := s.lowerBound(name)
-	if lb < len(s) && s[lb].entry.Name == name {
+	if lb < len(s) && s[lb].metadata.Name == name {
 		return lb
 	}
 
@@ -112,8 +109,8 @@ func prefixSuccessor(prefix string) string {
 	return string(limit)
 }
 
-// Return the smallest i such that prefix < s[i].entry.Name and
-// !strings.HasPrefix(s[i].entry.Name, prefix).
+// Return the smallest i such that prefix < s[i].metadata.Name and
+// !strings.HasPrefix(s[i].metadata.Name, prefix).
 func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	successor := prefixSuccessor(prefix)
 	if successor == "" {
@@ -150,22 +147,22 @@ func (b *bucket) checkInvariants() {
 	for i := 1; i < len(b.objects); i++ {
 		objA := b.objects[i-1]
 		objB := b.objects[i]
-		if !(objA.entry.Name < objB.entry.Name) {
+		if !(objA.metadata.Name < objB.metadata.Name) {
 			panic(
 				fmt.Sprintf(
 					"Object names are not strictly increasing: %v vs. %v",
-					objA.entry.Name,
-					objB.entry.Name))
+					objA.metadata.Name,
+					objB.metadata.Name))
 		}
 	}
 
 	// Make sure prevGeneration is an upper bound for object generation numbers.
 	for _, o := range b.objects {
-		if !(o.entry.Generation <= b.prevGeneration) {
+		if !(o.metadata.Generation <= b.prevGeneration) {
 			panic(
 				fmt.Sprintf(
 					"Object generation %v exceeds %v",
-					o.entry.Generation,
+					o.metadata.Generation,
 					b.prevGeneration))
 		}
 	}
@@ -181,7 +178,7 @@ func (b *bucket) mintObject(
 
 	// Set up basic info.
 	b.prevGeneration++
-	o.entry = gcs.Object{
+	o.metadata = gcs.Object{
 		Name:            req.Name,
 		ContentType:     req.ContentType,
 		ContentLanguage: req.ContentLanguage,
@@ -199,12 +196,12 @@ func (b *bucket) mintObject(
 		Updated:         b.clock.Now(),
 	}
 
-	// Set up contents.
-	o.contents = contents
+	// Set up data.
+	o.data = contents
 
 	// Support the same default content type as GCS.
-	if o.entry.ContentType == "" {
-		o.entry.ContentType = "application/octet-stream"
+	if o.metadata.ContentType == "" {
+		o.metadata.ContentType = "application/octet-stream"
 	}
 
 	return
@@ -289,7 +286,7 @@ func (b *bucket) createObjectLocked(
 				return
 			}
 
-			existingGen := existingRecord.entry.Generation
+			existingGen := existingRecord.metadata.Generation
 			if existingGen != *req.GenerationPrecondition {
 				err = &gcs.PreconditionError{
 					Err: fmt.Errorf(
@@ -304,7 +301,7 @@ func (b *bucket) createObjectLocked(
 
 	// Create an object record from the given attributes.
 	var fo fakeObject = b.mintObject(req, contents)
-	o = &fo.entry
+	o = &fo.metadata
 
 	// Replace an entry in or add an entry to our list of objects.
 	if existingIndex < len(b.objects) {
@@ -333,7 +330,7 @@ func (b *bucket) newReaderLocked(
 	o := b.objects[index]
 
 	// Does the generation match?
-	if req.Generation != 0 && req.Generation != o.entry.Generation {
+	if req.Generation != 0 && req.Generation != o.metadata.Generation {
 		err = &gcs.NotFoundError{
 			Err: fmt.Errorf(
 				"Object %s generation %v not found", req.Name, req.Generation),
@@ -343,7 +340,7 @@ func (b *bucket) newReaderLocked(
 	}
 
 	// Extract the requested range.
-	result := o.contents
+	result := o.data
 
 	if req.Range != nil {
 		start := req.Range.Start
@@ -419,7 +416,7 @@ func (b *bucket) ListObjects(
 	var lastResultWasPrefix bool
 	for i := indexStart; i < indexLimit; i++ {
 		var o fakeObject = b.objects[i]
-		name := o.entry.Name
+		name := o.metadata.Name
 
 		// Search for a delimiter if necessary.
 		if req.Delimiter != "" {
@@ -452,7 +449,7 @@ func (b *bucket) ListObjects(
 
 		// Otherwise, return as an object result. Make a copy to avoid handing back
 		// internal state.
-		var oCopy gcs.Object = o.entry
+		var oCopy gcs.Object = o.metadata
 		listing.Objects = append(listing.Objects, &oCopy)
 	}
 
@@ -477,7 +474,7 @@ func (b *bucket) ListObjects(
 			}
 		} else {
 			// Otherwise, we'll start scanning at the next object.
-			listing.ContinuationToken = b.objects[indexLimit].entry.Name
+			listing.ContinuationToken = b.objects[indexLimit].metadata.Name
 		}
 	}
 
@@ -525,8 +522,8 @@ func (b *bucket) CopyObject(
 
 	// Copy it, replacing anything that already exists.
 	dst := b.objects[srcIndex]
-	dst.entry.Name = req.DstName
-	dst.entry.MediaLink = "http://localhost/download/storage/fake/" + req.DstName
+	dst.metadata.Name = req.DstName
+	dst.metadata.MediaLink = "http://localhost/download/storage/fake/" + req.DstName
 
 	existingIndex := b.objects.find(req.DstName)
 	if existingIndex < len(b.objects) {
@@ -536,7 +533,7 @@ func (b *bucket) CopyObject(
 		sort.Sort(b.objects)
 	}
 
-	o = &dst.entry
+	o = &dst.metadata
 	return
 }
 
@@ -565,7 +562,7 @@ func (b *bucket) ComposeObjects(
 	// Extract all of their contents.
 	var dstContents []byte
 	for _, srcIndex := range srcIndices {
-		dstContents = append(dstContents, b.objects[srcIndex].contents...)
+		dstContents = append(dstContents, b.objects[srcIndex].data...)
 	}
 
 	// Create the new object.
@@ -596,7 +593,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Make a copy to avoid handing back internal state.
-	var objCopy gcs.Object = b.objects[index].entry
+	var objCopy gcs.Object = b.objects[index].metadata
 	o = &objCopy
 
 	return
@@ -625,7 +622,7 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	var obj *gcs.Object = &b.objects[index].entry
+	var obj *gcs.Object = &b.objects[index].metadata
 
 	// Update the entry's basic fields according to the request.
 	if req.ContentType != nil {
