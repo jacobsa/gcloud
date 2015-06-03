@@ -587,9 +587,12 @@ func (b *bucket) ComposeObjects(
 		metadata.ComponentCount += b.objects[srcIndex].metadata.ComponentCount
 	}
 
+	// Touchup: emulate the real GCS behavior of not exporting an MD5 hash for
+	// composite objects.
+	metadata.MD5 = nil
+
 	oCopy := *metadata
 	o = &oCopy
-
 	return
 }
 
