@@ -1632,7 +1632,7 @@ func (t *composeTest) CompositeSources() {
 	ExpectEq("tacoburritotacotacoburrito", string(contents))
 }
 
-func (t *composeTest) OneSourceMissing_NoGenerations() {
+func (t *composeTest) OneSourceDoesntExist() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -1671,7 +1671,41 @@ func (t *composeTest) OneSourceMissing_NoGenerations() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
-func (t *composeTest) OneSourceMissing_WrongGeneration() {
+func (t *composeTest) ExplicitGenerations_Exist() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name:       sources[0].Name,
+					Generation: sources[0].Generation,
+				},
+
+				gcs.ComposeSource{
+					Name:       sources[1].Name,
+					Generation: sources[1].Generation,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+}
+
+func (t *composeTest) ExplicitGenerations_OneDoesntExist() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
