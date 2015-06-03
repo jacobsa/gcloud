@@ -1541,6 +1541,47 @@ func (t *composeTest) CompositeSources() {
 	ExpectEq("tacoburritotacotacoburrito", string(contents))
 }
 
+func (t *composeTest) DestinationNameMatchesSource() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose on top of the first's name.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: sources[0].Name,
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq(sources[0].Name, o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, sources[0].Name)
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
+}
+
 func (t *composeTest) OneSourceDoesntExist() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
