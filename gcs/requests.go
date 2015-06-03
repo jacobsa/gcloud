@@ -70,6 +70,13 @@ type CopyObjectRequest struct {
 	DstName string
 }
 
+// The maximum number of components that a composite object may have. The sum
+// of the component counts of the sources in a ComposeObjectsRequest must be no
+// more than this value.
+//
+// Cf. https://cloud.google.com/storage/docs/composite-objects#_Count
+const MaxComponentCount = 1024
+
 // A request to compose multiple objects into a single composite object.
 type ComposeObjectsRequest struct {
 	// The name of the destination composite object.
@@ -78,6 +85,8 @@ type ComposeObjectsRequest struct {
 	// If non-nil, the destination object will be created/overwritten only if the
 	// current generation for its name is equal to the given value. Zero means
 	// the object does not exist.
+	//
+	// Make sure to see the notes on MaxComponentCount.
 	DstGenerationPrecondition *int64
 
 	// The source objects from which to compose.
