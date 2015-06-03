@@ -468,6 +468,21 @@ func (rb *retryBucket) CopyObject(
 	return
 }
 
+func (rb *retryBucket) ComposeObjects(
+	ctx context.Context,
+	req *ComposeObjectsRequest) (o *Object, err error) {
+	err = oneShotExpBackoff(
+		ctx,
+		fmt.Sprintf("ComposeObjects(%q)", req.DstName),
+		rb.maxSleep,
+		func() (err error) {
+			o, err = rb.wrapped.ComposeObjects(ctx, req)
+			return
+		})
+
+	return
+}
+
 func (rb *retryBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {

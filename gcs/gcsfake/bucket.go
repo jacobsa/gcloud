@@ -43,12 +43,13 @@ func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 	return b
 }
 
-type fakeObject struct {
-	// An Object representing a GCS entry for this object.
-	entry gcs.Object
+////////////////////////////////////////////////////////////////////////
+// Helper types
+////////////////////////////////////////////////////////////////////////
 
-	// The contents of the object. These never change.
-	contents string
+type fakeObject struct {
+	metadata gcs.Object
+	data     []byte
 }
 
 // A slice of objects compared by name.
@@ -59,28 +60,28 @@ func (s fakeObjectSlice) Len() int {
 }
 
 func (s fakeObjectSlice) Less(i, j int) bool {
-	return s[i].entry.Name < s[j].entry.Name
+	return s[i].metadata.Name < s[j].metadata.Name
 }
 
 func (s fakeObjectSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// Return the smallest i such that s[i].entry.Name >= name, or len(s) if there
-// is no such i.
+// Return the smallest i such that s[i].metadata.Name >= name, or len(s) if
+// there is no such i.
 func (s fakeObjectSlice) lowerBound(name string) int {
 	pred := func(i int) bool {
-		return s[i].entry.Name >= name
+		return s[i].metadata.Name >= name
 	}
 
 	return sort.Search(len(s), pred)
 }
 
-// Return the smallest i such that s[i].entry.Name == name, or len(s) if there
-// is no such i.
+// Return the smallest i such that s[i].metadata.Name == name, or len(s) if
+// there is no such i.
 func (s fakeObjectSlice) find(name string) int {
 	lb := s.lowerBound(name)
-	if lb < len(s) && s[lb].entry.Name == name {
+	if lb < len(s) && s[lb].metadata.Name == name {
 		return lb
 	}
 
@@ -108,8 +109,8 @@ func prefixSuccessor(prefix string) string {
 	return string(limit)
 }
 
-// Return the smallest i such that prefix < s[i].entry.Name and
-// !strings.HasPrefix(s[i].entry.Name, prefix).
+// Return the smallest i such that prefix < s[i].metadata.Name and
+// !strings.HasPrefix(s[i].metadata.Name, prefix).
 func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 	successor := prefixSuccessor(prefix)
 	if successor == "" {
@@ -120,7 +121,7 @@ func (s fakeObjectSlice) prefixUpperBound(prefix string) int {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// bucket
+// Helpers
 ////////////////////////////////////////////////////////////////////////
 
 type bucket struct {
@@ -146,26 +147,243 @@ func (b *bucket) checkInvariants() {
 	for i := 1; i < len(b.objects); i++ {
 		objA := b.objects[i-1]
 		objB := b.objects[i]
-		if !(objA.entry.Name < objB.entry.Name) {
+		if !(objA.metadata.Name < objB.metadata.Name) {
 			panic(
 				fmt.Sprintf(
 					"Object names are not strictly increasing: %v vs. %v",
-					objA.entry.Name,
-					objB.entry.Name))
+					objA.metadata.Name,
+					objB.metadata.Name))
 		}
 	}
 
 	// Make sure prevGeneration is an upper bound for object generation numbers.
 	for _, o := range b.objects {
-		if !(o.entry.Generation <= b.prevGeneration) {
+		if !(o.metadata.Generation <= b.prevGeneration) {
 			panic(
 				fmt.Sprintf(
 					"Object generation %v exceeds %v",
-					o.entry.Generation,
+					o.metadata.Generation,
 					b.prevGeneration))
 		}
 	}
 }
+
+// Create an object struct for the given attributes and contents.
+//
+// LOCKS_REQUIRED(b.mu)
+func (b *bucket) mintObject(
+	req *gcs.CreateObjectRequest,
+	contents []byte) (o fakeObject) {
+	md5Sum := md5.Sum(contents)
+
+	// Set up basic info.
+	b.prevGeneration++
+	o.metadata = gcs.Object{
+		Name:            req.Name,
+		ContentType:     req.ContentType,
+		ContentLanguage: req.ContentLanguage,
+		CacheControl:    req.CacheControl,
+		Owner:           "user-fake",
+		Size:            uint64(len(contents)),
+		ContentEncoding: req.ContentEncoding,
+		ComponentCount:  1,
+		MD5:             &md5Sum,
+		CRC32C:          crc32.Checksum(contents, crc32cTable),
+		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
+		Metadata:        req.Metadata,
+		Generation:      b.prevGeneration,
+		MetaGeneration:  1,
+		StorageClass:    "STANDARD",
+		Updated:         b.clock.Now(),
+	}
+
+	// Set up data.
+	o.data = contents
+
+	// Support the same default content type as GCS.
+	if o.metadata.ContentType == "" {
+		o.metadata.ContentType = "application/octet-stream"
+	}
+
+	return
+}
+
+// LOCKS_REQUIRED(b.mu)
+func (b *bucket) createObjectLocked(
+	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
+	// Check that the name is legal.
+	name := req.Name
+	if len(name) == 0 || len(name) > 1024 {
+		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
+	}
+
+	if !utf8.ValidString(name) {
+		return nil, errors.New("Invalid object name: not valid UTF-8")
+	}
+
+	for _, r := range name {
+		if r == 0x0a || r == 0x0d {
+			return nil, errors.New("Invalid object name: must not contain CR or LF")
+		}
+	}
+
+	// Snarf the contents.
+	contents, err := ioutil.ReadAll(req.Contents)
+	if err != nil {
+		err = fmt.Errorf("ReadAll: %v", err)
+		return
+	}
+
+	// Find any existing record for this name.
+	existingIndex := b.objects.find(req.Name)
+
+	var existingRecord *fakeObject
+	if existingIndex < len(b.objects) {
+		existingRecord = &b.objects[existingIndex]
+	}
+
+	// Check the provided checksum, if any.
+	if req.CRC32C != nil {
+		actual := crc32.Checksum(contents, crc32cTable)
+		if actual != *req.CRC32C {
+			err = fmt.Errorf(
+				"CRC32C mismatch: got 0x%08x, expected 0x%08x",
+				actual,
+				*req.CRC32C)
+
+			return
+		}
+	}
+
+	// Check the provided hash, if any.
+	if req.MD5 != nil {
+		actual := md5.Sum(contents)
+		if actual != *req.MD5 {
+			err = fmt.Errorf(
+				"MD5 mismatch: got %s, expected %s",
+				hex.EncodeToString(actual[:]),
+				hex.EncodeToString(req.MD5[:]))
+
+			return
+		}
+	}
+
+	// Check preconditions.
+	if req.GenerationPrecondition != nil {
+		if *req.GenerationPrecondition == 0 && existingRecord != nil {
+			err = &gcs.PreconditionError{
+				Err: errors.New("Precondition failed: object exists"),
+			}
+
+			return
+		}
+
+		if *req.GenerationPrecondition > 0 {
+			if existingRecord == nil {
+				err = &gcs.PreconditionError{
+					Err: errors.New("Precondition failed: object doesn't exist"),
+				}
+
+				return
+			}
+
+			existingGen := existingRecord.metadata.Generation
+			if existingGen != *req.GenerationPrecondition {
+				err = &gcs.PreconditionError{
+					Err: fmt.Errorf(
+						"Precondition failed: object has generation %v",
+						existingGen),
+				}
+
+				return
+			}
+		}
+	}
+
+	// Create an object record from the given attributes.
+	var fo fakeObject = b.mintObject(req, contents)
+	o = &fo.metadata
+
+	// Replace an entry in or add an entry to our list of objects.
+	if existingIndex < len(b.objects) {
+		b.objects[existingIndex] = fo
+	} else {
+		b.objects = append(b.objects, fo)
+		sort.Sort(b.objects)
+	}
+
+	return
+}
+
+// Create a reader based on the supplied request, also returning the index
+// within b.objects of the entry for the requested generation.
+//
+// LOCKS_REQUIRED(b.mu)
+func (b *bucket) newReaderLocked(
+	req *gcs.ReadObjectRequest) (r io.Reader, index int, err error) {
+	// Find the object with the requested name.
+	index = b.objects.find(req.Name)
+	if index == len(b.objects) {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf("Object %s not found", req.Name),
+		}
+
+		return
+	}
+
+	o := b.objects[index]
+
+	// Does the generation match?
+	if req.Generation != 0 && req.Generation != o.metadata.Generation {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf(
+				"Object %s generation %v not found", req.Name, req.Generation),
+		}
+
+		return
+	}
+
+	// Extract the requested range.
+	result := o.data
+
+	if req.Range != nil {
+		start := req.Range.Start
+		limit := req.Range.Limit
+		l := uint64(len(result))
+
+		if start > limit {
+			start = 0
+			limit = 0
+		}
+
+		if start > l {
+			start = 0
+			limit = 0
+		}
+
+		if limit > l {
+			limit = l
+		}
+
+		result = result[start:limit]
+	}
+
+	r = bytes.NewReader(result)
+
+	return
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+////////////////////////////////////////////////////////////////////////
+// Public interface
+////////////////////////////////////////////////////////////////////////
 
 func (b *bucket) Name() string {
 	return b.name
@@ -202,7 +420,7 @@ func (b *bucket) ListObjects(
 	var lastResultWasPrefix bool
 	for i := indexStart; i < indexLimit; i++ {
 		var o fakeObject = b.objects[i]
-		name := o.entry.Name
+		name := o.metadata.Name
 
 		// Search for a delimiter if necessary.
 		if req.Delimiter != "" {
@@ -235,7 +453,7 @@ func (b *bucket) ListObjects(
 
 		// Otherwise, return as an object result. Make a copy to avoid handing back
 		// internal state.
-		var oCopy gcs.Object = o.entry
+		var oCopy gcs.Object = o.metadata
 		listing.Objects = append(listing.Objects, &oCopy)
 	}
 
@@ -260,7 +478,7 @@ func (b *bucket) ListObjects(
 			}
 		} else {
 			// Otherwise, we'll start scanning at the next object.
-			listing.ContinuationToken = b.objects[indexLimit].entry.Name
+			listing.ContinuationToken = b.objects[indexLimit].metadata.Name
 		}
 	}
 
@@ -274,55 +492,12 @@ func (b *bucket) NewReader(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// Find the object with the requested name.
-	index := b.objects.find(req.Name)
-	if index == len(b.objects) {
-		err = &gcs.NotFoundError{
-			Err: fmt.Errorf("Object %s not found", req.Name),
-		}
-
+	r, _, err := b.newReaderLocked(req)
+	if err != nil {
 		return
 	}
 
-	o := b.objects[index]
-
-	// Does the generation match?
-	if req.Generation != 0 && req.Generation != o.entry.Generation {
-		err = &gcs.NotFoundError{
-			Err: fmt.Errorf(
-				"Object %s generation %v not found", req.Name, req.Generation),
-		}
-
-		return
-	}
-
-	// Extract the requested range.
-	result := o.contents
-
-	if req.Range != nil {
-		start := req.Range.Start
-		limit := req.Range.Limit
-		l := uint64(len(result))
-
-		if start > limit {
-			start = 0
-			limit = 0
-		}
-
-		if start > l {
-			start = 0
-			limit = 0
-		}
-
-		if limit > l {
-			limit = l
-		}
-
-		result = result[start:limit]
-	}
-
-	rc = ioutil.NopCloser(strings.NewReader(result))
-
+	rc = ioutil.NopCloser(r)
 	return
 }
 
@@ -330,40 +505,10 @@ func (b *bucket) NewReader(
 func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
-	// Check that the object name is legal.
-	name := req.Name
-	if len(name) == 0 || len(name) > 1024 {
-		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
-	}
-
-	if !utf8.ValidString(name) {
-		return nil, errors.New("Invalid object name: not valid UTF-8")
-	}
-
-	for _, r := range name {
-		if r == 0x0a || r == 0x0d {
-			return nil, errors.New("Invalid object name: must not contain CR or LF")
-		}
-	}
-
-	// Snarf the object contents.
-	buf := new(bytes.Buffer)
-	if _, err = io.Copy(buf, req.Contents); err != nil {
-		return
-	}
-
-	contents := buf.String()
-
-	// Lock and proceed.
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	obj, err := b.addObjectLocked(req, contents)
-	if err != nil {
-		return
-	}
-
-	o = &obj
+	o, err = b.createObjectLocked(req)
 	return
 }
 
@@ -386,8 +531,8 @@ func (b *bucket) CopyObject(
 
 	// Copy it, replacing anything that already exists.
 	dst := b.objects[srcIndex]
-	dst.entry.Name = req.DstName
-	dst.entry.MediaLink = "http://localhost/download/storage/fake/" + req.DstName
+	dst.metadata.Name = req.DstName
+	dst.metadata.MediaLink = "http://localhost/download/storage/fake/" + req.DstName
 
 	existingIndex := b.objects.find(req.DstName)
 	if existingIndex < len(b.objects) {
@@ -397,7 +542,80 @@ func (b *bucket) CopyObject(
 		sort.Sort(b.objects)
 	}
 
-	o = &dst.entry
+	o = &dst.metadata
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
+func (b *bucket) ComposeObjects(
+	ctx context.Context,
+	req *gcs.ComposeObjectsRequest) (o *gcs.Object, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// GCS doesn't like too few or too many sources.
+	if len(req.Sources) < 2 {
+		err = errors.New("You must provide at least two source components")
+		return
+	}
+
+	if len(req.Sources) > gcs.MaxSourcesPerComposeRequest {
+		err = errors.New("You have provided too many source components")
+		return
+	}
+
+	// Find readers for all of the source objects, also computing the sum of
+	// their component counts.
+	var srcReaders []io.Reader
+	var dstComponentCount int64
+
+	for _, src := range req.Sources {
+		var r io.Reader
+		var srcIndex int
+
+		r, srcIndex, err = b.newReaderLocked(&gcs.ReadObjectRequest{
+			Name:       src.Name,
+			Generation: src.Generation,
+		})
+
+		if err != nil {
+			return
+		}
+
+		srcReaders = append(srcReaders, r)
+		dstComponentCount += b.objects[srcIndex].metadata.ComponentCount
+	}
+
+	// GCS doesn't like the component count to go too high.
+	if dstComponentCount > gcs.MaxComponentCount {
+		err = errors.New("Result would have too many components")
+		return
+	}
+
+	// Create the new object.
+	createReq := &gcs.CreateObjectRequest{
+		Name: req.DstName,
+		GenerationPrecondition: req.DstGenerationPrecondition,
+		Contents:               io.MultiReader(srcReaders...),
+	}
+
+	_, err = b.createObjectLocked(createReq)
+	if err != nil {
+		return
+	}
+
+	dstIndex := b.objects.find(req.DstName)
+	metadata := &b.objects[dstIndex].metadata
+
+	// Touchup: fix the component count.
+	metadata.ComponentCount = dstComponentCount
+
+	// Touchup: emulate the real GCS behavior of not exporting an MD5 hash for
+	// composite objects.
+	metadata.MD5 = nil
+
+	oCopy := *metadata
+	o = &oCopy
 	return
 }
 
@@ -419,7 +637,7 @@ func (b *bucket) StatObject(
 	}
 
 	// Make a copy to avoid handing back internal state.
-	var objCopy gcs.Object = b.objects[index].entry
+	var objCopy gcs.Object = b.objects[index].metadata
 	o = &objCopy
 
 	return
@@ -448,7 +666,7 @@ func (b *bucket) UpdateObject(
 		return
 	}
 
-	var obj *gcs.Object = &b.objects[index].entry
+	var obj *gcs.Object = &b.objects[index].metadata
 
 	// Update the entry's basic fields according to the request.
 	if req.ContentType != nil {
@@ -510,146 +728,4 @@ func (b *bucket) DeleteObject(
 	b.objects = append(b.objects[:index], b.objects[index+1:]...)
 
 	return
-}
-
-// Create an object struct for the given attributes and contents.
-//
-// LOCKS_REQUIRED(b.mu)
-func (b *bucket) mintObject(
-	req *gcs.CreateObjectRequest,
-	contents string) (o fakeObject) {
-	md5Sum := md5.Sum([]byte(contents))
-
-	// Set up basic info.
-	b.prevGeneration++
-	o.entry = gcs.Object{
-		Name:            req.Name,
-		ContentType:     req.ContentType,
-		ContentLanguage: req.ContentLanguage,
-		CacheControl:    req.CacheControl,
-		Owner:           "user-fake",
-		Size:            uint64(len(contents)),
-		ContentEncoding: req.ContentEncoding,
-		MD5:             &md5Sum,
-		CRC32C:          crc32.Checksum([]byte(contents), crc32cTable),
-		MediaLink:       "http://localhost/download/storage/fake/" + req.Name,
-		Metadata:        req.Metadata,
-		Generation:      b.prevGeneration,
-		MetaGeneration:  1,
-		StorageClass:    "STANDARD",
-		Updated:         b.clock.Now(),
-	}
-
-	// Set up contents.
-	o.contents = contents
-
-	// Support the same default content type as GCS.
-	if o.entry.ContentType == "" {
-		o.entry.ContentType = "application/octet-stream"
-	}
-
-	return
-}
-
-// Add a record and return a copy of the minted entry.
-//
-// LOCKS_REQUIRED(b.mu)
-func (b *bucket) addObjectLocked(
-	req *gcs.CreateObjectRequest,
-	contents string) (entry gcs.Object, err error) {
-	// Find any existing record for this name.
-	existingIndex := b.objects.find(req.Name)
-
-	var existingRecord *fakeObject
-	if existingIndex < len(b.objects) {
-		existingRecord = &b.objects[existingIndex]
-	}
-
-	// Check the provided checksum, if any.
-	if req.CRC32C != nil {
-		actual := crc32.Checksum([]byte(contents), crc32cTable)
-		if actual != *req.CRC32C {
-			err = fmt.Errorf(
-				"CRC32C mismatch: got 0x%08x, expected 0x%08x",
-				actual,
-				*req.CRC32C)
-
-			return
-		}
-	}
-
-	// Check the provided hash, if any.
-	if req.MD5 != nil {
-		actual := md5.Sum([]byte(contents))
-		if actual != *req.MD5 {
-			err = fmt.Errorf(
-				"MD5 mismatch: got %s, expected %s",
-				hex.EncodeToString(actual[:]),
-				hex.EncodeToString(req.MD5[:]))
-
-			return
-		}
-	}
-
-	// Check preconditions.
-	if req.GenerationPrecondition != nil {
-		if *req.GenerationPrecondition == 0 && existingRecord != nil {
-			err = &gcs.PreconditionError{
-				Err: errors.New("Precondition failed: object exists"),
-			}
-
-			return
-		}
-
-		if *req.GenerationPrecondition > 0 {
-			if existingRecord == nil {
-				err = &gcs.PreconditionError{
-					Err: errors.New("Precondition failed: object doesn't exist"),
-				}
-
-				return
-			}
-
-			existingGen := existingRecord.entry.Generation
-			if existingGen != *req.GenerationPrecondition {
-				err = &gcs.PreconditionError{
-					Err: fmt.Errorf(
-						"Precondition failed: object has generation %v",
-						existingGen),
-				}
-
-				return
-			}
-		}
-	}
-
-	// Create an object record from the given attributes.
-	var o fakeObject = b.mintObject(req, contents)
-
-	// Replace an entry in or add an entry to our list of objects.
-	if existingIndex < len(b.objects) {
-		b.objects[existingIndex] = o
-	} else {
-		b.objects = append(b.objects, o)
-		sort.Sort(b.objects)
-	}
-
-	entry = o.entry
-	return
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
 }

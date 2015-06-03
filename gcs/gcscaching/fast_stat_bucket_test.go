@@ -215,6 +215,87 @@ func (t *CopyObjectTest) WrappedSucceeds() {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// ComposeObjects
+////////////////////////////////////////////////////////////////////////
+
+type ComposeObjectsTest struct {
+	fastStatBucketTest
+}
+
+func init() { RegisterTestSuite(&ComposeObjectsTest{}) }
+
+func (t *ComposeObjectsTest) CallsEraseAndWrapped() {
+	const srcName = "taco"
+	const dstName = "burrito"
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(dstName)
+
+	// Wrapped
+	var wrappedReq *gcs.ComposeObjectsRequest
+	ExpectCall(t.wrapped, "ComposeObjects")(Any(), Any()).
+		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(nil, errors.New(""))))
+
+	// Call
+	req := &gcs.ComposeObjectsRequest{
+		DstName: dstName,
+		Sources: []gcs.ComposeSource{
+			gcs.ComposeSource{Name: srcName},
+		},
+	}
+
+	_, _ = t.bucket.ComposeObjects(nil, req)
+
+	AssertNe(nil, wrappedReq)
+	ExpectEq(req, wrappedReq)
+}
+
+func (t *ComposeObjectsTest) WrappedFails() {
+	const srcName = ""
+	const dstName = ""
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	ExpectCall(t.wrapped, "ComposeObjects")(Any(), Any()).
+		WillOnce(Return(nil, errors.New("taco")))
+
+	// Call
+	_, err = t.bucket.ComposeObjects(nil, &gcs.ComposeObjectsRequest{})
+
+	ExpectThat(err, Error(HasSubstr("taco")))
+}
+
+func (t *ComposeObjectsTest) WrappedSucceeds() {
+	const srcName = "taco"
+	const dstName = "burrito"
+	var err error
+
+	// Erase
+	ExpectCall(t.cache, "Erase")(Any())
+
+	// Wrapped
+	obj := &gcs.Object{
+		Name:       dstName,
+		Generation: 1234,
+	}
+
+	ExpectCall(t.wrapped, "ComposeObjects")(Any(), Any()).
+		WillOnce(Return(obj, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(obj, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	// Call
+	o, err := t.bucket.ComposeObjects(nil, &gcs.ComposeObjectsRequest{})
+
+	AssertEq(nil, err)
+	ExpectEq(obj, o)
+}
+
+////////////////////////////////////////////////////////////////////////
 // StatObject
 ////////////////////////////////////////////////////////////////////////
 

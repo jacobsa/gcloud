@@ -1232,6 +1232,797 @@ func (t *copyTest) DestinationIsSameName() {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// Compose
+////////////////////////////////////////////////////////////////////////
+
+type composeTest struct {
+	bucketTest
+}
+
+func (t *composeTest) createSources(
+	contents []string) (objs []*gcs.Object, err error) {
+	objs = make([]*gcs.Object, len(contents))
+
+	// Write indices into a channel.
+	indices := make(chan int, len(contents))
+	for i := range contents {
+		indices <- i
+	}
+	close(indices)
+
+	// Run a bunch of workers.
+	b := syncutil.NewBundle(t.ctx)
+
+	const parallelism = 128
+	for i := 0; i < parallelism; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for i := range indices {
+				objs[i], err = t.bucket.CreateObject(
+					ctx,
+					&gcs.CreateObjectRequest{
+						Name:     fmt.Sprint(i),
+						Contents: strings.NewReader(contents[i]),
+					},
+				)
+
+				if err != nil {
+					err = fmt.Errorf("CreateObject: %v", err)
+					return
+				}
+			}
+
+			return
+		})
+	}
+
+	err = b.Join()
+	return
+}
+
+func (t *composeTest) TwoSimpleSources() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them.
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(2, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburrito"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
+}
+
+func (t *composeTest) ManySimpleSources() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"",
+		"burrito",
+		"enchilada",
+		"queso",
+		"",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them.
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+	}
+
+	for _, src := range sources {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: src.Name})
+	}
+
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(t.ctx, req)
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburritoenchiladaqueso"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(6, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburritoenchiladaqueso"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	for _, src := range sources {
+		ExpectLt(src.Generation, o.Generation)
+	}
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburritoenchiladaqueso", string(contents))
+}
+
+func (t *composeTest) RepeatedSources() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them, using each multiple times.
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburritotacoburrito"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(4, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburritotacoburrito"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburritotacoburrito", string(contents))
+}
+
+func (t *composeTest) CompositeSources() {
+	// Create two source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them to form another source object.
+	sources = append(sources, nil)
+	sources[2], err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "2",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	// Now compose that a couple of times along with one of the originals.
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[2].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[2].Name,
+				},
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburritotacotacoburrito"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(5, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburritotacotacoburrito"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[2].Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburritotacotacoburrito", string(contents))
+}
+
+func (t *composeTest) DestinationNameMatchesSource() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose on top of the first's name.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: sources[0].Name,
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq(sources[0].Name, o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, sources[0].Name)
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
+}
+
+func (t *composeTest) OneSourceDoesntExist() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them with a name that doesn't exist.
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: "blah",
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// Make sure the destination object doesn't exist.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "foo"})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *composeTest) ExplicitGenerations_Exist() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name:       sources[0].Name,
+					Generation: sources[0].Generation,
+				},
+
+				gcs.ComposeSource{
+					Name:       sources[1].Name,
+					Generation: sources[1].Generation,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+}
+
+func (t *composeTest) ExplicitGenerations_OneDoesntExist() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+		"enchilada",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them, with the wrong generation for one of them.
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name:       sources[0].Name,
+					Generation: sources[0].Generation,
+				},
+
+				gcs.ComposeSource{
+					Name:       sources[1].Name,
+					Generation: sources[1].Generation + 1,
+				},
+
+				gcs.ComposeSource{
+					Name:       sources[2].Name,
+					Generation: sources[2].Generation,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// Make sure the destination object doesn't exist.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "foo"})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *composeTest) DestinationExists_NoPrecondition() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: sources[0].Name,
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq(sources[0].Name, o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, sources[0].Name)
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
+}
+
+func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	precond := sources[0].Generation + 1
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   sources[0].Name,
+			DstGenerationPrecondition: &precond,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// Make sure the object wasn't overwritten.
+	o, err := t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: sources[0].Name})
+
+	AssertEq(nil, err)
+	ExpectEq(sources[0].Generation, o.Generation)
+	ExpectEq(len("taco"), o.Size)
+}
+
+func (t *composeTest) DestinationExists_PreconditionSatisfied() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   sources[0].Name,
+			DstGenerationPrecondition: &sources[0].Generation,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq(sources[0].Name, o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, sources[0].Name)
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
+}
+
+func (t *composeTest) DestinationDoesntExist_PreconditionNotSatisfied() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them.
+	var precond int64 = 1
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   "foo",
+			DstGenerationPrecondition: &precond,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// Make sure the destination object doesn't exist.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "foo"})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them.
+	var precond int64 = 0
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName:                   "foo",
+			DstGenerationPrecondition: &precond,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq(len("tacoburrito"), o.Size)
+	ExpectEq(2, o.ComponentCount)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburrito", string(contents))
+}
+
+func (t *composeTest) TooFewSources() {
+	// Create an original object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "src",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// GCS doesn't like zero-source requests (and so neither should our fake).
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+	}
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+	ExpectThat(err, Error(HasSubstr("at least two")))
+
+	// Ditto requests with one source.
+	req = &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+		Sources: []gcs.ComposeSource{
+			gcs.ComposeSource{Name: src.Name},
+		},
+	}
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+	ExpectThat(err, Error(HasSubstr("at least two")))
+}
+
+func (t *composeTest) TooManySources() {
+	// Create an original object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "src",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose too many copies of it.
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+	}
+
+	for i := 0; i < gcs.MaxSourcesPerComposeRequest+1; i++ {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: src.Name})
+	}
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+
+	ExpectThat(err, Error(HasSubstr("source components")))
+}
+
+func (t *composeTest) ComponentCountLimits() {
+	// The tests below assume that we can hit the max component count with two
+	// rounds of composing.
+	AssertEq(
+		gcs.MaxComponentCount,
+		gcs.MaxSourcesPerComposeRequest*gcs.MaxSourcesPerComposeRequest)
+
+	// Create a single original object.
+	small, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "small",
+			Contents: strings.NewReader("a"),
+		})
+
+	AssertEq(nil, err)
+
+	// Compose as many copies of it as possible.
+	req := &gcs.ComposeObjectsRequest{
+		DstName: "medium",
+	}
+
+	for i := 0; i < gcs.MaxSourcesPerComposeRequest; i++ {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: small.Name})
+	}
+
+	medium, err := t.bucket.ComposeObjects(t.ctx, req)
+
+	AssertEq(nil, err)
+	AssertEq(gcs.MaxSourcesPerComposeRequest, medium.ComponentCount)
+	AssertEq(gcs.MaxSourcesPerComposeRequest, medium.Size)
+
+	// Compose that many copies over again to hit the maximum component count
+	// limit.
+	req = &gcs.ComposeObjectsRequest{
+		DstName: "large",
+	}
+
+	for i := 0; i < gcs.MaxSourcesPerComposeRequest; i++ {
+		req.Sources = append(req.Sources, gcs.ComposeSource{Name: medium.Name})
+	}
+
+	large, err := t.bucket.ComposeObjects(t.ctx, req)
+
+	AssertEq(nil, err)
+	AssertEq(gcs.MaxComponentCount, large.ComponentCount)
+	AssertEq(gcs.MaxComponentCount, large.Size)
+
+	// Attempting to add one more component should fail.
+	req = &gcs.ComposeObjectsRequest{
+		DstName: "foo",
+		Sources: []gcs.ComposeSource{
+			gcs.ComposeSource{Name: large.Name},
+			gcs.ComposeSource{Name: small.Name},
+		},
+	}
+
+	_, err = t.bucket.ComposeObjects(t.ctx, req)
+
+	ExpectThat(err, Error(HasSubstr("too many components")))
+}
+
+////////////////////////////////////////////////////////////////////////
 // Read
 ////////////////////////////////////////////////////////////////////////
 
