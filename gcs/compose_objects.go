@@ -121,9 +121,13 @@ func (b *bucket) ComposeObjects(
 
 	// Check for HTTP-level errors.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
-		// Special case: handle precondition errors.
+		// Special case: handle not found and precondition errors.
 		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code == http.StatusPreconditionFailed {
+			switch typed.Code {
+			case http.StatusNotFound:
+				err = &NotFoundError{Err: typed}
+
+			case http.StatusPreconditionFailed:
 				err = &PreconditionError{Err: typed}
 			}
 		}
