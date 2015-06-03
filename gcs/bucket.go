@@ -79,6 +79,22 @@ type Bucket interface {
 		ctx context.Context,
 		req *CopyObjectRequest) (*Object, error)
 
+	// Compose zero or more source objects into a single destination object by
+	// concatenating. Any existing generation of the destination name will be
+	// overwritten.
+	//
+	// Returns a record for the new object.
+	//
+	// If any of the sources don't exist, err will be of type *NotFoundError. If
+	// the request fails due to a precondition not being met, the error will be
+	// of type *PreconditionError.
+	//
+	// Official documentation:
+	//     https://cloud.google.com/storage/docs/json_api/v1/objects/compose
+	ComposeObjects(
+		ctx context.Context,
+		req *ComposeObjectsRequest) (*Object, error)
+
 	// Return current information about the object with the given name.
 	//
 	// If the object doesn't exist, err will be of type *NotFoundError.

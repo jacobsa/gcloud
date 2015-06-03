@@ -73,12 +73,19 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		ContentLanguage: in.ContentLanguage,
 		CacheControl:    in.CacheControl,
 		ContentEncoding: in.ContentEncoding,
+		ComponentCount:  in.ComponentCount,
 		Size:            in.Size,
 		MediaLink:       in.MediaLink,
 		Metadata:        in.Metadata,
 		Generation:      in.Generation,
 		MetaGeneration:  in.Metageneration,
 		StorageClass:    in.StorageClass,
+	}
+
+	// Work around Google-internal bug 21572928. See notes on the ComponentCount
+	// field.
+	if out.ComponentCount == 0 {
+		out.ComponentCount = 1
 	}
 
 	// Owner

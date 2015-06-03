@@ -134,6 +134,7 @@ func RegisterBucketTests(makeDeps func(context.Context) BucketTestDeps) {
 	suitePrototypes := []bucketTestSetUpInterface{
 		&createTest{},
 		&copyTest{},
+		&composeTest{},
 		&readTest{},
 		&statTest{},
 		&updateTest{},

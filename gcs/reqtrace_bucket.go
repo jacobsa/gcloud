@@ -142,6 +142,16 @@ func (b *reqtraceBucket) CopyObject(
 	return
 }
 
+func (b *reqtraceBucket) ComposeObjects(
+	ctx context.Context,
+	req *ComposeObjectsRequest) (o *Object, err error) {
+	desc := fmt.Sprintf("ComposeObjects: -> %q", req.DstName)
+	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
+
+	o, err = b.Wrapped.ComposeObjects(ctx, req)
+	return
+}
+
 func (b *reqtraceBucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
