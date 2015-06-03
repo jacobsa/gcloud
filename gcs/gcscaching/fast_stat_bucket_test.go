@@ -232,7 +232,7 @@ func (t *ComposeObjectsTest) CallsEraseAndWrapped() {
 	ExpectCall(t.cache, "Erase")(dstName)
 
 	// Wrapped
-	var wrappedReq *gcs.CopyObjectRequest
+	var wrappedReq *gcs.ComposeObjectsRequest
 	ExpectCall(t.wrapped, "ComposeObjects")(Any(), Any()).
 		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(nil, errors.New(""))))
 
