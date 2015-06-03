@@ -402,6 +402,48 @@ func (b *bucket) CopyObject(
 }
 
 // LOCKS_EXCLUDED(b.mu)
+func (b *bucket) ComposeObjects(
+	ctx context.Context,
+	req *gcs.ComposeObjectsRequest) (o *gcs.Object, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Find the source objects.
+	var srcIndices []int
+	for _, src := range req.Sources {
+		srcIndex := b.objects.find(src.Name)
+		if srcIndex == len(b.objects) {
+			err = &gcs.NotFoundError{
+				Err: fmt.Errorf("Source object %q not found", src.Name),
+			}
+
+			return
+		}
+
+		srcIndices = append(srcIndices, srcIndex)
+	}
+
+	// Extract all of their contents.
+	var dstContents []byte
+	for _, srcIndex := range srcIndices {
+		dstContents = append(dstContents, b.objects[srcIndex].contents...)
+	}
+
+	// Create a new record, replacing anything that already exists.
+	createReq := &gcs.CreateObjectRequest{
+		Name: req.DstName,
+	}
+
+	obj, err := b.addObjectLocked(createReq, string(dstContents))
+	if err != nil {
+		return
+	}
+
+	o = &obj
+	return
+}
+
+// LOCKS_EXCLUDED(b.mu)
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *gcs.StatObjectRequest) (o *gcs.Object, err error) {
