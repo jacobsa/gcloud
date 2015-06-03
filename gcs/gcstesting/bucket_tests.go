@@ -1672,7 +1672,46 @@ func (t *composeTest) OneSourceMissing_NoGenerations() {
 }
 
 func (t *composeTest) OneSourceMissing_WrongGeneration() {
-	AssertTrue(false, "TODO")
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+		"enchilada",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them, with the wrong generation for one of them.
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name:       sources[0].Name,
+					Generation: sources[0].Generation,
+				},
+
+				gcs.ComposeSource{
+					Name:       sources[1].Name,
+					Generation: sources[1].Generation + 1,
+				},
+
+				gcs.ComposeSource{
+					Name:       sources[2].Name,
+					Generation: sources[2].Generation,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+
+	// Make sure the destination object doesn't exist.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "foo"})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *composeTest) DestinationExists_NoPrecondition() {
