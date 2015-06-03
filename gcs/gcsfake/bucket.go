@@ -316,7 +316,7 @@ func (b *bucket) createObjectLocked(
 
 // LOCKS_REQUIRED(b.mu)
 func (b *bucket) newReaderLocked(
-	req *gcs.ReadObjectRequest) (rc io.ReadCloser, err error) {
+	req *gcs.ReadObjectRequest) (r io.Reader, err error) {
 	// Find the object with the requested name.
 	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
@@ -364,7 +364,7 @@ func (b *bucket) newReaderLocked(
 		result = result[start:limit]
 	}
 
-	rc = ioutil.NopCloser(bytes.NewReader(result))
+	r = bytes.NewReader(result)
 
 	return
 }
@@ -488,7 +488,12 @@ func (b *bucket) NewReader(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	rc, err = b.newReaderLocked(req)
+	r, err := b.newReaderLocked(req)
+	if err != nil {
+		return
+	}
+
+	rc = ioutil.NopCloser(r)
 	return
 }
 
@@ -544,31 +549,26 @@ func (b *bucket) ComposeObjects(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// Find the source objects.
-	var srcIndices []int
+	// Find readers for all of the source objects.
+	var srcReaders []io.Reader
 	for _, src := range req.Sources {
-		srcIndex := b.objects.find(src.Name)
-		if srcIndex == len(b.objects) {
-			err = &gcs.NotFoundError{
-				Err: fmt.Errorf("Source object %q not found", src.Name),
-			}
+		var r io.Reader
+		r, err = b.newReaderLocked(&gcs.ReadObjectRequest{
+			Name:       src.Name,
+			Generation: src.Generation,
+		})
 
+		if err != nil {
 			return
 		}
 
-		srcIndices = append(srcIndices, srcIndex)
-	}
-
-	// Extract all of their contents.
-	var dstContents []byte
-	for _, srcIndex := range srcIndices {
-		dstContents = append(dstContents, b.objects[srcIndex].data...)
+		srcReaders = append(srcReaders, r)
 	}
 
 	// Create the new object.
 	createReq := &gcs.CreateObjectRequest{
 		Name:     req.DstName,
-		Contents: bytes.NewReader(dstContents),
+		Contents: io.MultiReader(srcReaders...),
 	}
 
 	o, err = b.createObjectLocked(createReq)
