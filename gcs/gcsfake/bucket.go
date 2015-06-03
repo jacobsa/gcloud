@@ -315,11 +315,14 @@ func (b *bucket) createObjectLocked(
 	return
 }
 
+// Create a reader based on the supplied request, also returning the index
+// within b.objects of the entry for the requested generation.
+//
 // LOCKS_REQUIRED(b.mu)
 func (b *bucket) newReaderLocked(
-	req *gcs.ReadObjectRequest) (r io.Reader, err error) {
+	req *gcs.ReadObjectRequest) (r io.Reader, index int, err error) {
 	// Find the object with the requested name.
-	index := b.objects.find(req.Name)
+	index = b.objects.find(req.Name)
 	if index == len(b.objects) {
 		err = &gcs.NotFoundError{
 			Err: fmt.Errorf("Object %s not found", req.Name),
@@ -489,7 +492,7 @@ func (b *bucket) NewReader(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	r, err := b.newReaderLocked(req)
+	r, _, err := b.newReaderLocked(req)
 	if err != nil {
 		return
 	}
@@ -550,11 +553,16 @@ func (b *bucket) ComposeObjects(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// Find readers for all of the source objects.
+	// Find readers for all of the source objects, also computing the sum of
+	// their component counts.
 	var srcReaders []io.Reader
+	var dstComponentCount int64
+
 	for _, src := range req.Sources {
 		var r io.Reader
-		r, err = b.newReaderLocked(&gcs.ReadObjectRequest{
+		var srcIndex int
+
+		r, srcIndex, err = b.newReaderLocked(&gcs.ReadObjectRequest{
 			Name:       src.Name,
 			Generation: src.Generation,
 		})
@@ -564,6 +572,7 @@ func (b *bucket) ComposeObjects(
 		}
 
 		srcReaders = append(srcReaders, r)
+		dstComponentCount += b.objects[srcIndex].metadata.ComponentCount
 	}
 
 	// Create the new object.
@@ -582,11 +591,7 @@ func (b *bucket) ComposeObjects(
 	metadata := &b.objects[dstIndex].metadata
 
 	// Touchup: fix the component count.
-	metadata.ComponentCount = 0
-	for _, src := range req.Sources {
-		srcIndex := b.objects.find(src.Name)
-		metadata.ComponentCount += b.objects[srcIndex].metadata.ComponentCount
-	}
+	metadata.ComponentCount = dstComponentCount
 
 	// Touchup: emulate the real GCS behavior of not exporting an MD5 hash for
 	// composite objects.
