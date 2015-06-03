@@ -553,6 +553,17 @@ func (b *bucket) ComposeObjects(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// GCS doesn't like too few or too many sources.
+	if len(req.Sources) < 2 {
+		err = errors.New("You must provide at least two source components")
+		return
+	}
+
+	if len(req.Sources) > gcs.MaxSourcesPerComposeRequest {
+		err = errors.New("You have provided too many source components")
+		return
+	}
+
 	// Find readers for all of the source objects, also computing the sum of
 	// their component counts.
 	var srcReaders []io.Reader
@@ -573,6 +584,12 @@ func (b *bucket) ComposeObjects(
 
 		srcReaders = append(srcReaders, r)
 		dstComponentCount += b.objects[srcIndex].metadata.ComponentCount
+	}
+
+	// GCS doesn't like the component count to go too high.
+	if dstComponentCount > gcs.MaxComponentCount {
+		err = errors.New("Result would have too many components")
+		return
 	}
 
 	// Create the new object.
