@@ -1487,6 +1487,72 @@ func (t *composeTest) ManySimpleSources() {
 	ExpectEq("tacoburritoenchiladaqueso", string(contents))
 }
 
+func (t *composeTest) RepeatedSources() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them, using each multiple times.
+	t.advanceTime()
+	composeTime := t.clock.Now()
+
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	ExpectEq("foo", o.Name)
+	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentLanguage)
+	ExpectEq("", o.CacheControl)
+	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	ExpectEq(len("tacoburritotacoburrito"), o.Size)
+	ExpectEq("", o.ContentEncoding)
+	ExpectEq(4, o.ComponentCount)
+	ExpectEq(nil, o.MD5)
+	ExpectEq(computeCrc32C("tacoburritotacoburrito"), o.CRC32C)
+	ExpectThat(o.MediaLink, MatchesRegexp("download/storage.*foo"))
+	ExpectEq(nil, o.Metadata)
+	ExpectLt(sources[0].Generation, o.Generation)
+	ExpectLt(sources[1].Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+	ExpectEq("STANDARD", o.StorageClass)
+	ExpectThat(o.Deleted, timeutil.TimeEq(time.Time{}))
+	ExpectThat(o.Updated, t.matchesStartTime(composeTime))
+
+	// Check contents.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, "foo")
+
+	AssertEq(nil, err)
+	ExpectEq("tacoburritotacoburrito", string(contents))
+}
+
 func (t *composeTest) CompositeSources() {
 	// Create two source objects.
 	sources, err := t.createSources([]string{
@@ -1564,10 +1630,6 @@ func (t *composeTest) CompositeSources() {
 
 	AssertEq(nil, err)
 	ExpectEq("tacoburritotacotacoburrito", string(contents))
-}
-
-func (t *composeTest) RepeatedSources() {
-	AssertTrue(false, "TODO")
 }
 
 func (t *composeTest) OneSourceMissing_NoGenerations() {
