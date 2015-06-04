@@ -14,15 +14,16 @@
 
 package gcs
 
+import "fmt"
+
 // A *NotFoundError value is an error that indicates an object name or a
 // particular generation for that name were not found.
 type NotFoundError struct {
 	Err error
 }
 
-// Returns nfe.Err.Error().
 func (nfe *NotFoundError) Error() string {
-	return nfe.Err.Error()
+	return fmt.Sprintf("gcs.NotFoundError: %v", nfe.Err)
 }
 
 // A *PreconditionError value is an error that indicates a precondition failed.
@@ -33,5 +34,5 @@ type PreconditionError struct {
 
 // Returns pe.Err.Error().
 func (pe *PreconditionError) Error() string {
-	return pe.Err.Error()
+	return fmt.Sprintf("gcs.PreconditionError: %v", pe.Err)
 }
