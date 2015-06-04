@@ -35,7 +35,7 @@ import (
 
 var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
 
-// Equivalent to NewFakeConn(clock).GetBucket(name).
+// Equivalent to NewConn(clock).GetBucket(name).
 func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 	b := &bucket{clock: clock, name: name}
 	b.mu = syncutil.NewInvariantMutex(b.checkInvariants)

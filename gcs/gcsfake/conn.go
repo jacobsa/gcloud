@@ -22,6 +22,6 @@ import (
 // Create an "in-memory GCS" that allows access to buckets of any name, each
 // initially with empty contents. The supplied clock will be used for
 // generating timestamps.
-func NewFakeConn(clock timeutil.Clock) (c gcs.Conn) {
+func NewConn(clock timeutil.Clock) (c gcs.Conn) {
 	panic("TODO")
 }
