@@ -26,7 +26,7 @@ import (
 	"github.com/jacobsa/ogletest"
 )
 
-func TestOgletest(t *testing.T) { ogletest.RunTests(t) }
+func TestBucket(t *testing.T) { ogletest.RunTests(t) }
 
 func init() {
 	makeDeps := func(ctx context.Context) (deps gcstesting.BucketTestDeps) {

@@ -35,8 +35,7 @@ import (
 
 var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
 
-// Create an in-memory bucket with the given name and empty contents. The
-// supplied clock will be used for generating timestamps.
+// Equivalent to NewConn(clock).GetBucket(name).
 func NewFakeBucket(clock timeutil.Clock, name string) gcs.Bucket {
 	b := &bucket{clock: clock, name: name}
 	b.mu = syncutil.NewInvariantMutex(b.checkInvariants)
