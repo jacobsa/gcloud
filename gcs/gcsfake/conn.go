@@ -15,6 +15,8 @@
 package gcsfake
 
 import (
+	"fmt"
+
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
@@ -48,7 +50,12 @@ type conn struct {
 }
 
 func (c *conn) checkInvariants() {
-	panic("TODO")
+	// INVARIANT: For each k, v: v.Name() == k
+	for k, v := range c.buckets {
+		if v.Name() != k {
+			panic(fmt.Sprintf("Name mismatch: %q vs. %q", v.Name(), k))
+		}
+	}
 }
 
 func (c *conn) GetBucket(name string) (b gcs.Bucket) {
