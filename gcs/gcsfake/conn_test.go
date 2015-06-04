@@ -52,6 +52,10 @@ func (t *ConnTest) SetUp(ti *TestInfo) {
 // Tests
 ////////////////////////////////////////////////////////////////////////
 
-func (t *ConnTest) DoesFoo() {
+func (t *ConnTest) BucketContentsAreStable() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *ConnTest) BucketsAreSegregatedByName() {
 	AssertTrue(false, "TODO")
 }
