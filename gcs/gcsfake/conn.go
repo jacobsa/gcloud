@@ -17,11 +17,40 @@ package gcsfake
 import (
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
+	"github.com/jacobsa/gcloud/syncutil"
 )
 
 // Create an "in-memory GCS" that allows access to buckets of any name, each
 // initially with empty contents. The supplied clock will be used for
 // generating timestamps.
 func NewConn(clock timeutil.Clock) (c gcs.Conn) {
+	typed := &conn{
+		buckets: make(map[string]gcs.Bucket),
+	}
+
+	typed.mu = syncutil.NewInvariantMutex(typed.checkInvariants)
+
+	c = typed
+	return
+}
+
+////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////
+
+type conn struct {
+	mu syncutil.InvariantMutex
+
+	// INVARIANT: For each k, v: v.Name() == k
+	//
+	// GUARDED_BY(mu)
+	buckets map[string]gcs.Bucket
+}
+
+func (c *conn) checkInvariants() {
+	panic("TODO")
+}
+
+func (c *conn) GetBucket(name string) (b gcs.Bucket) {
 	panic("TODO")
 }
