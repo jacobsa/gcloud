@@ -77,5 +77,27 @@ func (t *ConnTest) BucketContentsAreStable() {
 }
 
 func (t *ConnTest) BucketsAreSegregatedByName() {
-	AssertTrue(false, "TODO")
+	const objName = "baz"
+	var contents []byte
+	var err error
+
+	b0 := t.conn.GetBucket("foo")
+	b1 := t.conn.GetBucket("bar")
+
+	// Add an object with the same name but different contents to each of two
+	// buckets.
+	_, err = gcsutil.CreateObject(t.ctx, b0, objName, "taco")
+	AssertEq(nil, err)
+
+	_, err = gcsutil.CreateObject(t.ctx, b1, objName, "burrito")
+	AssertEq(nil, err)
+
+	// Each should have stored it independently.
+	contents, err = gcsutil.ReadObject(t.ctx, b0, objName)
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
+
+	contents, err = gcsutil.ReadObject(t.ctx, b1, objName)
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
 }
