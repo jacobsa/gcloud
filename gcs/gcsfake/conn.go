@@ -27,6 +27,7 @@ import (
 // generating timestamps.
 func NewConn(clock timeutil.Clock) (c gcs.Conn) {
 	typed := &conn{
+		clock:   clock,
 		buckets: make(map[string]gcs.Bucket),
 	}
 
@@ -41,6 +42,8 @@ func NewConn(clock timeutil.Clock) (c gcs.Conn) {
 ////////////////////////////////////////////////////////////////////////
 
 type conn struct {
+	clock timeutil.Clock
+
 	mu syncutil.InvariantMutex
 
 	// INVARIANT: For each k, v: v.Name() == k
@@ -49,6 +52,7 @@ type conn struct {
 	buckets map[string]gcs.Bucket
 }
 
+// LOCKS_REQUIRED(c.mu)
 func (c *conn) checkInvariants() {
 	// INVARIANT: For each k, v: v.Name() == k
 	for k, v := range c.buckets {
@@ -58,6 +62,20 @@ func (c *conn) checkInvariants() {
 	}
 }
 
+// LOCKS_EXCLUDED(c.mu)
 func (c *conn) GetBucket(name string) (b gcs.Bucket) {
-	panic("TODO")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Do we already know this bucket name?
+	b = c.buckets[name]
+	if b != nil {
+		return
+	}
+
+	// Create it.
+	b = NewFakeBucket(c.clock, name)
+	c.buckets[name] = b
+
+	return
 }
