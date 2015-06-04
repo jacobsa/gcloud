@@ -23,6 +23,7 @@ import (
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsfake"
+	"github.com/jacobsa/gcloud/gcs/gcsutil"
 	. "github.com/jacobsa/ogletest"
 )
 
@@ -53,7 +54,26 @@ func (t *ConnTest) SetUp(ti *TestInfo) {
 ////////////////////////////////////////////////////////////////////////
 
 func (t *ConnTest) BucketContentsAreStable() {
-	AssertTrue(false, "TODO")
+	const bucketName = "foo"
+	const objName = "bar"
+
+	// Add an object to a bucket.
+	_, err := gcsutil.CreateObject(
+		t.ctx,
+		t.conn.GetBucket(bucketName),
+		objName,
+		"taco")
+
+	AssertEq(nil, err)
+
+	// Grab the bucket again. It should still be there.
+	contents, err := gcsutil.ReadObject(
+		t.ctx,
+		t.conn.GetBucket(bucketName),
+		objName)
+
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
 }
 
 func (t *ConnTest) BucketsAreSegregatedByName() {
