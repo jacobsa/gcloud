@@ -18,6 +18,8 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/oauth2"
+
 	"github.com/jacobsa/reqtrace"
 
 	storagev1 "google.golang.org/api/storage/v1"
@@ -40,10 +42,11 @@ type Conn interface {
 
 // Configuration accepted by NewConn.
 type ConnConfig struct {
-	// An HTTP client, assumed to handle authorization and authentication. See
-	// github.com/jacobsa/gcloud/oauthutil for a convenient way to create one of
-	// these.
-	HTTPClient *http.Client
+	// An oauth2 token source to use for authenticating to GCS.
+	//
+	// You probably want this one:
+	//     http://godoc.org/golang.org/x/oauth2/google#DefaultTokenSource
+	TokenSource oauth2.TokenSource
 
 	// The value to set in User-Agent headers for outgoing HTTP requests. If
 	// empty, a default will be used.
