@@ -1307,7 +1307,34 @@ func (t *copyTest) DestinationIsSameName() {
 }
 
 func (t *copyTest) InterestingNames() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can use each interesting name as a copy destination.
+	err = forEachString(
+		t.ctx,
+		interestingNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.CopyObject(
+				ctx,
+				&gcs.CopyObjectRequest{
+					SrcName: srcName,
+					DstName: name,
+				})
+
+			if err != nil {
+				err = fmt.Errorf("Failed to copy %q: %v", name, err)
+				return
+			}
+
+			return
+		})
+
+	AssertEq(nil, err)
 }
 
 func (t *copyTest) IllegalNames() {
