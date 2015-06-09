@@ -28,7 +28,6 @@ import (
 	"github.com/jacobsa/fuse/fsutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
@@ -48,13 +47,9 @@ func createBucket() (bucket gcs.Bucket, err error) {
 		return
 	}
 
-	httpClient := oauth2.NewClient(
-		context.Background(),
-		tokenSrc)
-
 	// Use that to create a connection.
 	connCfg := &gcs.ConnConfig{
-		HTTPClient: httpClient,
+		TokenSource: tokenSrc,
 	}
 
 	conn, err := gcs.NewConn(connCfg)
@@ -69,7 +64,11 @@ func createBucket() (bucket gcs.Bucket, err error) {
 		return
 	}
 
-	bucket = conn.GetBucket(*fBucket)
+	bucket, err = conn.OpenBucket(context.Background(), *fBucket)
+	if err != nil {
+		err = fmt.Errorf("OpenBucket: %v", err)
+		return
+	}
 
 	return
 }

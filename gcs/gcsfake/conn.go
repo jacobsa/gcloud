@@ -17,6 +17,8 @@ package gcsfake
 import (
 	"fmt"
 
+	"golang.org/x/net/context"
+
 	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/syncutil"
@@ -63,7 +65,9 @@ func (c *conn) checkInvariants() {
 }
 
 // LOCKS_EXCLUDED(c.mu)
-func (c *conn) GetBucket(name string) (b gcs.Bucket) {
+func (c *conn) OpenBucket(
+	ctx context.Context,
+	name string) (b gcs.Bucket, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -15,11 +15,18 @@
 package gcs
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+
+	"github.com/jacobsa/gcloud/httputil"
 	"github.com/jacobsa/reqtrace"
 
+	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
@@ -33,17 +40,20 @@ const (
 // Conn represents a connection to GCS, pre-bound with a project ID and
 // information required for authorization.
 type Conn interface {
-	// Return a Bucket object representing the GCS bucket with the given name. No
-	// immediate validation is performed.
-	GetBucket(name string) Bucket
+	// Return a Bucket object representing the GCS bucket with the given name.
+	// Attempt to fail early in the case of bad credentials.
+	OpenBucket(
+		ctx context.Context,
+		name string) (b Bucket, err error)
 }
 
 // Configuration accepted by NewConn.
 type ConnConfig struct {
-	// An HTTP client, assumed to handle authorization and authentication. See
-	// github.com/jacobsa/gcloud/oauthutil for a convenient way to create one of
-	// these.
-	HTTPClient *http.Client
+	// An oauth2 token source to use for authenticating to GCS.
+	//
+	// You probably want this one:
+	//     http://godoc.org/golang.org/x/oauth2/google#DefaultTokenSource
+	TokenSource oauth2.TokenSource
 
 	// The value to set in User-Agent headers for outgoing HTTP requests. If
 	// empty, a default will be used.
@@ -77,8 +87,22 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 		userAgent = defaultUserAgent
 	}
 
+	// Set up the HTTP transport, enabling debugging if requested.
+	if cfg.TokenSource == nil {
+		err = errors.New("You must set TokenSource.")
+		return
+	}
+
+	var transport httputil.CancellableRoundTripper = &oauth2.Transport{
+		Source: cfg.TokenSource,
+		Base:   http.DefaultTransport,
+	}
+
+	transport = httputil.DebuggingRoundTripper(transport)
+
+	// Set up the connection.
 	c = &conn{
-		client:          cfg.HTTPClient,
+		client:          &http.Client{Transport: transport},
 		userAgent:       userAgent,
 		maxBackoffSleep: cfg.MaxBackoffSleep,
 	}
@@ -92,7 +116,9 @@ type conn struct {
 	maxBackoffSleep time.Duration
 }
 
-func (c *conn) GetBucket(name string) (b Bucket) {
+func (c *conn) OpenBucket(
+	ctx context.Context,
+	name string) (b Bucket, err error) {
 	b = newBucket(c.client, c.userAgent, name)
 
 	// Enable retry loops if requested.
@@ -110,6 +136,25 @@ func (c *conn) GetBucket(name string) (b Bucket) {
 
 	// Print debug output when enabled.
 	b = newDebugBucket(b)
+
+	// Attempt to make an innocuous request to the bucket, snooping for HTTP 403
+	// errors that indicate bad credentials. This lets us warn the user early in
+	// the latter case, with a more helpful message than just "HTTP 403
+	// Forbidden".
+	const objName = "some_fake_object_for_checking_permissions"
+	_, err = b.ListObjects(ctx, &ListObjectsRequest{MaxResults: 1})
+
+	typed, ok := err.(*googleapi.Error)
+	if ok && typed.Code == http.StatusForbidden {
+		err = fmt.Errorf(
+			"Bad credentials for bucket %q. Check the bucket name and your "+
+				"credentials.",
+			b.Name())
+
+		return
+	}
+
+	err = nil
 
 	return
 }

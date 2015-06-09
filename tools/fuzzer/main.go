@@ -49,15 +49,15 @@ func getBucket() (b gcs.Bucket, err error) {
 
 	// Create the HTTP client.
 	const scope = gcs.Scope_FullControl
-	client, err := google.DefaultClient(context.Background(), scope)
+	tokenSrc, err := google.DefaultTokenSource(context.Background(), scope)
 	if err != nil {
-		err = fmt.Errorf("DefaultClient: %v", err)
+		err = fmt.Errorf("DefaultTokenSource: %v", err)
 		return
 	}
 
 	// Set up a GCS connection.
 	cfg := &gcs.ConnConfig{
-		HTTPClient:      client,
+		TokenSource:     tokenSrc,
 		MaxBackoffSleep: 60 * time.Minute,
 	}
 
@@ -68,7 +68,11 @@ func getBucket() (b gcs.Bucket, err error) {
 	}
 
 	// Open the bucket.
-	b = conn.GetBucket(*fBucket)
+	b, err = conn.OpenBucket(context.Background(), *fBucket)
+	if err != nil {
+		err = fmt.Errorf("OpenBucket: %v", err)
+		return
+	}
 
 	return
 }

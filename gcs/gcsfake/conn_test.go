@@ -57,10 +57,16 @@ func (t *ConnTest) BucketContentsAreStable() {
 	const bucketName = "foo"
 	const objName = "bar"
 
+	var err error
+
+	// Open the bucket.
+	bucket, err := t.conn.OpenBucket(t.ctx, bucketName)
+	AssertEq(nil, err)
+
 	// Add an object to a bucket.
-	_, err := gcsutil.CreateObject(
+	_, err = gcsutil.CreateObject(
 		t.ctx,
-		t.conn.GetBucket(bucketName),
+		bucket,
 		objName,
 		"taco")
 
@@ -69,7 +75,7 @@ func (t *ConnTest) BucketContentsAreStable() {
 	// Grab the bucket again. It should still be there.
 	contents, err := gcsutil.ReadObject(
 		t.ctx,
-		t.conn.GetBucket(bucketName),
+		bucket,
 		objName)
 
 	AssertEq(nil, err)
@@ -81,8 +87,11 @@ func (t *ConnTest) BucketsAreSegregatedByName() {
 	var contents []byte
 	var err error
 
-	b0 := t.conn.GetBucket("foo")
-	b1 := t.conn.GetBucket("bar")
+	b0, err := t.conn.OpenBucket(t.ctx, "foo")
+	AssertEq(nil, err)
+
+	b1, err := t.conn.OpenBucket(t.ctx, "bar")
+	AssertEq(nil, err)
 
 	// Add an object with the same name but different contents to each of two
 	// buckets.
