@@ -35,9 +35,16 @@ func TestConn(t *testing.T) { RunTests(t) }
 ////////////////////////////////////////////////////////////////////////
 
 type ConnTest struct {
+	ctx context.Context
 }
 
+var _ SetUpInterface = &ConnTest{}
+
 func init() { RegisterTestSuite(&ConnTest{}) }
+
+func (t *ConnTest) SetUp(ti *TestInfo) {
+	t.ctx = ti.Ctx
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Tests
@@ -60,6 +67,6 @@ func (t *ConnTest) BadCredentials() {
 	AssertEq(nil, err)
 
 	// Attempt to open a bucket to which we don't have access.
-	_, err = conn.OpenBucket("golang")
+	_, err = conn.OpenBucket(t.ctx, "golang")
 	ExpectThat(err, Error(HasSubstr("TODO")))
 }
