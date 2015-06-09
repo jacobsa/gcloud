@@ -16,9 +16,12 @@ package gcs
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 
 	"github.com/jacobsa/gcloud/httputil"
@@ -39,7 +42,9 @@ const (
 type Conn interface {
 	// Return a Bucket object representing the GCS bucket with the given name.
 	// Attempt to fail early in the case of bad credentials.
-	OpenBucket(name string) (b Bucket, err error)
+	OpenBucket(
+		ctx context.Context,
+		name string) (b Bucket, err error)
 }
 
 // Configuration accepted by NewConn.
@@ -111,7 +116,9 @@ type conn struct {
 	maxBackoffSleep time.Duration
 }
 
-func (c *conn) OpenBucket(name string) (b Bucket, err error) {
+func (c *conn) OpenBucket(
+	ctx context.Context,
+	name string) (b Bucket, err error) {
 	b = newBucket(c.client, c.userAgent, name)
 
 	// Enable retry loops if requested.
@@ -130,8 +137,27 @@ func (c *conn) OpenBucket(name string) (b Bucket, err error) {
 	// Print debug output when enabled.
 	b = newDebugBucket(b)
 
-	// TODO(jacobsa): Check credentials. See here for more:
-	// https://github.com/GoogleCloudPlatform/gcsfuse/issues/65
+	// Attempt to make an innocuous request to the bucket, snooping for HTTP 403
+	// errors that indicate bad credentials. This lets us warn the user early in
+	// the latter case, with a more helpful message than just "HTTP 403
+	// Forbidden".
+	const objName = "some_fake_object_for_checking_permissions"
+	_, err = b.StatObject(ctx, &StatObjectRequest{Name: objName})
+
+	switch {
+	case err == nil:
+
+	case strings.Contains(err.Error(), "HTTP 403"):
+		err = fmt.Errorf(
+			"Bad credentials for bucket %q. Check the bucket name and your "+
+				"credentials.",
+			b.Name())
+
+		return
+
+	default:
+		err = nil
+	}
 
 	return
 }
