@@ -15,11 +15,13 @@
 package gcs
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"golang.org/x/oauth2"
 
+	"github.com/jacobsa/gcloud/httputil"
 	"github.com/jacobsa/reqtrace"
 
 	storagev1 "google.golang.org/api/storage/v1"
@@ -79,8 +81,22 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 		userAgent = defaultUserAgent
 	}
 
+	// Set up the HTTP transport, enabling debugging if requested.
+	if cfg.TokenSource == nil {
+		err = errors.New("You must set TokenSource.")
+		return
+	}
+
+	var transport httputil.CancellableRoundTripper = &oauth2.Transport{
+		Source: cfg.TokenSource,
+		Base:   http.DefaultTransport,
+	}
+
+	transport = httputil.DebuggingRoundTripper(transport)
+
+	// Set up the connection.
 	c = &conn{
-		client:          cfg.HTTPClient,
+		client:          &http.Client{Transport: transport},
 		userAgent:       userAgent,
 		maxBackoffSleep: cfg.MaxBackoffSleep,
 	}
