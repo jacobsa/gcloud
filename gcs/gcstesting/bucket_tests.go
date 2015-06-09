@@ -39,7 +39,35 @@ import (
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 )
+
+////////////////////////////////////////////////////////////////////////
+// Initialization
+////////////////////////////////////////////////////////////////////////
+
+// Make sure we can use a decent degree of parallelism when talking to GCS
+// without getting "too many open files" errors, especially on OS X where the
+// default rlimit is very low (256 as of 10.10.3).
+func init() {
+	var rlim unix.Rlimit
+	var err error
+
+	err = unix.Getrlimit(unix.RLIMIT_NOFILE, &rlim)
+	if err != nil {
+		panic(err)
+	}
+
+	before := rlim.Cur
+	rlim.Cur = rlim.Max
+
+	err = unix.Setrlimit(unix.RLIMIT_NOFILE, &rlim)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("Raised RLIMIT_NOFILE from %d to %d.", before, rlim.Cur)
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Helpers
