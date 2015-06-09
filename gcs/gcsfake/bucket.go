@@ -140,6 +140,27 @@ type bucket struct {
 	prevGeneration int64 // GUARDED_BY(mu)
 }
 
+func checkName(name string) (err error) {
+	if len(name) == 0 || len(name) > 1024 {
+		err = errors.New("Invalid object name: length must be in [1, 1024]")
+		return
+	}
+
+	if !utf8.ValidString(name) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
+	}
+
+	for _, r := range name {
+		if r == 0x0a || r == 0x0d {
+			err = errors.New("Invalid object name: must not contain CR or LF")
+			return
+		}
+	}
+
+	return
+}
+
 // LOCKS_REQUIRED(b.mu)
 func (b *bucket) checkInvariants() {
 	// Make sure 'objects' is strictly increasing.
@@ -211,19 +232,9 @@ func (b *bucket) mintObject(
 func (b *bucket) createObjectLocked(
 	req *gcs.CreateObjectRequest) (o *gcs.Object, err error) {
 	// Check that the name is legal.
-	name := req.Name
-	if len(name) == 0 || len(name) > 1024 {
-		return nil, errors.New("Invalid object name: length must be in [1, 1024]")
-	}
-
-	if !utf8.ValidString(name) {
-		return nil, errors.New("Invalid object name: not valid UTF-8")
-	}
-
-	for _, r := range name {
-		if r == 0x0a || r == 0x0d {
-			return nil, errors.New("Invalid object name: must not contain CR or LF")
-		}
+	err = checkName(req.Name)
+	if err != nil {
+		return
 	}
 
 	// Snarf the contents.
@@ -517,6 +528,12 @@ func (b *bucket) CopyObject(
 	req *gcs.CopyObjectRequest) (o *gcs.Object, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	// Check that the destination name is legal.
+	err = checkName(req.DstName)
+	if err != nil {
+		return
+	}
 
 	// Does the object exist?
 	srcIndex := b.objects.find(req.SrcName)
