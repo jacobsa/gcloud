@@ -2177,7 +2177,37 @@ func (t *composeTest) ComponentCountLimits() {
 }
 
 func (t *composeTest) InterestingNames() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can use each interesting name as a compose destination.
+	err = forEachString(
+		t.ctx,
+		interestingNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.ComposeObjects(
+				ctx,
+				&gcs.ComposeObjectsRequest{
+					DstName: name,
+					Sources: []gcs.ComposeSource{
+						gcs.ComposeSource{Name: srcName},
+						gcs.ComposeSource{Name: srcName},
+					},
+				})
+
+			if err != nil {
+				err = fmt.Errorf("Failed to compose to %q: %v", name, err)
+				return
+			}
+
+			return
+		})
+
+	AssertEq(nil, err)
 }
 
 func (t *composeTest) IllegalNames() {
