@@ -38,7 +38,8 @@ const (
 // information required for authorization.
 type Conn interface {
 	// Return a Bucket object representing the GCS bucket with the given name.
-	GetBucket(name string) (b Bucket, err error)
+	// Attempt to fail early in the case of bad credentials.
+	OpenBucket(name string) (b Bucket, err error)
 }
 
 // Configuration accepted by NewConn.
@@ -110,7 +111,7 @@ type conn struct {
 	maxBackoffSleep time.Duration
 }
 
-func (c *conn) GetBucket(name string) (b Bucket, err error) {
+func (c *conn) OpenBucket(name string) (b Bucket, err error) {
 	b = newBucket(c.client, c.userAgent, name)
 
 	// Enable retry loops if requested.

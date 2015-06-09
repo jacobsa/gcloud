@@ -80,7 +80,7 @@ func init() {
 		AssertEq(nil, err)
 
 		// Open the bucket.
-		deps.Bucket, err = conn.GetBucket(*fBucket)
+		deps.Bucket, err = conn.OpenBucket(*fBucket)
 		AssertEq(nil, err)
 
 		// Clear the bucket.

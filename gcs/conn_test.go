@@ -24,6 +24,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/jacobsa/gcloud/gcs"
+	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 )
 
