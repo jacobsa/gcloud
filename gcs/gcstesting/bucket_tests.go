@@ -268,7 +268,7 @@ func readMultiple(
 func forEachString(
 	ctx context.Context,
 	strings []string,
-	f func(context.Context, string)) {
+	f func(context.Context, string) error) (err error) {
 	b := syncutil.NewBundle(ctx)
 
 	// Feed strings into a channel.
@@ -281,15 +281,19 @@ func forEachString(
 	// Consume the strings.
 	const parallelism = 128
 	for i := 0; i < parallelism; i++ {
-		b.Add(func(ctx context.Context) error {
+		b.Add(func(ctx context.Context) (err error) {
 			for s := range c {
-				f(ctx, s)
+				err = f(ctx, s)
+				if err != nil {
+					return
+				}
 			}
-			return nil
+			return
 		})
 	}
 
-	b.Join()
+	err = b.Join()
+	return
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -588,33 +592,53 @@ func (t *createTest) ErrorAfterPartialContents() {
 }
 
 func (t *createTest) InterestingNames() {
+	var err error
+
 	// Grab a list of interesting legal names.
 	names := interestingNames()
 
 	// Make sure we can create each name.
-	forEachString(
+	err = forEachString(
 		t.ctx,
 		names,
-		func(ctx context.Context, name string) {
-			err := t.createObject(name, name)
-			ExpectEq(nil, err, "Failed to create:\n%s", hex.Dump([]byte(name)))
+		func(ctx context.Context, name string) (err error) {
+			err = t.createObject(name, name)
+			if err != nil {
+				err = fmt.Errorf("Failed to create %q: %v", name, err)
+				return
+			}
+
+			return
 		})
+
+	AssertEq(nil, err)
 
 	// Make sure we can read each, and that we get back the content we created
 	// above.
-	forEachString(
+	err = forEachString(
 		t.ctx,
 		names,
-		func(ctx context.Context, name string) {
+		func(ctx context.Context, name string) (err error) {
 			contents, err := t.readObject(name)
-			ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
-			if err == nil {
-				ExpectEq(
-					name,
-					contents,
-					"Incorrect contents:\n%s", hex.Dump([]byte(name)))
+
+			if err != nil {
+				err = fmt.Errorf("Failed to read %q: %v", name, err)
+				return
 			}
+
+			if contents != name {
+				err = fmt.Errorf(
+					"Incorrect contents for %q: %q",
+					name,
+					contents)
+
+				return
+			}
+
+			return
 		})
+
+	AssertEq(nil, err)
 
 	// Grab a listing and extract the names.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
@@ -656,6 +680,8 @@ func (t *createTest) InterestingNames() {
 }
 
 func (t *createTest) IllegalNames() {
+	var err error
+
 	// Naming requirements:
 	// Cf. https://cloud.google.com/storage/docs/bucket-naming
 	const maxLegalLength = 1024
@@ -674,22 +700,34 @@ func (t *createTest) IllegalNames() {
 	}
 
 	// Make sure we cannot create any of the names above.
-	for _, name := range names {
-		nameDump := hex.Dump([]byte(name))
+	err = forEachString(
+		t.ctx,
+		names,
+		func(ctx context.Context, name string) (err error) {
+			err = t.createObject(name, "")
+			if err == nil {
+				err = fmt.Errorf("Expected to not be able to create %q", name)
+				return
+			}
 
-		err := t.createObject(name, "")
-		AssertNe(nil, err, "Name:\n%s", nameDump)
+			if name == "" {
+				if !strings.Contains(err.Error(), "Invalid") &&
+					!strings.Contains(err.Error(), "Required") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			} else {
+				if !strings.Contains(err.Error(), "Invalid") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			}
 
-		if name == "" {
-			ExpectThat(
-				err,
-				Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))),
-				"Name:\n%s",
-				nameDump)
-		} else {
-			ExpectThat(err, Error(HasSubstr("Invalid")), "Name:\n%s", nameDump)
-		}
-	}
+			err = nil
+			return
+		})
+
+	AssertEq(nil, err)
 
 	// No objects should have been created.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
