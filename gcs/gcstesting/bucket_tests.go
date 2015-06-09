@@ -263,6 +263,35 @@ func readMultiple(
 	return
 }
 
+// Invoke the supplied function for each string, with some degree of
+// parallelism.
+func forEachString(
+	ctx context.Context,
+	strings []string,
+	f func(context.Context, string)) {
+	b := syncutil.NewBundle(ctx)
+
+	// Feed strings into a channel.
+	c := make(chan string, len(strings))
+	for _, s := range strings {
+		c <- s
+	}
+	close(c)
+
+	// Consume the strings.
+	const parallelism = 128
+	for i := 0; i < parallelism; i++ {
+		b.Add(func(ctx context.Context) error {
+			for s := range c {
+				f(ctx, s)
+			}
+			return nil
+		})
+	}
+
+	b.Join()
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Common
 ////////////////////////////////////////////////////////////////////////
@@ -562,50 +591,30 @@ func (t *createTest) InterestingNames() {
 	// Grab a list of interesting legal names.
 	names := interestingNames()
 
-	// Set up a function that invokes another function for each object name, with
-	// some degree of parallelism.
-	const parallelism = 32 // About 300 ms * 100 Hz
-	forEachName := func(f func(context.Context, string)) {
-		b := syncutil.NewBundle(t.ctx)
-
-		// Feed names.
-		nameChan := make(chan string)
-		b.Add(func(ctx context.Context) error {
-			defer close(nameChan)
-			for _, n := range names {
-				nameChan <- n
-			}
-			return nil
-		})
-
-		// Consume names.
-		for i := 0; i < parallelism; i++ {
-			b.Add(func(ctx context.Context) error {
-				for n := range nameChan {
-					f(ctx, n)
-				}
-				return nil
-			})
-		}
-
-		b.Join()
-	}
-
 	// Make sure we can create each name.
-	forEachName(func(ctx context.Context, name string) {
-		err := t.createObject(name, name)
-		ExpectEq(nil, err, "Failed to create:\n%s", hex.Dump([]byte(name)))
-	})
+	forEachString(
+		t.ctx,
+		names,
+		func(ctx context.Context, name string) {
+			err := t.createObject(name, name)
+			ExpectEq(nil, err, "Failed to create:\n%s", hex.Dump([]byte(name)))
+		})
 
 	// Make sure we can read each, and that we get back the content we created
 	// above.
-	forEachName(func(ctx context.Context, name string) {
-		contents, err := t.readObject(name)
-		ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
-		if err == nil {
-			ExpectEq(name, contents, "Incorrect contents:\n%s", hex.Dump([]byte(name)))
-		}
-	})
+	forEachString(
+		t.ctx,
+		names,
+		func(ctx context.Context, name string) {
+			contents, err := t.readObject(name)
+			ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
+			if err == nil {
+				ExpectEq(
+					name,
+					contents,
+					"Incorrect contents:\n%s", hex.Dump([]byte(name)))
+			}
+		})
 
 	// Grab a listing and extract the names.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
