@@ -20,6 +20,10 @@ package gcs_test
 import (
 	"testing"
 
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+
+	"github.com/jacobsa/gcloud/gcs"
 	. "github.com/jacobsa/ogletest"
 )
 
@@ -39,5 +43,22 @@ func init() { RegisterTestSuite(&ConnTest{}) }
 ////////////////////////////////////////////////////////////////////////
 
 func (t *ConnTest) BadCredentials() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Set up a token source.
+	const scope = gcs.Scope_FullControl
+	tokenSrc, err := google.DefaultTokenSource(context.Background(), scope)
+	AssertEq(nil, err)
+
+	// Use that to create a GCS connection, enabling retry if requested.
+	cfg := &gcs.ConnConfig{
+		TokenSource: tokenSrc,
+	}
+
+	conn, err := gcs.NewConn(cfg)
+	AssertEq(nil, err)
+
+	// Attempt to open a bucket to which we don't have access.
+	_, err = conn.OpenBucket("golang")
+	ExpectThat(err, Error(HasSubstr("TODO")))
 }
