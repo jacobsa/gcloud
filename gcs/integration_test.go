@@ -30,7 +30,6 @@ package gcs_test
 
 import (
 	"flag"
-	"net/http"
 	"testing"
 	"time"
 
@@ -38,10 +37,8 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
-	"github.com/jacobsa/gcloud/httputil"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
@@ -69,17 +66,9 @@ func init() {
 		tokenSrc, err := google.DefaultTokenSource(context.Background(), scope)
 		AssertEq(nil, err)
 
-		// Set up the HTTP transport, enabling debugging if requested.
-		var transport httputil.CancellableRoundTripper = &oauth2.Transport{
-			Source: tokenSrc,
-			Base:   http.DefaultTransport,
-		}
-
-		transport = httputil.DebuggingRoundTripper(transport)
-
 		// Use that to create a GCS connection, enabling retry if requested.
 		cfg := &gcs.ConnConfig{
-			HTTPClient: &http.Client{Transport: transport},
+			TokenSource: tokenSrc,
 		}
 
 		if *fUseRetry {
@@ -91,7 +80,8 @@ func init() {
 		AssertEq(nil, err)
 
 		// Open the bucket.
-		deps.Bucket = conn.GetBucket(*fBucket)
+		deps.Bucket, err = conn.GetBucket(*fBucket)
+		AssertEq(nil, err)
 
 		// Clear the bucket.
 		err = gcsutil.DeleteAllObjects(ctx, deps.Bucket)
