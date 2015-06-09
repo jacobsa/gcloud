@@ -2211,7 +2211,51 @@ func (t *composeTest) InterestingNames() {
 }
 
 func (t *composeTest) IllegalNames() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can't use any illegal name as a compose destination.
+	err = forEachString(
+		t.ctx,
+		illegalNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.ComposeObjects(
+				ctx,
+				&gcs.ComposeObjectsRequest{
+					DstName: name,
+					Sources: []gcs.ComposeSource{
+						gcs.ComposeSource{Name: srcName},
+						gcs.ComposeSource{Name: srcName},
+					},
+				})
+
+			if err == nil {
+				err = fmt.Errorf("Expected to not be able to compose to %q", name)
+				return
+			}
+
+			if name == "" {
+				if !strings.Contains(err.Error(), "Invalid") &&
+					!strings.Contains(err.Error(), "Not Found") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			} else {
+				if !strings.Contains(err.Error(), "Invalid") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			}
+
+			err = nil
+			return
+		})
+
+	AssertEq(nil, err)
 }
 
 ////////////////////////////////////////////////////////////////////////
