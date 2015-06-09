@@ -110,7 +110,7 @@ type conn struct {
 	maxBackoffSleep time.Duration
 }
 
-func (c *conn) GetBucket(name string) (b Bucket) {
+func (c *conn) GetBucket(name string) (b Bucket, err error) {
 	b = newBucket(c.client, c.userAgent, name)
 
 	// Enable retry loops if requested.
@@ -128,6 +128,9 @@ func (c *conn) GetBucket(name string) (b Bucket) {
 
 	// Print debug output when enabled.
 	b = newDebugBucket(b)
+
+	// TODO(jacobsa): Check credentials. See here for more:
+	// https://github.com/GoogleCloudPlatform/gcsfuse/issues/65
 
 	return
 }
