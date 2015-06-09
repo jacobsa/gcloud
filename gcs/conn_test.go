@@ -68,5 +68,7 @@ func (t *ConnTest) BadCredentials() {
 
 	// Attempt to open a bucket to which we don't have access.
 	_, err = conn.OpenBucket(t.ctx, "golang")
-	ExpectThat(err, Error(HasSubstr("TODO")))
+
+	ExpectThat(err, Error(HasSubstr("Bad credentials")))
+	ExpectThat(err, Error(HasSubstr("golang")))
 }

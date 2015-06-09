@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -27,6 +26,7 @@ import (
 	"github.com/jacobsa/gcloud/httputil"
 	"github.com/jacobsa/reqtrace"
 
+	"google.golang.org/api/googleapi"
 	storagev1 "google.golang.org/api/storage/v1"
 )
 
@@ -142,22 +142,19 @@ func (c *conn) OpenBucket(
 	// the latter case, with a more helpful message than just "HTTP 403
 	// Forbidden".
 	const objName = "some_fake_object_for_checking_permissions"
-	_, err = b.StatObject(ctx, &StatObjectRequest{Name: objName})
+	_, err = b.ListObjects(ctx, &ListObjectsRequest{MaxResults: 1})
 
-	switch {
-	case err == nil:
-
-	case strings.Contains(err.Error(), "HTTP 403"):
+	typed, ok := err.(*googleapi.Error)
+	if ok && typed.Code == http.StatusForbidden {
 		err = fmt.Errorf(
 			"Bad credentials for bucket %q. Check the bucket name and your "+
 				"credentials.",
 			b.Name())
 
 		return
-
-	default:
-		err = nil
 	}
+
+	err = nil
 
 	return
 }
