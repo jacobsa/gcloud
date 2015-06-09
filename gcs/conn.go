@@ -140,20 +140,27 @@ func (c *conn) OpenBucket(
 	// Attempt to make an innocuous request to the bucket, snooping for HTTP 403
 	// errors that indicate bad credentials. This lets us warn the user early in
 	// the latter case, with a more helpful message than just "HTTP 403
-	// Forbidden".
-	const objName = "some_fake_object_for_checking_permissions"
+	// Forbidden". Similarly for bad bucket names that don't collide with another
+	// bucket.
 	_, err = b.ListObjects(ctx, &ListObjectsRequest{MaxResults: 1})
 
-	typed, ok := err.(*googleapi.Error)
-	if ok && typed.Code == http.StatusForbidden {
-		err = fmt.Errorf(
-			"Bad credentials for bucket %q. Check the bucket name and your "+
-				"credentials.",
-			b.Name())
+	if typed, ok := err.(*googleapi.Error); ok {
+		switch typed.Code {
+		case http.StatusForbidden:
+			err = fmt.Errorf(
+				"Bad credentials for bucket %q. Check the bucket name and your "+
+					"credentials.",
+				b.Name())
 
-		return
+			return
+
+		case http.StatusNotFound:
+			err = fmt.Errorf("Unknown bucket %q", b.Name())
+			return
+		}
 	}
 
+	// Otherwise, don't interfere.
 	err = nil
 
 	return

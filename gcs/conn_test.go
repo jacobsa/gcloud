@@ -35,7 +35,8 @@ func TestConn(t *testing.T) { RunTests(t) }
 ////////////////////////////////////////////////////////////////////////
 
 type ConnTest struct {
-	ctx context.Context
+	ctx  context.Context
+	conn gcs.Conn
 }
 
 var _ SetUpInterface = &ConnTest{}
@@ -43,15 +44,9 @@ var _ SetUpInterface = &ConnTest{}
 func init() { RegisterTestSuite(&ConnTest{}) }
 
 func (t *ConnTest) SetUp(ti *TestInfo) {
-	t.ctx = ti.Ctx
-}
-
-////////////////////////////////////////////////////////////////////////
-// Tests
-////////////////////////////////////////////////////////////////////////
-
-func (t *ConnTest) BadCredentials() {
 	var err error
+
+	t.ctx = ti.Ctx
 
 	// Set up a token source.
 	const scope = gcs.Scope_FullControl
@@ -63,12 +58,30 @@ func (t *ConnTest) BadCredentials() {
 		TokenSource: tokenSrc,
 	}
 
-	conn, err := gcs.NewConn(cfg)
+	t.conn, err = gcs.NewConn(cfg)
 	AssertEq(nil, err)
+}
 
-	// Attempt to open a bucket to which we don't have access.
-	_, err = conn.OpenBucket(t.ctx, "golang")
+////////////////////////////////////////////////////////////////////////
+// Tests
+////////////////////////////////////////////////////////////////////////
+
+func (t *ConnTest) NonExistentBucket() {
+	var err error
+
+	const name = "jklsdfghiouyhiosufhkdjf"
+	_, err = t.conn.OpenBucket(t.ctx, name)
+
+	ExpectThat(err, Error(HasSubstr("Unknown bucket")))
+	ExpectThat(err, Error(HasSubstr(name)))
+}
+
+func (t *ConnTest) BadCredentials() {
+	var err error
+
+	const name = "golang"
+	_, err = t.conn.OpenBucket(t.ctx, name)
 
 	ExpectThat(err, Error(HasSubstr("Bad credentials")))
-	ExpectThat(err, Error(HasSubstr("golang")))
+	ExpectThat(err, Error(HasSubstr(name)))
 }

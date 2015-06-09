@@ -196,13 +196,6 @@ func (b *bucket) ListObjects(
 
 	// Check for HTTP-level errors.
 	if err = googleapi.CheckResponse(httpRes); err != nil {
-		// Special case: handle not found errors.
-		if typed, ok := err.(*googleapi.Error); ok {
-			if typed.Code == http.StatusNotFound {
-				err = &NotFoundError{Err: typed}
-			}
-		}
-
 		return
 	}
 
