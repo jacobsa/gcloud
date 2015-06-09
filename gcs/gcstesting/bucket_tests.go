@@ -1367,7 +1367,7 @@ func (t *copyTest) IllegalNames() {
 
 			if name == "" {
 				if !strings.Contains(err.Error(), "Invalid") &&
-					!strings.Contains(err.Error(), "Required") {
+					!strings.Contains(err.Error(), "Not Found") {
 					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
 					return
 				}
