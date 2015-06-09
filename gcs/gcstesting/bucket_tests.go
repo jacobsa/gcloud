@@ -206,6 +206,26 @@ func interestingNames() (names []string) {
 	return
 }
 
+// Return a list of object names that are illegal in GCS.
+// Cf. https://cloud.google.com/storage/docs/bucket-naming
+func illegalNames() (names []string) {
+	const maxLegalLength = 1024
+	names = []string{
+		// Empty and too long
+		"",
+		strings.Repeat("a", maxLegalLength+1),
+
+		// Not valid UTF-8
+		"foo\xff",
+
+		// Carriage return and line feed
+		"foo\u000abar",
+		"foo\u000dbar",
+	}
+
+	return
+}
+
 // Given lists of strings A and B, return those values that are in A but not in
 // B. If A contains duplicates of a value V not in B, the only guarantee is
 // that V is returned at least once.
@@ -710,27 +730,10 @@ func (t *createTest) InterestingNames() {
 func (t *createTest) IllegalNames() {
 	var err error
 
-	// Naming requirements:
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	const maxLegalLength = 1024
-
-	names := []string{
-		// Empty and too long
-		"",
-		strings.Repeat("a", maxLegalLength+1),
-
-		// Not valid UTF-8
-		"foo\xff",
-
-		// Carriage return and line feed
-		"foo\u000abar",
-		"foo\u000dbar",
-	}
-
 	// Make sure we cannot create any of the names above.
 	err = forEachString(
 		t.ctx,
-		names,
+		illegalNames(),
 		func(ctx context.Context, name string) (err error) {
 			err = t.createObject(name, "")
 			if err == nil {
@@ -1338,7 +1341,48 @@ func (t *copyTest) InterestingNames() {
 }
 
 func (t *copyTest) IllegalNames() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can't use any illegal name as a copy destination.
+	err = forEachString(
+		t.ctx,
+		illegalNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.CopyObject(
+				ctx,
+				&gcs.CopyObjectRequest{
+					SrcName: srcName,
+					DstName: name,
+				})
+
+			if err == nil {
+				err = fmt.Errorf("Expected to not be able to copy to %q", name)
+				return
+			}
+
+			if name == "" {
+				if !strings.Contains(err.Error(), "Invalid") &&
+					!strings.Contains(err.Error(), "Required") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			} else {
+				if !strings.Contains(err.Error(), "Invalid") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			}
+
+			err = nil
+			return
+		})
+
+	AssertEq(nil, err)
 }
 
 ////////////////////////////////////////////////////////////////////////
