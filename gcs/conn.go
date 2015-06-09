@@ -35,9 +35,8 @@ const (
 // Conn represents a connection to GCS, pre-bound with a project ID and
 // information required for authorization.
 type Conn interface {
-	// Return a Bucket object representing the GCS bucket with the given name. No
-	// immediate validation is performed.
-	GetBucket(name string) Bucket
+	// Return a Bucket object representing the GCS bucket with the given name.
+	GetBucket(name string) (b Bucket, err error)
 }
 
 // Configuration accepted by NewConn.
