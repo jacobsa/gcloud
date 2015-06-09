@@ -17,11 +17,13 @@ package gcs
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"unicode/utf8"
 
 	"github.com/jacobsa/gcloud/httputil"
 	"google.golang.org/api/googleapi"
@@ -68,6 +70,14 @@ func (b *bucket) makeComposeObjectsBody(
 func (b *bucket) ComposeObjects(
 	ctx context.Context,
 	req *ComposeObjectsRequest) (o *Object, err error) {
+	// We encode using json.NewEncoder, which is documented to silently transform
+	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
+	// to detect this for us.
+	if !utf8.ValidString(req.DstName) {
+		err = errors.New("Invalid object name: not valid UTF-8")
+		return
+	}
+
 	// Construct an appropriate URL.
 	bucketSegment := httputil.EncodePathSegment(b.Name())
 	objectSegment := httputil.EncodePathSegment(req.DstName)

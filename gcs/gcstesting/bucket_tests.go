@@ -39,7 +39,35 @@ import (
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 	"golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 )
+
+////////////////////////////////////////////////////////////////////////
+// Initialization
+////////////////////////////////////////////////////////////////////////
+
+// Make sure we can use a decent degree of parallelism when talking to GCS
+// without getting "too many open files" errors, especially on OS X where the
+// default rlimit is very low (256 as of 10.10.3).
+func init() {
+	var rlim unix.Rlimit
+	var err error
+
+	err = unix.Getrlimit(unix.RLIMIT_NOFILE, &rlim)
+	if err != nil {
+		panic(err)
+	}
+
+	before := rlim.Cur
+	rlim.Cur = rlim.Max
+
+	err = unix.Setrlimit(unix.RLIMIT_NOFILE, &rlim)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Printf("Raised RLIMIT_NOFILE from %d to %d.", before, rlim.Cur)
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Helpers
@@ -178,6 +206,26 @@ func interestingNames() (names []string) {
 	return
 }
 
+// Return a list of object names that are illegal in GCS.
+// Cf. https://cloud.google.com/storage/docs/bucket-naming
+func illegalNames() (names []string) {
+	const maxLegalLength = 1024
+	names = []string{
+		// Empty and too long
+		"",
+		strings.Repeat("a", maxLegalLength+1),
+
+		// Not valid UTF-8
+		"foo\xff",
+
+		// Carriage return and line feed
+		"foo\u000abar",
+		"foo\u000dbar",
+	}
+
+	return
+}
+
 // Given lists of strings A and B, return those values that are in A but not in
 // B. If A contains duplicates of a value V not in B, the only guarantee is
 // that V is returned at least once.
@@ -260,6 +308,39 @@ func readMultiple(
 	}
 
 	AssertEq(nil, b.Join())
+	return
+}
+
+// Invoke the supplied function for each string, with some degree of
+// parallelism.
+func forEachString(
+	ctx context.Context,
+	strings []string,
+	f func(context.Context, string) error) (err error) {
+	b := syncutil.NewBundle(ctx)
+
+	// Feed strings into a channel.
+	c := make(chan string, len(strings))
+	for _, s := range strings {
+		c <- s
+	}
+	close(c)
+
+	// Consume the strings.
+	const parallelism = 128
+	for i := 0; i < parallelism; i++ {
+		b.Add(func(ctx context.Context) (err error) {
+			for s := range c {
+				err = f(ctx, s)
+				if err != nil {
+					return
+				}
+			}
+			return
+		})
+	}
+
+	err = b.Join()
 	return
 }
 
@@ -559,53 +640,53 @@ func (t *createTest) ErrorAfterPartialContents() {
 }
 
 func (t *createTest) InterestingNames() {
+	var err error
+
 	// Grab a list of interesting legal names.
 	names := interestingNames()
 
-	// Set up a function that invokes another function for each object name, with
-	// some degree of parallelism.
-	const parallelism = 32 // About 300 ms * 100 Hz
-	forEachName := func(f func(context.Context, string)) {
-		b := syncutil.NewBundle(t.ctx)
-
-		// Feed names.
-		nameChan := make(chan string)
-		b.Add(func(ctx context.Context) error {
-			defer close(nameChan)
-			for _, n := range names {
-				nameChan <- n
+	// Make sure we can create each name.
+	err = forEachString(
+		t.ctx,
+		names,
+		func(ctx context.Context, name string) (err error) {
+			err = t.createObject(name, name)
+			if err != nil {
+				err = fmt.Errorf("Failed to create %q: %v", name, err)
+				return
 			}
-			return nil
+
+			return
 		})
 
-		// Consume names.
-		for i := 0; i < parallelism; i++ {
-			b.Add(func(ctx context.Context) error {
-				for n := range nameChan {
-					f(ctx, n)
-				}
-				return nil
-			})
-		}
-
-		b.Join()
-	}
-
-	// Make sure we can create each name.
-	forEachName(func(ctx context.Context, name string) {
-		err := t.createObject(name, name)
-		ExpectEq(nil, err, "Failed to create:\n%s", hex.Dump([]byte(name)))
-	})
+	AssertEq(nil, err)
 
 	// Make sure we can read each, and that we get back the content we created
 	// above.
-	forEachName(func(ctx context.Context, name string) {
-		contents, err := t.readObject(name)
-		ExpectEq(nil, err, "Failed to read:\n%s", hex.Dump([]byte(name)))
-		if err == nil {
-			ExpectEq(name, contents, "Incorrect contents:\n%s", hex.Dump([]byte(name)))
-		}
-	})
+	err = forEachString(
+		t.ctx,
+		names,
+		func(ctx context.Context, name string) (err error) {
+			contents, err := t.readObject(name)
+
+			if err != nil {
+				err = fmt.Errorf("Failed to read %q: %v", name, err)
+				return
+			}
+
+			if contents != name {
+				err = fmt.Errorf(
+					"Incorrect contents for %q: %q",
+					name,
+					contents)
+
+				return
+			}
+
+			return
+		})
+
+	AssertEq(nil, err)
 
 	// Grab a listing and extract the names.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
@@ -647,40 +728,37 @@ func (t *createTest) InterestingNames() {
 }
 
 func (t *createTest) IllegalNames() {
-	// Naming requirements:
-	// Cf. https://cloud.google.com/storage/docs/bucket-naming
-	const maxLegalLength = 1024
-
-	names := []string{
-		// Empty and too long
-		"",
-		strings.Repeat("a", maxLegalLength+1),
-
-		// Not valid UTF-8
-		"foo\xff",
-
-		// Carriage return and line feed
-		"foo\u000abar",
-		"foo\u000dbar",
-	}
+	var err error
 
 	// Make sure we cannot create any of the names above.
-	for _, name := range names {
-		nameDump := hex.Dump([]byte(name))
+	err = forEachString(
+		t.ctx,
+		illegalNames(),
+		func(ctx context.Context, name string) (err error) {
+			err = t.createObject(name, "")
+			if err == nil {
+				err = fmt.Errorf("Expected to not be able to create %q", name)
+				return
+			}
 
-		err := t.createObject(name, "")
-		AssertNe(nil, err, "Name:\n%s", nameDump)
+			if name == "" {
+				if !strings.Contains(err.Error(), "Invalid") &&
+					!strings.Contains(err.Error(), "Required") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			} else {
+				if !strings.Contains(err.Error(), "Invalid") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			}
 
-		if name == "" {
-			ExpectThat(
-				err,
-				Error(AnyOf(HasSubstr("Invalid"), HasSubstr("Required"))),
-				"Name:\n%s",
-				nameDump)
-		} else {
-			ExpectThat(err, Error(HasSubstr("Invalid")), "Name:\n%s", nameDump)
-		}
-	}
+			err = nil
+			return
+		})
+
+	AssertEq(nil, err)
 
 	// No objects should have been created.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
@@ -1229,6 +1307,82 @@ func (t *copyTest) DestinationIsSameName() {
 
 	AssertEq(nil, err)
 	ExpectThat(statO, Pointee(DeepEquals(*dst)))
+}
+
+func (t *copyTest) InterestingNames() {
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can use each interesting name as a copy destination.
+	err = forEachString(
+		t.ctx,
+		interestingNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.CopyObject(
+				ctx,
+				&gcs.CopyObjectRequest{
+					SrcName: srcName,
+					DstName: name,
+				})
+
+			if err != nil {
+				err = fmt.Errorf("Failed to copy %q: %v", name, err)
+				return
+			}
+
+			return
+		})
+
+	AssertEq(nil, err)
+}
+
+func (t *copyTest) IllegalNames() {
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can't use any illegal name as a copy destination.
+	err = forEachString(
+		t.ctx,
+		illegalNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.CopyObject(
+				ctx,
+				&gcs.CopyObjectRequest{
+					SrcName: srcName,
+					DstName: name,
+				})
+
+			if err == nil {
+				err = fmt.Errorf("Expected to not be able to copy to %q", name)
+				return
+			}
+
+			if name == "" {
+				if !strings.Contains(err.Error(), "Invalid") &&
+					!strings.Contains(err.Error(), "Not Found") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			} else {
+				if !strings.Contains(err.Error(), "Invalid") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			}
+
+			err = nil
+			return
+		})
+
+	AssertEq(nil, err)
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2020,6 +2174,88 @@ func (t *composeTest) ComponentCountLimits() {
 	_, err = t.bucket.ComposeObjects(t.ctx, req)
 
 	ExpectThat(err, Error(HasSubstr("too many components")))
+}
+
+func (t *composeTest) InterestingNames() {
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can use each interesting name as a compose destination.
+	err = forEachString(
+		t.ctx,
+		interestingNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.ComposeObjects(
+				ctx,
+				&gcs.ComposeObjectsRequest{
+					DstName: name,
+					Sources: []gcs.ComposeSource{
+						gcs.ComposeSource{Name: srcName},
+						gcs.ComposeSource{Name: srcName},
+					},
+				})
+
+			if err != nil {
+				err = fmt.Errorf("Failed to compose to %q: %v", name, err)
+				return
+			}
+
+			return
+		})
+
+	AssertEq(nil, err)
+}
+
+func (t *composeTest) IllegalNames() {
+	var err error
+
+	// Create a source object.
+	const srcName = "foo"
+	_, err = gcsutil.CreateObject(t.ctx, t.bucket, srcName, "")
+	AssertEq(nil, err)
+
+	// Make sure we can't use any illegal name as a compose destination.
+	err = forEachString(
+		t.ctx,
+		illegalNames(),
+		func(ctx context.Context, name string) (err error) {
+			_, err = t.bucket.ComposeObjects(
+				ctx,
+				&gcs.ComposeObjectsRequest{
+					DstName: name,
+					Sources: []gcs.ComposeSource{
+						gcs.ComposeSource{Name: srcName},
+						gcs.ComposeSource{Name: srcName},
+					},
+				})
+
+			if err == nil {
+				err = fmt.Errorf("Expected to not be able to compose to %q", name)
+				return
+			}
+
+			if name == "" {
+				if !strings.Contains(err.Error(), "Invalid") &&
+					!strings.Contains(err.Error(), "Not Found") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			} else {
+				if !strings.Contains(err.Error(), "Invalid") {
+					err = fmt.Errorf("Unexpected error for %q: %v", name, err)
+					return
+				}
+			}
+
+			err = nil
+			return
+		})
+
+	AssertEq(nil, err)
 }
 
 ////////////////////////////////////////////////////////////////////////
