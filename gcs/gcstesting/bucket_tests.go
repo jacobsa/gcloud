@@ -1231,6 +1231,14 @@ func (t *copyTest) DestinationIsSameName() {
 	ExpectThat(statO, Pointee(DeepEquals(*dst)))
 }
 
+func (t *copyTest) InterestingNames() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *copyTest) IllegalNames() {
+	AssertTrue(false, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Compose
 ////////////////////////////////////////////////////////////////////////
@@ -2020,6 +2028,14 @@ func (t *composeTest) ComponentCountLimits() {
 	_, err = t.bucket.ComposeObjects(t.ctx, req)
 
 	ExpectThat(err, Error(HasSubstr("too many components")))
+}
+
+func (t *composeTest) InterestingNames() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *composeTest) IllegalNames() {
+	AssertTrue(false, "TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////
