@@ -20,10 +20,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs/gcsfake"
 	"github.com/jacobsa/gcloud/gcs/gcstesting"
 	"github.com/jacobsa/ogletest"
+	"github.com/jacobsa/timeutil"
 )
 
 func TestBucket(t *testing.T) { ogletest.RunTests(t) }

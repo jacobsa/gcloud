@@ -21,11 +21,11 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/googlecloudplatform/gcsfuse/timeutil"
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/ogletest"
 	"github.com/jacobsa/ogletest/srcutil"
 	"github.com/jacobsa/reqtrace"
+	"github.com/jacobsa/timeutil"
 )
 
 // Dependencies needed for tests registered by RegisterBucketTests.
