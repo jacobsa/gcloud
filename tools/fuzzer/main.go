@@ -21,7 +21,7 @@ import (
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcsutil"
-	"github.com/jacobsa/gcloud/syncutil"
+	"github.com/jacobsa/syncutil"
 )
 
 const (
