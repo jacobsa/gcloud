@@ -121,7 +121,9 @@ type debugReader struct {
 
 func (dr *debugReader) Read(p []byte) (n int, err error) {
 	n, err = dr.wrapped.Read(p)
-	if err != nil {
+
+	// Don't log EOF errors, which are par for the course.
+	if err != nil && err != io.EOF {
 		dr.bucket.requestLogf(dr.requestID, "-> Read error: %v", err)
 	}
 
