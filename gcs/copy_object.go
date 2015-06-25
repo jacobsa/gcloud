@@ -53,6 +53,10 @@ func (b *bucket) CopyObject(
 	query := make(url.Values)
 	query.Set("projection", "full")
 
+	if req.SrcGeneration != 0 {
+		query.Set("sourceGeneration", fmt.Sprintf("%d", req.SrcGeneration))
+	}
+
 	url := &url.URL{
 		Scheme:   "https",
 		Host:     "www.googleapis.com",

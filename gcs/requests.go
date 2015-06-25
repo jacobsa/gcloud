@@ -68,6 +68,10 @@ type CreateObjectRequest struct {
 type CopyObjectRequest struct {
 	SrcName string
 	DstName string
+
+	// The generation of the source object to copy, or zero for the latest
+	// generation.
+	SrcGeneration int64
 }
 
 // The maximum number of sources that a ComposeObjectsRequest may contain.

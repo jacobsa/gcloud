@@ -545,6 +545,17 @@ func (b *bucket) CopyObject(
 		return
 	}
 
+	// Does it have the correct generation?
+	if req.SrcGeneration != 0 &&
+		b.objects[srcIndex].metadata.Generation != req.SrcGeneration {
+		err = &gcs.NotFoundError{
+			Err: fmt.Errorf(
+				"Object %s generation %d not found", req.SrcName, req.SrcGeneration),
+		}
+
+		return
+	}
+
 	// Copy it, replacing anything that already exists.
 	dst := b.objects[srcIndex]
 	dst.metadata.Name = req.DstName
