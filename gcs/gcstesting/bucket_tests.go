@@ -1386,7 +1386,17 @@ func (t *copyTest) IllegalNames() {
 }
 
 func (t *copyTest) ParticularSourceGeneration_NameDoesntExist() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Copy
+	req := &gcs.CopyObjectRequest{
+		SrcName:       "foo",
+		SrcGeneration: 17,
+		DstName:       "bar",
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 func (t *copyTest) ParticularSourceGeneration_GenerationDoesntExist() {
