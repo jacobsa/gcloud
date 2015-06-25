@@ -1424,7 +1424,27 @@ func (t *copyTest) ParticularSourceGeneration_GenerationDoesntExist() {
 }
 
 func (t *copyTest) ParticularSourceGeneration_Exists() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Create a source object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "foo",
+			Contents: strings.NewReader("taco"),
+		})
+
+	AssertEq(nil, err)
+
+	// Send a copy request for the right generation number.
+	req := &gcs.CopyObjectRequest{
+		SrcName:       src.Name,
+		SrcGeneration: src.Generation,
+		DstName:       "bar",
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	ExpectEq(nil, err)
 }
 
 ////////////////////////////////////////////////////////////////////////
