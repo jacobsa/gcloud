@@ -1385,6 +1385,18 @@ func (t *copyTest) IllegalNames() {
 	AssertEq(nil, err)
 }
 
+func (t *copyTest) ParticularSourceGeneration_NameDoesntExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *copyTest) ParticularSourceGeneration_GenerationDoesntExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *copyTest) ParticularSourceGeneration_Exists() {
+	AssertTrue(false, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Compose
 ////////////////////////////////////////////////////////////////////////
