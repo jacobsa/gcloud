@@ -242,10 +242,10 @@ func (b *debugBucket) UpdateObject(
 
 func (b *debugBucket) DeleteObject(
 	ctx context.Context,
-	name string) (err error) {
-	id, desc, start := b.startRequest("DeleteObject(%q)", name)
+	req *DeleteObjectRequest) (err error) {
+	id, desc, start := b.startRequest("DeleteObject(%q)", req.Name)
 	defer b.finishRequest(id, desc, start, &err)
 
-	err = b.wrapped.DeleteObject(ctx, name)
+	err = b.wrapped.DeleteObject(ctx, req)
 	return
 }

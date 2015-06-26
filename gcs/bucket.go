@@ -275,12 +275,14 @@ func (b *bucket) StatObject(
 	return
 }
 
-func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
+func (b *bucket) DeleteObject(
+	ctx context.Context,
+	req *DeleteObjectRequest) (err error) {
 	// Construct an appropriate URL (cf. http://goo.gl/TRQJjZ).
 	opaque := fmt.Sprintf(
 		"//www.googleapis.com/storage/v1/b/%s/o/%s",
 		httputil.EncodePathSegment(b.Name()),
-		httputil.EncodePathSegment(name))
+		httputil.EncodePathSegment(req.Name))
 
 	url := &url.URL{
 		Scheme: "https",

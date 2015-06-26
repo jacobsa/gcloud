@@ -56,7 +56,13 @@ func DeleteAllObjects(
 	for i := 0; i < parallelism; i++ {
 		bundle.Add(func(ctx context.Context) error {
 			for objectName := range objectNames {
-				if err := bucket.DeleteObject(ctx, objectName); err != nil {
+				err := bucket.DeleteObject(
+					ctx,
+					&gcs.DeleteObjectRequest{
+						Name: objectName,
+					})
+
+				if err != nil {
 					return err
 				}
 			}
