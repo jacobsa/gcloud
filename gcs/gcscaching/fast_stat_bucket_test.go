@@ -603,11 +603,15 @@ func (t *DeleteObjectTest) CallsEraseAndWrapped() {
 	ExpectCall(t.cache, "Erase")(name)
 
 	// Wrapped
-	ExpectCall(t.wrapped, "DeleteObject")(Any(), name).
-		WillOnce(Return(errors.New("")))
+	var wrappedReq *gcs.DeleteObjectRequest
+	ExpectCall(t.wrapped, "DeleteObject")(Any(), Any()).
+		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(errors.New(""))))
 
 	// Call
 	_ = t.deleteObject(name)
+
+	AssertNe(nil, wrappedReq)
+	ExpectEq(name, wrappedReq.Name)
 }
 
 func (t *DeleteObjectTest) WrappedFails() {
