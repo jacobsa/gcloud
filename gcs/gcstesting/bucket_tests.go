@@ -3196,8 +3196,35 @@ func (t *deleteTest) ParticularGeneration_NameDoesntExist() {
 	ExpectEq(nil, err)
 }
 
-func (t *deleteTest) ParticularGeneration_GenerationDoestExist() {
-	AssertTrue(false, "TODO")
+func (t *deleteTest) ParticularGeneration_GenerationDoesntExist() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		"taco")
+
+	AssertEq(nil, err)
+
+	// Attempt to delete a different generation. Though it doesn't exist, no
+	// error should be returned.
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:       name,
+			Generation: o.Generation + 1,
+		})
+
+	AssertEq(nil, err)
+
+	// The original generation should still exist.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, name)
+
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
 }
 
 func (t *deleteTest) ParticularGeneration_Successful() {
