@@ -3138,6 +3138,7 @@ type deleteTest struct {
 }
 
 func (t *deleteTest) NoParticularGeneration_NameDoesntExist() {
+	// No error should be returned.
 	err := t.bucket.DeleteObject(
 		t.ctx,
 		&gcs.DeleteObjectRequest{
@@ -3184,7 +3185,15 @@ func (t *deleteTest) NoParticularGeneration_Successful() {
 }
 
 func (t *deleteTest) ParticularGeneration_NameDoesntExist() {
-	AssertTrue(false, "TODO")
+	// No error should be returned.
+	err := t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:       "foobar",
+			Generation: 17,
+		})
+
+	ExpectEq(nil, err)
 }
 
 func (t *deleteTest) ParticularGeneration_GenerationDoestExist() {
