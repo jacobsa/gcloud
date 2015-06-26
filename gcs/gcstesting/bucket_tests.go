@@ -3137,7 +3137,7 @@ type deleteTest struct {
 	bucketTest
 }
 
-func (t *deleteTest) NonExistentObject() {
+func (t *deleteTest) NoParticularGeneration_NameDoesntExist() {
 	err := t.bucket.DeleteObject(
 		t.ctx,
 		&gcs.DeleteObjectRequest{
@@ -3147,7 +3147,7 @@ func (t *deleteTest) NonExistentObject() {
 	ExpectEq(nil, err)
 }
 
-func (t *deleteTest) Successful() {
+func (t *deleteTest) NoParticularGeneration_Successful() {
 	// Create an object.
 	AssertEq(nil, t.createObject("a", "taco"))
 
@@ -3181,6 +3181,18 @@ func (t *deleteTest) Successful() {
 	}
 
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *deleteTest) ParticularGeneration_NameDoesntExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *deleteTest) ParticularGeneration_GenerationDoestExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *deleteTest) ParticularGeneration_Successful() {
+	AssertTrue(false, "TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////
