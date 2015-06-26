@@ -52,7 +52,7 @@ func (b *bucket) NewReader(
 	query.Set("alt", "media")
 
 	if req.Generation != 0 {
-		query.Set("generation", fmt.Sprintf("%v", req.Generation))
+		query.Set("generation", fmt.Sprintf("%d", req.Generation))
 	}
 
 	url := &url.URL{

@@ -284,10 +284,16 @@ func (b *bucket) DeleteObject(
 		httputil.EncodePathSegment(b.Name()),
 		httputil.EncodePathSegment(req.Name))
 
+	query := make(url.Values)
+	if req.Generation != 0 {
+		query.Set("generation", fmt.Sprintf("%d", req.Generation))
+	}
+
 	url := &url.URL{
-		Scheme: "https",
-		Host:   "www.googleapis.com",
-		Opaque: opaque,
+		Scheme:   "https",
+		Host:     "www.googleapis.com",
+		Opaque:   opaque,
+		RawQuery: query.Encode(),
 	}
 
 	// Create an HTTP request.
