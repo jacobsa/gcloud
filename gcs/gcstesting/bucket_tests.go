@@ -3228,7 +3228,31 @@ func (t *deleteTest) ParticularGeneration_GenerationDoesntExist() {
 }
 
 func (t *deleteTest) ParticularGeneration_Successful() {
-	AssertTrue(false, "TODO")
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		"taco")
+
+	AssertEq(nil, err)
+
+	// Delete that particular generation.
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:       name,
+			Generation: o.Generation,
+		})
+
+	AssertEq(nil, err)
+
+	// The object should no longer exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 ////////////////////////////////////////////////////////////////////////
