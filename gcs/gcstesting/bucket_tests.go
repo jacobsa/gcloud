@@ -3137,7 +3137,8 @@ type deleteTest struct {
 	bucketTest
 }
 
-func (t *deleteTest) NonExistentObject() {
+func (t *deleteTest) NoParticularGeneration_NameDoesntExist() {
+	// No error should be returned.
 	err := t.bucket.DeleteObject(
 		t.ctx,
 		&gcs.DeleteObjectRequest{
@@ -3147,7 +3148,7 @@ func (t *deleteTest) NonExistentObject() {
 	ExpectEq(nil, err)
 }
 
-func (t *deleteTest) Successful() {
+func (t *deleteTest) NoParticularGeneration_Successful() {
 	// Create an object.
 	AssertEq(nil, t.createObject("a", "taco"))
 
@@ -3180,6 +3181,77 @@ func (t *deleteTest) Successful() {
 		_, err = rc.Read(make([]byte, 1))
 	}
 
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *deleteTest) ParticularGeneration_NameDoesntExist() {
+	// No error should be returned.
+	err := t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:       "foobar",
+			Generation: 17,
+		})
+
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) ParticularGeneration_GenerationDoesntExist() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		"taco")
+
+	AssertEq(nil, err)
+
+	// Attempt to delete a different generation. Though it doesn't exist, no
+	// error should be returned.
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:       name,
+			Generation: o.Generation + 1,
+		})
+
+	AssertEq(nil, err)
+
+	// The original generation should still exist.
+	contents, err := gcsutil.ReadObject(t.ctx, t.bucket, name)
+
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
+}
+
+func (t *deleteTest) ParticularGeneration_Successful() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		"taco")
+
+	AssertEq(nil, err)
+
+	// Delete that particular generation.
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:       name,
+			Generation: o.Generation,
+		})
+
+	AssertEq(nil, err)
+
+	// The object should no longer exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 

@@ -252,4 +252,7 @@ type UpdateObjectRequest struct {
 type DeleteObjectRequest struct {
 	// The name of the object to delete. Must be specified.
 	Name string
+
+	// The generation of the object to delete. Zero means the latest generation.
+	Generation int64
 }

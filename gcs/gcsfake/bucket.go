@@ -751,6 +751,12 @@ func (b *bucket) DeleteObject(
 		return
 	}
 
+	// Don't do anything if the generation is wrong.
+	if req.Generation != 0 &&
+		b.objects[index].metadata.Generation != req.Generation {
+		return
+	}
+
 	// Remove the object.
 	b.objects = append(b.objects[:index], b.objects[index+1:]...)
 
