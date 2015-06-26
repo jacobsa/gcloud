@@ -591,6 +591,11 @@ type DeleteObjectTest struct {
 
 func init() { RegisterTestSuite(&DeleteObjectTest{}) }
 
+func (t *DeleteObjectTest) deleteObject(name string) (err error) {
+	err = t.bucket.DeleteObject(nil, &gcs.DeleteObjectRequest{Name: name})
+	return
+}
+
 func (t *DeleteObjectTest) CallsEraseAndWrapped() {
 	const name = "taco"
 
@@ -598,11 +603,15 @@ func (t *DeleteObjectTest) CallsEraseAndWrapped() {
 	ExpectCall(t.cache, "Erase")(name)
 
 	// Wrapped
-	ExpectCall(t.wrapped, "DeleteObject")(Any(), name).
-		WillOnce(Return(errors.New("")))
+	var wrappedReq *gcs.DeleteObjectRequest
+	ExpectCall(t.wrapped, "DeleteObject")(Any(), Any()).
+		WillOnce(DoAll(SaveArg(1, &wrappedReq), Return(errors.New(""))))
 
 	// Call
-	_ = t.bucket.DeleteObject(nil, name)
+	_ = t.deleteObject(name)
+
+	AssertNe(nil, wrappedReq)
+	ExpectEq(name, wrappedReq.Name)
 }
 
 func (t *DeleteObjectTest) WrappedFails() {
@@ -617,7 +626,7 @@ func (t *DeleteObjectTest) WrappedFails() {
 		WillOnce(Return(errors.New("taco")))
 
 	// Call
-	err = t.bucket.DeleteObject(nil, name)
+	err = t.deleteObject(name)
 
 	ExpectThat(err, Error(HasSubstr("taco")))
 }
@@ -634,6 +643,6 @@ func (t *DeleteObjectTest) WrappedSucceeds() {
 		WillOnce(Return(nil))
 
 	// Call
-	err = t.bucket.DeleteObject(nil, name)
+	err = t.deleteObject(name)
 	AssertEq(nil, err)
 }

@@ -529,13 +529,13 @@ func (rb *retryBucket) UpdateObject(
 
 func (rb *retryBucket) DeleteObject(
 	ctx context.Context,
-	name string) (err error) {
+	req *DeleteObjectRequest) (err error) {
 	err = oneShotExpBackoff(
 		ctx,
-		fmt.Sprintf("DeleteObject(%q)", name),
+		fmt.Sprintf("DeleteObject(%q)", req.Name),
 		rb.maxSleep,
 		func() (err error) {
-			err = rb.wrapped.DeleteObject(ctx, name)
+			err = rb.wrapped.DeleteObject(ctx, req)
 			return
 		})
 

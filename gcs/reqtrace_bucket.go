@@ -184,11 +184,11 @@ func (b *reqtraceBucket) UpdateObject(
 
 func (b *reqtraceBucket) DeleteObject(
 	ctx context.Context,
-	name string) (err error) {
-	desc := fmt.Sprintf("DeleteObject: %s", sanitizeObjectName(name))
+	req *DeleteObjectRequest) (err error) {
+	desc := fmt.Sprintf("DeleteObject: %s", sanitizeObjectName(req.Name))
 	defer reqtrace.StartSpanWithError(&ctx, &err, desc)()
 
-	err = b.Wrapped.DeleteObject(ctx, name)
+	err = b.Wrapped.DeleteObject(ctx, req)
 	return
 }
 

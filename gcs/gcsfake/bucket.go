@@ -741,12 +741,12 @@ func (b *bucket) UpdateObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *bucket) DeleteObject(
 	ctx context.Context,
-	name string) (err error) {
+	req *gcs.DeleteObjectRequest) (err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	// Do we possess the object with the given name?
-	index := b.objects.find(name)
+	index := b.objects.find(req.Name)
 	if index == len(b.objects) {
 		return
 	}

@@ -87,7 +87,7 @@ func (t *IntegrationTest) CreateInsertsIntoCache() {
 	AssertEq(nil, err)
 
 	// Delete it through the back door.
-	err = t.wrapped.DeleteObject(t.ctx, name)
+	err = t.wrapped.DeleteObject(t.ctx, &gcs.DeleteObjectRequest{Name: name})
 	AssertEq(nil, err)
 
 	// StatObject should still see it.
@@ -109,7 +109,7 @@ func (t *IntegrationTest) StatInsertsIntoCache() {
 	AssertEq(nil, err)
 
 	// Delete it through the back door.
-	err = t.wrapped.DeleteObject(t.ctx, name)
+	err = t.wrapped.DeleteObject(t.ctx, &gcs.DeleteObjectRequest{Name: name})
 	AssertEq(nil, err)
 
 	// StatObject should still see it.
@@ -131,7 +131,7 @@ func (t *IntegrationTest) ListInsertsIntoCache() {
 	AssertEq(nil, err)
 
 	// Delete the object through the back door.
-	err = t.wrapped.DeleteObject(t.ctx, name)
+	err = t.wrapped.DeleteObject(t.ctx, &gcs.DeleteObjectRequest{Name: name})
 	AssertEq(nil, err)
 
 	// StatObject should still see it.
@@ -157,7 +157,7 @@ func (t *IntegrationTest) UpdateUpdatesCache() {
 	AssertEq(nil, err)
 
 	// Delete the object through the back door.
-	err = t.wrapped.DeleteObject(t.ctx, name)
+	err = t.wrapped.DeleteObject(t.ctx, &gcs.DeleteObjectRequest{Name: name})
 	AssertEq(nil, err)
 
 	// StatObject should still see it.
@@ -175,7 +175,7 @@ func (t *IntegrationTest) PositiveCacheExpiration() {
 	AssertEq(nil, err)
 
 	// Delete it through the back door.
-	err = t.wrapped.DeleteObject(t.ctx, name)
+	err = t.wrapped.DeleteObject(t.ctx, &gcs.DeleteObjectRequest{Name: name})
 	AssertEq(nil, err)
 
 	// Advance time.

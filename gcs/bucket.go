@@ -127,12 +127,13 @@ type Bucket interface {
 		ctx context.Context,
 		req *UpdateObjectRequest) (*Object, error)
 
-	// Delete the object with the given name. Non-existence of the object is not
-	// treated as an error.
+	// Delete an object. Non-existence of the object is not treated as an error.
 	//
 	// Official documentation:
 	//     https://cloud.google.com/storage/docs/json_api/v1/objects/delete
-	DeleteObject(ctx context.Context, name string) error
+	DeleteObject(
+		ctx context.Context,
+		req *DeleteObjectRequest) error
 }
 
 type bucket struct {
@@ -274,12 +275,14 @@ func (b *bucket) StatObject(
 	return
 }
 
-func (b *bucket) DeleteObject(ctx context.Context, name string) (err error) {
+func (b *bucket) DeleteObject(
+	ctx context.Context,
+	req *DeleteObjectRequest) (err error) {
 	// Construct an appropriate URL (cf. http://goo.gl/TRQJjZ).
 	opaque := fmt.Sprintf(
 		"//www.googleapis.com/storage/v1/b/%s/o/%s",
 		httputil.EncodePathSegment(b.Name()),
-		httputil.EncodePathSegment(name))
+		httputil.EncodePathSegment(req.Name))
 
 	url := &url.URL{
 		Scheme: "https",

@@ -258,8 +258,8 @@ func (b *fastStatBucket) UpdateObject(
 // LOCKS_EXCLUDED(b.mu)
 func (b *fastStatBucket) DeleteObject(
 	ctx context.Context,
-	name string) (err error) {
-	b.invalidate(name)
-	err = b.wrapped.DeleteObject(ctx, name)
+	req *gcs.DeleteObjectRequest) (err error) {
+	b.invalidate(req.Name)
+	err = b.wrapped.DeleteObject(ctx, req)
 	return
 }

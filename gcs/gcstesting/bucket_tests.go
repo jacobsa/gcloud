@@ -2422,7 +2422,12 @@ func (t *readTest) ParticularGeneration_HasBeenDeleted() {
 	AssertGt(o.Generation, 0)
 
 	// Delete it.
-	err = t.bucket.DeleteObject(t.ctx, "foo")
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: "foo",
+		})
+
 	AssertEq(nil, err)
 
 	// Attempt to read by that generation.
@@ -3133,7 +3138,12 @@ type deleteTest struct {
 }
 
 func (t *deleteTest) NonExistentObject() {
-	err := t.bucket.DeleteObject(t.ctx, "foobar")
+	err := t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: "foobar",
+		})
+
 	ExpectEq(nil, err)
 }
 
@@ -3142,7 +3152,13 @@ func (t *deleteTest) Successful() {
 	AssertEq(nil, t.createObject("a", "taco"))
 
 	// Delete it.
-	AssertEq(nil, t.bucket.DeleteObject(t.ctx, "a"))
+	AssertEq(
+		nil,
+		t.bucket.DeleteObject(
+			t.ctx,
+			&gcs.DeleteObjectRequest{
+				Name: "a",
+			}))
 
 	// It shouldn't show up in a listing.
 	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
