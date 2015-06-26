@@ -1184,7 +1184,7 @@ func (t *copyTest) DestinationExists() {
 
 	// Create an existing object with the destination name with other explicit
 	// attributes set.
-	_, err = t.bucket.CreateObject(
+	orig, err := t.bucket.CreateObject(
 		t.ctx,
 		&gcs.CreateObjectRequest{
 			Name:            "bar",
@@ -1219,7 +1219,7 @@ func (t *copyTest) DestinationExists() {
 	ExpectEq(computeCrc32C("taco"), dst.CRC32C)
 	ExpectThat(dst.MediaLink, MatchesRegexp("download/storage.*bar"))
 	ExpectThat(dst.Metadata, DeepEquals(src.Metadata))
-	ExpectLt(0, dst.Generation)
+	ExpectLt(orig.Generation, dst.Generation)
 	ExpectEq(1, dst.MetaGeneration)
 	ExpectEq("STANDARD", dst.StorageClass)
 	ExpectThat(dst.Deleted, DeepEquals(time.Time{}))
@@ -1287,7 +1287,7 @@ func (t *copyTest) DestinationIsSameName() {
 	ExpectEq(computeCrc32C("taco"), dst.CRC32C)
 	ExpectThat(dst.MediaLink, MatchesRegexp("download/storage.*foo"))
 	ExpectThat(dst.Metadata, DeepEquals(src.Metadata))
-	ExpectLt(0, dst.Generation)
+	ExpectLt(src.Generation, dst.Generation)
 	ExpectEq(1, dst.MetaGeneration)
 	ExpectEq("STANDARD", dst.StorageClass)
 	ExpectThat(dst.Deleted, DeepEquals(time.Time{}))

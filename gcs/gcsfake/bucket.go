@@ -556,11 +556,16 @@ func (b *bucket) CopyObject(
 		return
 	}
 
-	// Copy it, replacing anything that already exists.
+	// Copy it and assign a new generation number, to ensure that the generation
+	// number for the destination name is strictly increasing.
 	dst := b.objects[srcIndex]
 	dst.metadata.Name = req.DstName
 	dst.metadata.MediaLink = "http://localhost/download/storage/fake/" + req.DstName
 
+	b.prevGeneration++
+	dst.metadata.Generation = b.prevGeneration
+
+	// Insert into our array.
 	existingIndex := b.objects.find(req.DstName)
 	if existingIndex < len(b.objects) {
 		b.objects[existingIndex] = dst
