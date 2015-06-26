@@ -246,3 +246,10 @@ type UpdateObjectRequest struct {
 	// metadata.
 	Metadata map[string]*string
 }
+
+// A request to delete an object by name. Non-existence is not treated as an
+// error.
+type DeleteObjectRequest struct {
+	// The name of the object to delete. Must be specified.
+	Name string
+}

@@ -127,12 +127,13 @@ type Bucket interface {
 		ctx context.Context,
 		req *UpdateObjectRequest) (*Object, error)
 
-	// Delete the object with the given name. Non-existence of the object is not
-	// treated as an error.
+	// Delete an object. Non-existence of the object is not treated as an error.
 	//
 	// Official documentation:
 	//     https://cloud.google.com/storage/docs/json_api/v1/objects/delete
-	DeleteObject(ctx context.Context, name string) error
+	DeleteObject(
+		ctx context.Context,
+		req *DeleteObjectRequest) error
 }
 
 type bucket struct {
