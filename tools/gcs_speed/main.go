@@ -150,6 +150,12 @@ func makeReads(
 			return
 		}
 
+		log.Printf(
+			"Read %d bytes in %v (first byte latency %v)",
+			r.BytesRead,
+			r.FullBodyDuration,
+			r.FirstByteLatency)
+
 		// Write out the result.
 		select {
 		case <-ctx.Done():
