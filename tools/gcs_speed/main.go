@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"time"
 
@@ -272,8 +273,44 @@ func runWorkers(
 	return
 }
 
+// REQUIRES: len(vals) > 0
+func percentile(
+	vals sort.IntSlice,
+	n int) (x int)
+
 func describeResults(results []result) {
-	fmt.Printf("Made %d reads.\n", len(results))
+	fmt.Printf("Made %d reads.\n\n", len(results))
+
+	ptiles := []int{0, 50, 95, 99, 100}
+
+	// Compute first byte latency percentiles.
+	var vals sort.IntSlice
+	for _, r := range results {
+		vals = append(vals, int(r.FirstByteLatency))
+	}
+	sort.Sort(vals)
+
+	fmt.Printf("First byte latency stats:\n")
+	for _, ptile := range ptiles {
+		fmt.Printf(
+			"  %2d ptile: %v\n", ptile,
+			time.Duration(percentile(vals, ptile)))
+	}
+
+	// Compute overall duration percentiles.
+	vals = nil
+	for _, r := range results {
+		vals = append(vals, int(r.FullBodyDuration))
+	}
+	sort.Sort(vals)
+
+	fmt.Printf("Full body stats:\n")
+	for _, ptile := range ptiles {
+		d := time.Duration(percentile(vals, ptile))
+		bw := float64(*fSize) / (float64(d) / float64(time.Second))
+
+		fmt.Printf("  %2d ptile: %v\n (%f MB/s)", ptile, d, bw)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
