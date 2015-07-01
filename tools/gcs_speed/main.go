@@ -17,6 +17,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -26,6 +27,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
 
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/syncutil"
@@ -55,20 +57,55 @@ type result struct {
 // Make random reads within the given object, writing results to the supplied
 // channel. Stop when the stop channel is closed.
 func makeReads(
+	ctx context.Context,
 	o *gcs.Object,
 	bucket gcs.Bucket,
 	results chan<- result,
 	stop <-chan struct{}) (err error)
 
-func getBucket() (b gcs.Bucket, err error)
+func getBucket(ctx context.Context) (b gcs.Bucket, err error) {
+	if *fBucket == "" {
+		err = errors.New("You must set --bucket.")
+		return
+	}
+
+	// Set up the token source.
+	const scope = gcs.Scope_ReadOnly
+	tokenSrc, err := google.DefaultTokenSource(context.Background(), scope)
+	if err != nil {
+		err = fmt.Errorf("DefaultTokenSource: %v", err)
+		return
+	}
+
+	// Use that to create a GCS connection.
+	cfg := &gcs.ConnConfig{
+		TokenSource: tokenSrc,
+	}
+
+	conn, err := gcs.NewConn(cfg)
+	if err != nil {
+		err = fmt.Errorf("NewConn: %v", err)
+		return
+	}
+
+	// Open the bucket.
+	b, err = conn.OpenBucket(ctx, *fBucket)
+	if err != nil {
+		err = fmt.Errorf("OpenBucket: %v", err)
+		return
+	}
+
+	return
+}
 
 func getObject(bucket gcs.Bucket) (o *gcs.Object, err error)
 
 // Run workers until SIGINT is received. Return a slice of results.
 func runWorkers(
+	ctx context.Context,
 	o *gcs.Object,
 	bucket gcs.Bucket) (results []result, err error) {
-	b := syncutil.NewBundle(context.Background())
+	b := syncutil.NewBundle(ctx)
 
 	// Set up a channel that is closed upon SIGINT.
 	stop := make(chan struct{})
@@ -88,7 +125,7 @@ func runWorkers(
 		wg.Add(1)
 		b.Add(func(ctx context.Context) (err error) {
 			defer wg.Done()
-			err = makeReads(o, bucket, resultChan, stop)
+			err = makeReads(ctx, o, bucket, resultChan, stop)
 			if err != nil {
 				err = fmt.Errorf("makeReads: %v", err)
 				return
@@ -122,9 +159,9 @@ func describeResults(results []result)
 // Main
 ////////////////////////////////////////////////////////////////////////
 
-func run() (err error) {
+func run(ctx context.Context) (err error) {
 	// Open the bucket.
-	bucket, err := getBucket()
+	bucket, err := getBucket(ctx)
 	if err != nil {
 		err = fmt.Errorf("getBucket: %v", err)
 		return
@@ -138,7 +175,7 @@ func run() (err error) {
 	}
 
 	// Make reads.
-	results, err := runWorkers(o, bucket)
+	results, err := runWorkers(ctx, o, bucket)
 	if err != nil {
 		err = fmt.Errorf("runWorkers: %v", err)
 		return
@@ -153,8 +190,8 @@ func run() (err error) {
 func main() {
 	log.SetFlags(log.Lmicroseconds)
 
-	err := run()
+	err := run(context.Background())
 	if err != nil {
-		err = log.Fatal(err)
+		log.Fatal(err)
 	}
 }
