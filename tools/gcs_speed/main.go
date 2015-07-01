@@ -138,8 +138,10 @@ func makeReads(
 
 	for {
 		// Stop?
-		if _, ok := <-stop; ok {
+		select {
+		case <-stop:
 			return
+		default:
 		}
 
 		// Make a read.
