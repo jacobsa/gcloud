@@ -270,7 +270,9 @@ func runWorkers(
 	return
 }
 
-func describeResults(results []result)
+func describeResults(results []result) {
+	fmt.Printf("Made %d reads.\n", len(results))
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Main
