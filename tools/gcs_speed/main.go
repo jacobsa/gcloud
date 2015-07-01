@@ -308,6 +308,7 @@ func run(ctx context.Context) (err error) {
 
 func main() {
 	log.SetFlags(log.Lmicroseconds)
+	flag.Parse()
 
 	err := run(context.Background())
 	if err != nil {
