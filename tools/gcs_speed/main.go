@@ -142,8 +142,22 @@ func makeReads(
 			return
 		}
 
+		// Make a read.
 		var r result
 		r, err = readOnce(ctx, o, bucket)
+		if err != nil {
+			err = fmt.Errorf("readOnce %v", err)
+			return
+		}
+
+		// Write out the result.
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return
+
+		case results <- r:
+		}
 	}
 }
 
