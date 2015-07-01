@@ -98,7 +98,20 @@ func getBucket(ctx context.Context) (b gcs.Bucket, err error) {
 	return
 }
 
-func getObject(bucket gcs.Bucket) (o *gcs.Object, err error)
+func getObject(
+	ctx context.Context,
+	bucket gcs.Bucket) (o *gcs.Object, err error) {
+	if *fObject == "" {
+		err = errors.New("You must set --object.")
+		return
+	}
+
+	o, err = bucket.StatObject(
+		ctx,
+		&gcs.StatObjectRequest{Name: *fObject})
+
+	return
+}
 
 // Run workers until SIGINT is received. Return a slice of results.
 func runWorkers(
@@ -168,7 +181,7 @@ func run(ctx context.Context) (err error) {
 	}
 
 	// Stat the object.
-	o, err := getObject(bucket)
+	o, err := getObject(ctx, bucket)
 	if err != nil {
 		err = fmt.Errorf("getObject: %v", err)
 		return
