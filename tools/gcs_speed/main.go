@@ -14,7 +14,7 @@
 
 // A program that makes random reads within a large object on GCS, reporting
 // throughput and latency information.
-package gcs_speed
+package main
 
 import "flag"
 
