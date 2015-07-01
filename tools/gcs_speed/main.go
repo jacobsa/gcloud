@@ -274,9 +274,27 @@ func runWorkers(
 }
 
 // REQUIRES: len(vals) > 0
+// REQUIRES: 0 <= n <= 100
 func percentile(
 	vals sort.IntSlice,
-	n int) (x int)
+	n int) (x int) {
+	// Special cases.
+	switch {
+	case n == 0:
+		x = vals[0]
+		return
+
+	case n == 100:
+		x = vals[len(vals)-1]
+		return
+	}
+
+	// Find the nearest, truncating (why not).
+	index := int((float64(n) / 100) * float64(len(vals)))
+	x = vals[index]
+
+	return
+}
 
 func describeResults(results []result) {
 	fmt.Printf("Made %d reads.\n\n", len(results))
