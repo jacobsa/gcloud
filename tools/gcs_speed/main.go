@@ -311,7 +311,7 @@ func describeResults(results []result) {
 	fmt.Printf("First byte latency stats:\n")
 	for _, ptile := range ptiles {
 		fmt.Printf(
-			"  %2d ptile: %v\n", ptile,
+			"  %3d ptile: %v\n", ptile,
 			time.Duration(percentile(vals, ptile)))
 	}
 
@@ -322,12 +322,12 @@ func describeResults(results []result) {
 	}
 	sort.Sort(vals)
 
-	fmt.Printf("Full body stats:\n")
+	fmt.Printf("\nFull body stats:\n")
 	for _, ptile := range ptiles {
 		d := time.Duration(percentile(vals, ptile))
 		bw := float64(*fSize) / (float64(d) / float64(time.Second))
 
-		fmt.Printf("  %2d ptile: %v\n (%f MB/s)", ptile, d, bw)
+		fmt.Printf("  %3d ptile: %v (%f MB/s)\n", ptile, d, bw/1e6)
 	}
 }
 
