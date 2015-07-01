@@ -20,7 +20,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
@@ -35,7 +38,7 @@ import (
 
 var fBucket = flag.String("bucket", "", "The GCS bucket from which to read.")
 var fObject = flag.String("object", "", "The object within which to read.")
-var fReadSize = flag.Int("size", 1<<21, "The size of each read in bytes.")
+var fSize = flag.Uint64("size", 1<<21, "The size of each read in bytes.")
 var fWorkers = flag.Int("workers", 1, "The number of workers to run.")
 
 ////////////////////////////////////////////////////////////////////////
@@ -54,6 +57,67 @@ type result struct {
 	FullBodyDuration time.Duration
 }
 
+func readOnce(
+	ctx context.Context,
+	o *gcs.Object,
+	bucket gcs.Bucket) (r result, err error) {
+	// Is the object large enough?
+	if o.Size < *fSize {
+		err = fmt.Errorf(
+			"Object of size %d not large enough for read size %d",
+			o.Size,
+			*fSize)
+
+		return
+	}
+
+	// Set up an appropriate request.
+	req := &gcs.ReadObjectRequest{
+		Name:       o.Name,
+		Generation: o.Generation,
+		Range:      &gcs.ByteRange{},
+	}
+
+	req.Range.Start = uint64(rand.Int63n(int64(o.Size - *fSize)))
+	req.Range.Limit = req.Range.Start + *fSize
+
+	// Create the reader.
+	start := time.Now()
+	rc, err := bucket.NewReader(ctx, req)
+	if err != nil {
+		err = fmt.Errorf("NewReader: %v", err)
+		return
+	}
+
+	defer func() {
+		closeErr := rc.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("Close: %v", closeErr)
+		}
+	}()
+
+	// Measure the time to first byte.
+	_, err = rc.Read([]byte{0})
+	if err != nil {
+		err = fmt.Errorf("Read: %v", err)
+		return
+	}
+
+	r.FirstByteLatency = time.Since(start)
+
+	// And the time to read everything.
+	n, err := io.Copy(ioutil.Discard, rc)
+	if err != nil {
+		err = fmt.Errorf("Copy: %v", err)
+		return
+	}
+
+	r.FullBodyDuration = time.Since(start)
+	r.BytesRead = int(n + 1)
+
+	return
+}
+
 // Make random reads within the given object, writing results to the supplied
 // channel. Stop when the stop channel is closed.
 func makeReads(
@@ -61,7 +125,27 @@ func makeReads(
 	o *gcs.Object,
 	bucket gcs.Bucket,
 	results chan<- result,
-	stop <-chan struct{}) (err error)
+	stop <-chan struct{}) (err error) {
+	// Is the object large enough?
+	if o.Size < *fSize {
+		err = fmt.Errorf(
+			"Object of size %d not large enough for read size %d",
+			o.Size,
+			*fSize)
+
+		return
+	}
+
+	for {
+		// Stop?
+		if _, ok := <-stop; ok {
+			return
+		}
+
+		var r result
+		r, err = readOnce(ctx, o, bucket)
+	}
+}
 
 func getBucket(ctx context.Context) (b gcs.Bucket, err error) {
 	if *fBucket == "" {
