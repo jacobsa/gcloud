@@ -87,18 +87,20 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 		userAgent = defaultUserAgent
 	}
 
-	// Set up the HTTP transport, enabling debugging if requested.
+	// Enable HTTP debugging if requested.
+	transport := http.DefaultTransport.(httputil.CancellableRoundTripper)
+	transport = httputil.DebuggingRoundTripper(transport)
+
+	// Wrap the HTTP transport in an oauth layer.
 	if cfg.TokenSource == nil {
 		err = errors.New("You must set TokenSource.")
 		return
 	}
 
-	var transport httputil.CancellableRoundTripper = &oauth2.Transport{
+	transport = &oauth2.Transport{
 		Source: cfg.TokenSource,
-		Base:   http.DefaultTransport,
+		Base:   transport,
 	}
-
-	transport = httputil.DebuggingRoundTripper(transport)
 
 	// Set up the connection.
 	c = &conn{
