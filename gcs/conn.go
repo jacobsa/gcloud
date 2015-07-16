@@ -95,7 +95,9 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 
 	// Enable HTTP debugging if requested.
 	transport := http.DefaultTransport.(httputil.CancellableRoundTripper)
-	transport = httputil.DebuggingRoundTripper(transport)
+	if cfg.HTTPDebugLogger != nil {
+		transport = httputil.DebuggingRoundTripper(transport, cfg.HTTPDebugLogger)
+	}
 
 	// Wrap the HTTP transport in an oauth layer.
 	if cfg.TokenSource == nil {
