@@ -30,6 +30,8 @@ package gcs_test
 
 import (
 	"flag"
+	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -50,6 +52,14 @@ var fUseRetry = flag.Bool(
 	"use_retry",
 	false,
 	"Whether to use retry with exponential backoff.")
+
+var fDebugGCS = flag.Bool(
+	"debug_gcs", false,
+	"Enable debug info about GCS requests and timing.")
+
+var fDebugHTTP = flag.Bool(
+	"debug_http", false,
+	"Enable HTTP request/response debugging.")
 
 ////////////////////////////////////////////////////////////////////////
 // Registration
@@ -74,6 +84,14 @@ func init() {
 		if *fUseRetry {
 			cfg.MaxBackoffSleep = 5 * time.Minute
 			deps.BuffersEntireContentsForCreate = true
+		}
+
+		if *fDebugGCS {
+			cfg.GCSDebugLogger = log.New(os.Stderr, "gcs: ", 0)
+		}
+
+		if *fDebugHTTP {
+			cfg.HTTPDebugLogger = log.New(os.Stderr, "http: ", 0)
 		}
 
 		conn, err := gcs.NewConn(cfg)
