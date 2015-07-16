@@ -16,17 +16,11 @@ package httputil
 
 import (
 	"bytes"
-	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
-
-var fDebug = flag.Bool(
-	"httputil.debug",
-	false,
-	"Dump information about HTTP requests.")
 
 // An interface for transports that support the signature of
 // http.Transport.CancelRequest.
@@ -35,15 +29,14 @@ type CancellableRoundTripper interface {
 	CancelRequest(*http.Request)
 }
 
-// When the flag --httputil.debug is set, wrap the supplied round tripper in a
-// layer that dumps information about HTTP requests. Otherwise, return it
-// unmodified.
+// Wrap the supplied round tripper in a layer that dumps information about HTTP
+// requests. unmodified.
 func DebuggingRoundTripper(
-	in CancellableRoundTripper) (out CancellableRoundTripper) {
-	if *fDebug {
-		out = &debuggingRoundTripper{wrapped: in}
-	} else {
-		out = in
+	in CancellableRoundTripper,
+	logger *log.Logger) (out CancellableRoundTripper) {
+	out = &debuggingRoundTripper{
+		wrapped: in,
+		logger:  logger,
 	}
 
 	return
@@ -81,21 +74,22 @@ func snarfBody(rc *io.ReadCloser) string {
 
 type debuggingRoundTripper struct {
 	wrapped CancellableRoundTripper
+	logger  *log.Logger
 }
 
 func (t *debuggingRoundTripper) RoundTrip(
 	req *http.Request) (*http.Response, error) {
 	// Print information about the request.
-	fmt.Println("========== REQUEST ===========")
-	fmt.Println(req.Method, req.URL, req.Proto)
+	t.logger.Println("========== REQUEST ===========")
+	t.logger.Println(req.Method, req.URL, req.Proto)
 	for k, vs := range req.Header {
 		for _, v := range vs {
-			fmt.Printf("%s: %s\n", k, v)
+			t.logger.Printf("%s: %s\n", k, v)
 		}
 	}
 
 	if req.Body != nil {
-		fmt.Printf("\n%s\n", snarfBody(&req.Body))
+		t.logger.Printf("\n%s\n", snarfBody(&req.Body))
 	}
 
 	// Execute the request.
@@ -105,18 +99,18 @@ func (t *debuggingRoundTripper) RoundTrip(
 	}
 
 	// Print the response.
-	fmt.Println("========== RESPONSE ==========")
-	fmt.Println(res.Proto, res.Status)
+	t.logger.Println("========== RESPONSE ==========")
+	t.logger.Println(res.Proto, res.Status)
 	for k, vs := range res.Header {
 		for _, v := range vs {
-			fmt.Printf("%s: %s\n", k, v)
+			t.logger.Printf("%s: %s\n", k, v)
 		}
 	}
 
 	if res.Body != nil {
-		fmt.Printf("\n%s\n", snarfBody(&res.Body))
+		t.logger.Printf("\n%s\n", snarfBody(&res.Body))
 	}
-	fmt.Println("==============================")
+	t.logger.Println("==============================")
 
 	return res, err
 }

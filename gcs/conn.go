@@ -17,6 +17,7 @@ package gcs
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -76,6 +77,11 @@ type ConnConfig struct {
 	//     tolerate it if not.
 	//
 	MaxBackoffSleep time.Duration
+
+	// Loggers for GCS events, and (much more verbose) HTTP requests and
+	// responses. If nil, no logging is performed.
+	GCSDebugLogger  *log.Logger
+	HTTPDebugLogger *log.Logger
 }
 
 // Open a connection to GCS.
@@ -89,7 +95,9 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 
 	// Enable HTTP debugging if requested.
 	transport := http.DefaultTransport.(httputil.CancellableRoundTripper)
-	transport = httputil.DebuggingRoundTripper(transport)
+	if cfg.HTTPDebugLogger != nil {
+		transport = httputil.DebuggingRoundTripper(transport, cfg.HTTPDebugLogger)
+	}
 
 	// Wrap the HTTP transport in an oauth layer.
 	if cfg.TokenSource == nil {
@@ -107,6 +115,7 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 		client:          &http.Client{Transport: transport},
 		userAgent:       userAgent,
 		maxBackoffSleep: cfg.MaxBackoffSleep,
+		debugLogger:     cfg.GCSDebugLogger,
 	}
 
 	return
@@ -116,6 +125,7 @@ type conn struct {
 	client          *http.Client
 	userAgent       string
 	maxBackoffSleep time.Duration
+	debugLogger     *log.Logger
 }
 
 func (c *conn) OpenBucket(
@@ -136,8 +146,10 @@ func (c *conn) OpenBucket(
 		}
 	}
 
-	// Print debug output when enabled.
-	b = newDebugBucket(b)
+	// Print debug output if requested.
+	if c.debugLogger != nil {
+		b = newDebugBucket(b, c.debugLogger)
+	}
 
 	// Attempt to make an innocuous request to the bucket, snooping for HTTP 403
 	// errors that indicate bad credentials. This lets us warn the user early in

@@ -15,44 +15,22 @@
 package gcs
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/context"
 )
 
-var fDebug = flag.Bool(
-	"gcs.debug",
-	false,
-	"Write FUSE debugging messages to stderr.")
-
-var gLogger *log.Logger
-var gLoggerOnce sync.Once
-
-func initLogger() {
-	const flags = log.Ldate | log.Ltime | log.Lmicroseconds
-	gLogger = log.New(os.Stderr, "gcs: ", flags)
-}
-
-// If debugging is enabled, wrap the supplied bucket in a layer that prints
-// debug messages.
-func newDebugBucket(wrapped Bucket) (b Bucket) {
-	b = wrapped
-
-	if *fDebug {
-		gLoggerOnce.Do(initLogger)
-		b = &debugBucket{
-			logger:  gLogger,
-			wrapped: b,
-		}
-
-		return
+// Wrap the supplied bucket in a layer that prints debug messages.
+func newDebugBucket(
+	wrapped Bucket,
+	logger *log.Logger) (b Bucket) {
+	b = &debugBucket{
+		logger:  logger,
+		wrapped: wrapped,
 	}
 
 	return
