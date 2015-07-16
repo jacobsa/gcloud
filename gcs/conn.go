@@ -115,6 +115,7 @@ func NewConn(cfg *ConnConfig) (c Conn, err error) {
 		client:          &http.Client{Transport: transport},
 		userAgent:       userAgent,
 		maxBackoffSleep: cfg.MaxBackoffSleep,
+		debugLogger:     cfg.GCSDebugLogger,
 	}
 
 	return
@@ -124,6 +125,7 @@ type conn struct {
 	client          *http.Client
 	userAgent       string
 	maxBackoffSleep time.Duration
+	debugLogger     *log.Logger
 }
 
 func (c *conn) OpenBucket(
@@ -144,8 +146,10 @@ func (c *conn) OpenBucket(
 		}
 	}
 
-	// Print debug output when enabled.
-	b = newDebugBucket(b)
+	// Print debug output if requested.
+	if c.debugLogger != nil {
+		b = newDebugBucket(b, c.debugLogger)
+	}
 
 	// Attempt to make an innocuous request to the bucket, snooping for HTTP 403
 	// errors that indicate bad credentials. This lets us warn the user early in
