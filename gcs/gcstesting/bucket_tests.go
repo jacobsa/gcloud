@@ -3819,8 +3819,13 @@ func (t *cancellationTest) CreateObject() {
 	cancel()
 	err = <-errChan
 
-	ExpectThat(err, Error(HasSubstr("connection")))
-	ExpectThat(err, Error(HasSubstr("closed")))
+	ExpectThat(
+		err,
+		Error(
+			AnyOf(
+				HasSubstr("closed network connection"),
+				HasSubstr("transport closed"),
+				HasSubstr("request canceled"))))
 
 	// The object should not have been created.
 	statReq := &gcs.StatObjectRequest{
@@ -3874,6 +3879,12 @@ func (t *cancellationTest) ReadObject() {
 	before := time.Now()
 	_, err = io.ReadFull(rc, make([]byte, size-firstReadSize))
 
-	ExpectThat(err, Error(HasSubstr("use of closed network connection")))
+	ExpectThat(
+		err,
+		Error(
+			AnyOf(
+				HasSubstr("closed network connection"),
+				HasSubstr("transport closed"),
+				HasSubstr("request canceled"))))
 	ExpectLt(time.Since(before), 50*time.Millisecond)
 }
