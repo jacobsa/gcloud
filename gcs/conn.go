@@ -17,6 +17,7 @@ package gcs
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -76,6 +77,11 @@ type ConnConfig struct {
 	//     tolerate it if not.
 	//
 	MaxBackoffSleep time.Duration
+
+	// Loggers for GCS events, and (much more verbose) HTTP requests and
+	// responses. If nil, no logging is performed.
+	GCSDebugLogger  *log.Logger
+	HTTPDebugLogger *log.Logger
 }
 
 // Open a connection to GCS.
