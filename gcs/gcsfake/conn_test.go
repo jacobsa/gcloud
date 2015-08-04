@@ -68,7 +68,7 @@ func (t *ConnTest) BucketContentsAreStable() {
 		t.ctx,
 		bucket,
 		objName,
-		"taco")
+		[]byte("taco"))
 
 	AssertEq(nil, err)
 
@@ -95,10 +95,10 @@ func (t *ConnTest) BucketsAreSegregatedByName() {
 
 	// Add an object with the same name but different contents to each of two
 	// buckets.
-	_, err = gcsutil.CreateObject(t.ctx, b0, objName, "taco")
+	_, err = gcsutil.CreateObject(t.ctx, b0, objName, []byte("taco"))
 	AssertEq(nil, err)
 
-	_, err = gcsutil.CreateObject(t.ctx, b1, objName, "burrito")
+	_, err = gcsutil.CreateObject(t.ctx, b1, objName, []byte("burrito"))
 	AssertEq(nil, err)
 
 	// Each should have stored it independently.
