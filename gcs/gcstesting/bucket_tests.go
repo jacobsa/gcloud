@@ -2172,35 +2172,14 @@ func (t *composeTest) DestinationDoesntExist_PreconditionSatisfied() {
 	ExpectEq("tacoburrito", string(contents))
 }
 
-func (t *composeTest) TooFewSources() {
-	// Create an original object.
-	src, err := t.bucket.CreateObject(
-		t.ctx,
-		&gcs.CreateObjectRequest{
-			Name:     "src",
-			Contents: strings.NewReader(""),
-		})
-
-	AssertEq(nil, err)
-
+func (t *composeTest) ZeroSources() {
 	// GCS doesn't like zero-source requests (and so neither should our fake).
 	req := &gcs.ComposeObjectsRequest{
 		DstName: "foo",
 	}
 
-	_, err = t.bucket.ComposeObjects(t.ctx, req)
-	ExpectThat(err, Error(HasSubstr("at least two")))
-
-	// Ditto requests with one source.
-	req = &gcs.ComposeObjectsRequest{
-		DstName: "foo",
-		Sources: []gcs.ComposeSource{
-			gcs.ComposeSource{Name: src.Name},
-		},
-	}
-
-	_, err = t.bucket.ComposeObjects(t.ctx, req)
-	ExpectThat(err, Error(HasSubstr("at least two")))
+	_, err := t.bucket.ComposeObjects(t.ctx, req)
+	ExpectThat(err, Error(HasSubstr("at least one")))
 }
 
 func (t *composeTest) TooManySources() {
