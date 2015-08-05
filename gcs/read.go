@@ -78,7 +78,7 @@ func (b *bucket) NewReader(
 	}
 
 	// Call the server.
-	httpRes, err := httputil.Do(ctx, b.client, httpReq)
+	httpRes, err := b.client.Do(httpReq)
 	if err != nil {
 		return
 	}

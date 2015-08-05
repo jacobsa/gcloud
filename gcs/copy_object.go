@@ -77,7 +77,7 @@ func (b *bucket) CopyObject(
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Execute the HTTP request.
-	httpRes, err := httputil.Do(ctx, b.client, httpReq)
+	httpRes, err := b.client.Do(httpReq)
 	if err != nil {
 		return
 	}
