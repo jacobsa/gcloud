@@ -79,7 +79,7 @@ type Bucket interface {
 		ctx context.Context,
 		req *CopyObjectRequest) (*Object, error)
 
-	// Compose zero or more source objects into a single destination object by
+	// Compose one or more source objects into a single destination object by
 	// concatenating. Any existing generation of the destination name will be
 	// overwritten.
 	//
