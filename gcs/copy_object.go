@@ -68,7 +68,7 @@ func (b *bucket) CopyObject(
 	body := ioutil.NopCloser(strings.NewReader(""))
 
 	// Create an HTTP request.
-	httpReq, err := httputil.NewRequest("POST", url, body, b.userAgent)
+	httpReq, err := httputil.NewRequest(ctx, "POST", url, body, b.userAgent)
 	if err != nil {
 		err = fmt.Errorf("httputil.NewRequest: %v", err)
 		return

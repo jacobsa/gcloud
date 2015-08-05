@@ -96,6 +96,7 @@ func (b *bucket) startResumableUpload(
 
 	// Create the HTTP request.
 	httpReq, err := httputil.NewRequest(
+		ctx,
 		"POST",
 		url,
 		body,
@@ -159,6 +160,7 @@ func (b *bucket) CreateObject(
 
 	// Set up a follow-up request to the upload URL.
 	httpReq, err := httputil.NewRequest(
+		ctx,
 		"PUT",
 		uploadURL,
 		ioutil.NopCloser(req.Contents),

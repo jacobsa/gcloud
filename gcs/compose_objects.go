@@ -108,6 +108,7 @@ func (b *bucket) ComposeObjects(
 
 	// Create the HTTP request.
 	httpReq, err := httputil.NewRequest(
+		ctx,
 		"POST",
 		url,
 		body,
