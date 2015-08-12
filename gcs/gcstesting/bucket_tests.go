@@ -1473,11 +1473,18 @@ func (t *composeTest) createSources(
 	for i := 0; i < parallelism; i++ {
 		b.Add(func(ctx context.Context) (err error) {
 			for i := range indices {
+				// Create an object. Include some metadata; it should be ignored by
+				// ComposeObjects.
 				objs[i], err = t.bucket.CreateObject(
 					ctx,
 					&gcs.CreateObjectRequest{
-						Name:     fmt.Sprint(i),
-						Contents: strings.NewReader(contents[i]),
+						Name:            fmt.Sprint(i),
+						Contents:        strings.NewReader(contents[i]),
+						ContentType:     "application/json",
+						ContentLanguage: "de",
+						Metadata: map[string]string{
+							"foo": "bar",
+						},
 					},
 				)
 
@@ -1807,6 +1814,47 @@ func (t *composeTest) CompositeSources() {
 
 	AssertEq(nil, err)
 	ExpectEq("tacoburritotacotacoburrito", string(contents))
+}
+
+func (t *composeTest) Metadata() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Compose them, including metadata.
+	o, err := t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: "foo",
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+			Metadata: map[string]string{
+				"key0": "val0",
+				"key1": "val1",
+			},
+		})
+
+	t.advanceTime()
+	AssertEq(nil, err)
+
+	// Check the result.
+	AssertEq("foo", o.Name)
+	ExpectEq(1, o.MetaGeneration)
+
+	ExpectEq(2, len(o.Metadata))
+	ExpectEq("val0", o.Metadata["key0"])
+	ExpectEq("val1", o.Metadata["key1"])
 }
 
 func (t *composeTest) DestinationNameMatchesSource() {
