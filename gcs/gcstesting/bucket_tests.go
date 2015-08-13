@@ -1057,7 +1057,34 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	ExpectEq("burrito", string(contents))
 }
 
-func (t *createTest) MetaGenerationPrecondition_Unsatisfied() {
+func (t *createTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() {
+	var err error
+
+	// Request to create a missing object, with a precondition for
+	// meta-generation. The request should fail.
+	var metagen int64 = 1
+	req := &gcs.CreateObjectRequest{
+		Name:                       "foo",
+		Contents:                   strings.NewReader("burrito"),
+		MetaGenerationPrecondition: &metagen,
+	}
+
+	_, err = t.bucket.CreateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("doesn't exist|googleapi.*412")))
+
+	// Nothing should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
+	AssertEq(nil, err)
+
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+
+	ExpectEq(0, len(listing.Objects))
+}
+
+func (t *createTest) MetaGenerationPrecondition_Unsatisfied_ObjectExists() {
 	// Create an existing object.
 	o, err := gcsutil.CreateObject(
 		t.ctx,
