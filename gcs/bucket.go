@@ -285,8 +285,15 @@ func (b *bucket) DeleteObject(
 		httputil.EncodePathSegment(req.Name))
 
 	query := make(url.Values)
+
 	if req.Generation != 0 {
 		query.Set("generation", fmt.Sprintf("%d", req.Generation))
+	}
+
+	if req.MetaGenerationPrecondition != nil {
+		query.Set(
+			"ifMetagenerationMatch",
+			fmt.Sprintf("%d", *req.MetaGenerationPrecondition))
 	}
 
 	url := &url.URL{
@@ -318,6 +325,13 @@ func (b *bucket) DeleteObject(
 	if typed, ok := err.(*googleapi.Error); ok {
 		if typed.Code == http.StatusNotFound {
 			err = nil
+		}
+	}
+
+	// Special case: handle precondition errors.
+	if typed, ok := err.(*googleapi.Error); ok {
+		if typed.Code == http.StatusPreconditionFailed {
+			err = &PreconditionError{Err: typed}
 		}
 	}
 
