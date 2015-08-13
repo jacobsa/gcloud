@@ -3655,7 +3655,19 @@ func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectExists() {
 }
 
 func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() {
-	AssertTrue(false, "TODO")
+	const name = "foo"
+	var err error
+
+	// Attempt to delete a non-existent name with a meta-generation precondition.
+	var precond int64 = 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
 }
 
 func (t *deleteTest) MetaGenerationPrecondition_Satisfied() {
