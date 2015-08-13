@@ -103,6 +103,8 @@ type ComposeObjectsRequest struct {
 
 	// If non-nil, the destination object will be created/overwritten only if the
 	// current meta-generation for its name is equal to the given value.
+	//
+	// This is only meaningful if DstGenerationPrecondition is also specified.
 	DstMetaGenerationPrecondition *int64
 
 	// The source objects from which to compose. This must be non-empty.

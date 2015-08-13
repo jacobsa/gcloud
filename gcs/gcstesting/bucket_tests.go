@@ -2124,7 +2124,7 @@ func (t *composeTest) ExplicitGenerations_OneDoesntExist() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
-func (t *composeTest) DestinationExists_NoPrecondition() {
+func (t *composeTest) DestinationExists_NoPreconditions() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -2165,7 +2165,7 @@ func (t *composeTest) DestinationExists_NoPrecondition() {
 	ExpectEq("tacoburrito", string(contents))
 }
 
-func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
+func (t *composeTest) DestinationExists_GenerationPreconditionNotSatisfied() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -2205,7 +2205,48 @@ func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
 	ExpectEq(len("taco"), o.Size)
 }
 
-func (t *composeTest) DestinationExists_PreconditionSatisfied() {
+func (t *composeTest) DestinationExists_MetaGenerationPreconditionNotSatisfied() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	precond := sources[0].MetaGeneration + 1
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: sources[0].Name,
+			DstMetaGenerationPrecondition: &precond,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// Make sure the object wasn't overwritten.
+	o, err := t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: sources[0].Name})
+
+	AssertEq(nil, err)
+	ExpectEq(sources[0].Generation, o.Generation)
+	ExpectEq(sources[0].MetaGeneration, o.MetaGeneration)
+	ExpectEq(len("taco"), o.Size)
+}
+
+func (t *composeTest) DestinationExists_PreconditionsSatisfied() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -2218,8 +2259,9 @@ func (t *composeTest) DestinationExists_PreconditionSatisfied() {
 	o, err := t.bucket.ComposeObjects(
 		t.ctx,
 		&gcs.ComposeObjectsRequest{
-			DstName:                   sources[0].Name,
-			DstGenerationPrecondition: &sources[0].Generation,
+			DstName:                       sources[0].Name,
+			DstGenerationPrecondition:     &sources[0].Generation,
+			DstMetaGenerationPrecondition: &sources[0].MetaGeneration,
 
 			Sources: []gcs.ComposeSource{
 				gcs.ComposeSource{
