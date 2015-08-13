@@ -590,6 +590,21 @@ func (b *bucket) CopyObject(
 		return
 	}
 
+	// Does it have the correct meta-generation?
+	if req.SrcMetaGenerationPrecondition != nil {
+		p := *req.SrcMetaGenerationPrecondition
+		if b.objects[srcIndex].metadata.MetaGeneration != p {
+			err = &gcs.PreconditionError{
+				Err: fmt.Errorf(
+					"Object %q has meta-generation %d",
+					req.SrcName,
+					b.objects[srcIndex].metadata.MetaGeneration),
+			}
+
+			return
+		}
+	}
+
 	// Copy it and assign a new generation number, to ensure that the generation
 	// number for the destination name is strictly increasing.
 	dst := b.objects[srcIndex]
