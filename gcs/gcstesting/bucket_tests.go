@@ -3209,7 +3209,16 @@ func (t *updateTest) DoesntAffectUpdateTime() {
 }
 
 func (t *updateTest) ParticularGeneration_NameDoesntExist() {
-	AssertTrue(false, "TODO")
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		Generation:  17,
+		ContentType: makeStringPtr("image/png"),
+	}
+
+	_, err := t.bucket.UpdateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
 func (t *updateTest) ParticularGeneration_GenerationDoesntExist() {
