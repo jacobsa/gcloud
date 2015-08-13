@@ -1557,6 +1557,42 @@ func (t *copyTest) ParticularSourceGeneration_Exists() {
 	ExpectEq(nil, err)
 }
 
+func (t *copyTest) SrcMetaGenerationPrecondition_Unsatisfied() {
+	var err error
+
+	// Create a source object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "foo",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// Attempt to copy, with a precondition.
+	precond := src.MetaGeneration + 1
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+		SrcMetaGenerationPrecondition: &precond,
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	AssertThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// The object should not have been created.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "bar"})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *copyTest) SrcMetaGenerationPrecondition_Satisfied() {
+	AssertTrue(false, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Compose
 ////////////////////////////////////////////////////////////////////////
