@@ -99,12 +99,16 @@ type ComposeObjectsRequest struct {
 	// If non-nil, the destination object will be created/overwritten only if the
 	// current generation for its name is equal to the given value. Zero means
 	// the object does not exist.
+	DstGenerationPrecondition *int64
+
+	// If non-nil, the destination object will be created/overwritten only if the
+	// current meta-generation for its name is equal to the given value.
+	DstMetaGenerationPrecondition *int64
+
+	// The source objects from which to compose. This must be non-empty.
 	//
 	// Make sure to see the notes on MaxSourcesPerComposeRequest and
 	// MaxComponentCount.
-	DstGenerationPrecondition *int64
-
-	// The source objects from which to compose. This must be non-empty.
 	Sources []ComposeSource
 
 	// Optional information with which to create the object. See here for more
