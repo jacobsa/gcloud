@@ -62,6 +62,11 @@ type CreateObjectRequest struct {
 	// generation for the object name is equal to the given value. Zero means the
 	// object does not exist.
 	GenerationPrecondition *int64
+
+	// If non-nil, the object will be created/overwritten only if the current
+	// meta-generation for the object name is equal to the given value. This is
+	// only meaningful in conjunction with GenerationPrecondition.
+	MetaGenerationPrecondition *int64
 }
 
 // A request to copy an object to a new name, preserving all metadata.
