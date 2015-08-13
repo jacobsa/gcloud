@@ -3208,6 +3208,82 @@ func (t *updateTest) DoesntAffectUpdateTime() {
 	ExpectThat(o2.Updated, timeutil.TimeEq(o.Updated))
 }
 
+func (t *updateTest) ParticularGeneration_NameDoesntExist() {
+	req := &gcs.UpdateObjectRequest{
+		Name:        "foo",
+		Generation:  17,
+		ContentType: makeStringPtr("image/png"),
+	}
+
+	_, err := t.bucket.UpdateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
+}
+
+func (t *updateTest) ParticularGeneration_GenerationDoesntExist() {
+	// Create an object.
+	createReq := &gcs.CreateObjectRequest{
+		Name:     "foo",
+		Contents: strings.NewReader(""),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, createReq)
+	AssertEq(nil, err)
+
+	// Attempt to update the wrong generation by giving it a new content
+	// language.
+	req := &gcs.UpdateObjectRequest{
+		Name:            o.Name,
+		Generation:      o.Generation + 1,
+		ContentLanguage: makeStringPtr("fr"),
+	}
+
+	_, err = t.bucket.UpdateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+	ExpectThat(err, Error(MatchesRegexp("not found|404")))
+
+	// The original object should be unaffected.
+	o, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: o.Name})
+
+	AssertEq(nil, err)
+	ExpectEq("", o.ContentLanguage)
+}
+
+func (t *updateTest) ParticularGeneration_Successful() {
+	// Create an object.
+	createReq := &gcs.CreateObjectRequest{
+		Name:     "foo",
+		Contents: strings.NewReader(""),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, createReq)
+	AssertEq(nil, err)
+
+	// Update it with an explicit generation.
+	req := &gcs.UpdateObjectRequest{
+		Name:            o.Name,
+		Generation:      o.Generation,
+		ContentLanguage: makeStringPtr("fr"),
+	}
+
+	o, err = t.bucket.UpdateObject(t.ctx, req)
+
+	AssertEq(nil, err)
+	ExpectEq("fr", o.ContentLanguage)
+
+	// Stat and make sure it took effect.
+	o, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: o.Name})
+
+	AssertEq(nil, err)
+	ExpectEq("fr", o.ContentLanguage)
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Delete
 ////////////////////////////////////////////////////////////////////////
