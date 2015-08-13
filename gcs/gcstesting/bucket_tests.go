@@ -3530,7 +3530,32 @@ func (t *updateTest) MetaGenerationPrecondition_Unsatisfied() {
 }
 
 func (t *updateTest) MetaGenerationPrecondition_Satisfied() {
-	AssertTrue(false, "TODO")
+	// Create an object.
+	createReq := &gcs.CreateObjectRequest{
+		Name:     "foo",
+		Contents: strings.NewReader(""),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, createReq)
+	AssertEq(nil, err)
+
+	// Update with a good precondition.
+	req := &gcs.UpdateObjectRequest{
+		Name: o.Name,
+		MetaGenerationPrecondition: &o.MetaGeneration,
+		ContentLanguage:            makeStringPtr("fr"),
+	}
+
+	_, err = t.bucket.UpdateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// The object should have been updated.
+	o, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: o.Name})
+
+	AssertEq(nil, err)
+	ExpectEq("fr", o.ContentLanguage)
 }
 
 ////////////////////////////////////////////////////////////////////////
