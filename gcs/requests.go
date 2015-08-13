@@ -282,4 +282,8 @@ type DeleteObjectRequest struct {
 
 	// The generation of the object to delete. Zero means the latest generation.
 	Generation int64
+
+	// If non-nil, the request will fail without effect if the current
+	// meta-generation for the name is not equal to the given value.
+	MetaGenerationPrecondition *int64
 }
