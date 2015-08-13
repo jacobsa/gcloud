@@ -2014,6 +2014,89 @@ func (t *composeTest) ExplicitGenerations_OneDoesntExist() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
+func (t *createTest) MetaGenerationPrecondition_Unsatisfied() {
+	// Create an existing object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		"foo",
+		[]byte("taco"))
+
+	// Request to create another version of the object, with a precondition for
+	// the wrong meta-generation. The request should fail.
+	var metagen int64 = o.MetaGeneration + 1
+	req := &gcs.CreateObjectRequest{
+		Name:                       "foo",
+		Contents:                   strings.NewReader("burrito"),
+		MetaGenerationPrecondition: &metagen,
+	}
+
+	_, err = t.bucket.CreateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("meta-generation|googleapi.*412")))
+
+	// The old version should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
+	AssertEq(nil, err)
+
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(o.MetaGeneration, listing.Objects[0].MetaGeneration)
+	ExpectEq(len("taco"), listing.Objects[0].Size)
+
+	// We should see the old contents when we read.
+	contents, err := t.readObject("foo")
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
+}
+
+func (t *createTest) MetaGenerationPrecondition_Satisfied() {
+	// Create an existing object.
+	orig, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		"foo",
+		[]byte("taco"))
+
+	// Request to create another version of the object, with a satisfied
+	// precondition.
+	req := &gcs.CreateObjectRequest{
+		Name:                       "foo",
+		Contents:                   strings.NewReader("burrito"),
+		MetaGenerationPrecondition: &orig.MetaGeneration,
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	ExpectEq(len("burrito"), o.Size)
+	ExpectNe(orig.Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+
+	// The new version should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
+	AssertEq(nil, err)
+
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(o.MetaGeneration, listing.Objects[0].MetaGeneration)
+	ExpectEq(len("burrito"), listing.Objects[0].Size)
+
+	// We should see the new contents when we read.
+	contents, err := t.readObject("foo")
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
+}
+
 func (t *composeTest) DestinationExists_NoPrecondition() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
