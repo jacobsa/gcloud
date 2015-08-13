@@ -3208,6 +3208,18 @@ func (t *updateTest) DoesntAffectUpdateTime() {
 	ExpectThat(o2.Updated, timeutil.TimeEq(o.Updated))
 }
 
+func (t *updateTest) ParticularGeneration_NameDoesntExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *updateTest) ParticularGeneration_GenerationDoesntExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *updateTest) ParticularGeneration_Successful() {
+	AssertTrue(false, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Delete
 ////////////////////////////////////////////////////////////////////////
