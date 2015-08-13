@@ -3671,7 +3671,32 @@ func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() 
 }
 
 func (t *deleteTest) MetaGenerationPrecondition_Satisfied() {
-	AssertTrue(false, "TODO")
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Delete with a precondition.
+	precond := o.MetaGeneration
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	AssertEq(nil, err)
+
+	// The object should no longer exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
 ////////////////////////////////////////////////////////////////////////
