@@ -661,9 +661,10 @@ func (b *bucket) ComposeObjects(
 	// Create the new object.
 	createReq := &gcs.CreateObjectRequest{
 		Name: req.DstName,
-		GenerationPrecondition: req.DstGenerationPrecondition,
-		Contents:               io.MultiReader(srcReaders...),
-		Metadata:               req.Metadata,
+		GenerationPrecondition:     req.DstGenerationPrecondition,
+		MetaGenerationPrecondition: req.DstMetaGenerationPrecondition,
+		Contents:                   io.MultiReader(srcReaders...),
+		Metadata:                   req.Metadata,
 	}
 
 	_, err = b.createObjectLocked(createReq)
