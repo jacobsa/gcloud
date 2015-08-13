@@ -310,6 +310,27 @@ func (b *bucket) createObjectLocked(
 		}
 	}
 
+	if req.MetaGenerationPrecondition != nil {
+		if existingRecord == nil {
+			err = &gcs.PreconditionError{
+				Err: errors.New("Precondition failed: object doesn't exist"),
+			}
+
+			return
+		}
+
+		existingMetaGen := existingRecord.metadata.MetaGeneration
+		if existingMetaGen != *req.MetaGenerationPrecondition {
+			err = &gcs.PreconditionError{
+				Err: fmt.Errorf(
+					"Precondition failed: object has meta-generation %v",
+					existingMetaGen),
+			}
+
+			return
+		}
+	}
+
 	// Create an object record from the given attributes.
 	var fo fakeObject = b.mintObject(req, contents)
 	o = &fo.metadata
