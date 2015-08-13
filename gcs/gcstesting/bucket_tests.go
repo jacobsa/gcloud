@@ -3625,6 +3625,43 @@ func (t *deleteTest) ParticularGeneration_Successful() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectExists() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Attempt to delete, with a precondition for the wrong meta-generation.
+	precond := o.MetaGeneration + 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// The object should still exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Satisfied() {
+	AssertTrue(false, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // List
 ////////////////////////////////////////////////////////////////////////
