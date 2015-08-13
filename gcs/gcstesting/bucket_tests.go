@@ -1057,6 +1057,116 @@ func (t *createTest) GenerationPrecondition_NonZero_Satisfied() {
 	ExpectEq("burrito", string(contents))
 }
 
+func (t *createTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() {
+	var err error
+
+	// Request to create a missing object, with a precondition for
+	// meta-generation. The request should fail.
+	var metagen int64 = 1
+	req := &gcs.CreateObjectRequest{
+		Name:                       "foo",
+		Contents:                   strings.NewReader("burrito"),
+		MetaGenerationPrecondition: &metagen,
+	}
+
+	_, err = t.bucket.CreateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("doesn't exist|googleapi.*412")))
+
+	// Nothing should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
+	AssertEq(nil, err)
+
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+
+	ExpectEq(0, len(listing.Objects))
+}
+
+func (t *createTest) MetaGenerationPrecondition_Unsatisfied_ObjectExists() {
+	// Create an existing object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		"foo",
+		[]byte("taco"))
+
+	// Request to create another version of the object, with a precondition for
+	// the wrong meta-generation. The request should fail.
+	var metagen int64 = o.MetaGeneration + 1
+	req := &gcs.CreateObjectRequest{
+		Name:                       "foo",
+		Contents:                   strings.NewReader("burrito"),
+		MetaGenerationPrecondition: &metagen,
+	}
+
+	_, err = t.bucket.CreateObject(t.ctx, req)
+
+	AssertThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectThat(err, Error(MatchesRegexp("meta-generation|googleapi.*412")))
+
+	// The old version should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
+	AssertEq(nil, err)
+
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(o.MetaGeneration, listing.Objects[0].MetaGeneration)
+	ExpectEq(len("taco"), listing.Objects[0].Size)
+
+	// We should see the old contents when we read.
+	contents, err := t.readObject("foo")
+	AssertEq(nil, err)
+	ExpectEq("taco", string(contents))
+}
+
+func (t *createTest) MetaGenerationPrecondition_Satisfied() {
+	// Create an existing object.
+	orig, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		"foo",
+		[]byte("taco"))
+
+	// Request to create another version of the object, with a satisfied
+	// precondition.
+	req := &gcs.CreateObjectRequest{
+		Name:                       "foo",
+		Contents:                   strings.NewReader("burrito"),
+		MetaGenerationPrecondition: &orig.MetaGeneration,
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	ExpectEq(len("burrito"), o.Size)
+	ExpectNe(orig.Generation, o.Generation)
+	ExpectEq(1, o.MetaGeneration)
+
+	// The new version should show up in a listing.
+	listing, err := t.bucket.ListObjects(t.ctx, &gcs.ListObjectsRequest{})
+	AssertEq(nil, err)
+
+	AssertThat(listing.CollapsedRuns, ElementsAre())
+	AssertEq("", listing.ContinuationToken)
+
+	AssertEq(1, len(listing.Objects))
+	AssertEq("foo", listing.Objects[0].Name)
+	ExpectEq(o.Generation, listing.Objects[0].Generation)
+	ExpectEq(o.MetaGeneration, listing.Objects[0].MetaGeneration)
+	ExpectEq(len("burrito"), listing.Objects[0].Size)
+
+	// We should see the new contents when we read.
+	contents, err := t.readObject("foo")
+	AssertEq(nil, err)
+	ExpectEq("burrito", string(contents))
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Copy
 ////////////////////////////////////////////////////////////////////////
@@ -1444,6 +1554,69 @@ func (t *copyTest) ParticularSourceGeneration_Exists() {
 	}
 
 	_, err = t.bucket.CopyObject(t.ctx, req)
+	ExpectEq(nil, err)
+}
+
+func (t *copyTest) SrcMetaGenerationPrecondition_Unsatisfied() {
+	var err error
+
+	// Create a source object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "foo",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// Attempt to copy, with a precondition.
+	precond := src.MetaGeneration + 1
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+		SrcMetaGenerationPrecondition: &precond,
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	AssertThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// The object should not have been created.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "bar"})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *copyTest) SrcMetaGenerationPrecondition_Satisfied() {
+	var err error
+
+	// Create a source object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "foo",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// Copy, with a precondition.
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+		SrcMetaGenerationPrecondition: &src.MetaGeneration,
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// The object should have been created.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "bar"})
+
 	ExpectEq(nil, err)
 }
 
@@ -2014,7 +2187,7 @@ func (t *composeTest) ExplicitGenerations_OneDoesntExist() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
-func (t *composeTest) DestinationExists_NoPrecondition() {
+func (t *composeTest) DestinationExists_NoPreconditions() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -2055,7 +2228,7 @@ func (t *composeTest) DestinationExists_NoPrecondition() {
 	ExpectEq("tacoburrito", string(contents))
 }
 
-func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
+func (t *composeTest) DestinationExists_GenerationPreconditionNotSatisfied() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -2095,7 +2268,48 @@ func (t *composeTest) DestinationExists_PreconditionNotSatisfied() {
 	ExpectEq(len("taco"), o.Size)
 }
 
-func (t *composeTest) DestinationExists_PreconditionSatisfied() {
+func (t *composeTest) DestinationExists_MetaGenerationPreconditionNotSatisfied() {
+	// Create source objects.
+	sources, err := t.createSources([]string{
+		"taco",
+		"burrito",
+	})
+
+	AssertEq(nil, err)
+
+	// Attempt to compose them on top of the first.
+	precond := sources[0].MetaGeneration + 1
+	_, err = t.bucket.ComposeObjects(
+		t.ctx,
+		&gcs.ComposeObjectsRequest{
+			DstName: sources[0].Name,
+			DstMetaGenerationPrecondition: &precond,
+
+			Sources: []gcs.ComposeSource{
+				gcs.ComposeSource{
+					Name: sources[0].Name,
+				},
+
+				gcs.ComposeSource{
+					Name: sources[1].Name,
+				},
+			},
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// Make sure the object wasn't overwritten.
+	o, err := t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: sources[0].Name})
+
+	AssertEq(nil, err)
+	ExpectEq(sources[0].Generation, o.Generation)
+	ExpectEq(sources[0].MetaGeneration, o.MetaGeneration)
+	ExpectEq(len("taco"), o.Size)
+}
+
+func (t *composeTest) DestinationExists_PreconditionsSatisfied() {
 	// Create source objects.
 	sources, err := t.createSources([]string{
 		"taco",
@@ -2108,8 +2322,9 @@ func (t *composeTest) DestinationExists_PreconditionSatisfied() {
 	o, err := t.bucket.ComposeObjects(
 		t.ctx,
 		&gcs.ComposeObjectsRequest{
-			DstName:                   sources[0].Name,
-			DstGenerationPrecondition: &sources[0].Generation,
+			DstName:                       sources[0].Name,
+			DstGenerationPrecondition:     &sources[0].Generation,
+			DstMetaGenerationPrecondition: &sources[0].MetaGeneration,
 
 			Sources: []gcs.ComposeSource{
 				gcs.ComposeSource{
@@ -3401,6 +3616,111 @@ func (t *deleteTest) ParticularGeneration_Successful() {
 		&gcs.DeleteObjectRequest{
 			Name:       name,
 			Generation: o.Generation,
+		})
+
+	AssertEq(nil, err)
+
+	// The object should no longer exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectExists() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Attempt to delete, with a precondition for the wrong meta-generation.
+	precond := o.MetaGeneration + 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// The object should still exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() {
+	const name = "foo"
+	var err error
+
+	// Attempt to delete a non-existent name with a meta-generation precondition.
+	var precond int64 = 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_WrongGeneration() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Attempt to delete, with a precondition for the wrong meta-generation,
+	// addressing the wrong object generation.
+	precond := o.MetaGeneration + 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:                       name,
+			Generation:                 o.Generation + 1,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectEq(nil, err)
+
+	// The object should still exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Satisfied() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Delete with a precondition.
+	precond := o.MetaGeneration
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
 		})
 
 	AssertEq(nil, err)
