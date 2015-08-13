@@ -825,6 +825,21 @@ func (b *bucket) DeleteObject(
 		return
 	}
 
+	// Check the meta-generation if requested.
+	if req.MetaGenerationPrecondition != nil {
+		p := *req.MetaGenerationPrecondition
+		if b.objects[index].metadata.MetaGeneration != p {
+			err = &gcs.PreconditionError{
+				Err: fmt.Errorf(
+					"Object %q has meta-generation %d",
+					req.Name,
+					b.objects[index].metadata.MetaGeneration),
+			}
+
+			return
+		}
+	}
+
 	// Remove the object.
 	b.objects = append(b.objects[:index], b.objects[index+1:]...)
 
