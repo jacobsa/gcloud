@@ -1590,7 +1590,34 @@ func (t *copyTest) SrcMetaGenerationPrecondition_Unsatisfied() {
 }
 
 func (t *copyTest) SrcMetaGenerationPrecondition_Satisfied() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Create a source object.
+	src, err := t.bucket.CreateObject(
+		t.ctx,
+		&gcs.CreateObjectRequest{
+			Name:     "foo",
+			Contents: strings.NewReader(""),
+		})
+
+	AssertEq(nil, err)
+
+	// Copy, with a precondition.
+	req := &gcs.CopyObjectRequest{
+		SrcName: "foo",
+		DstName: "bar",
+		SrcMetaGenerationPrecondition: &src.MetaGeneration,
+	}
+
+	_, err = t.bucket.CopyObject(t.ctx, req)
+	AssertEq(nil, err)
+
+	// The object should have been created.
+	_, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: "bar"})
+
+	ExpectEq(nil, err)
 }
 
 ////////////////////////////////////////////////////////////////////////
