@@ -284,6 +284,7 @@ type DeleteObjectRequest struct {
 	Generation int64
 
 	// If non-nil, the request will fail without effect if there is an object
-	// with the given name and its meta-generation is not equal to this value.
+	// with the given name (and optionally generation), and its meta-generation
+	// is not equal to this value.
 	MetaGenerationPrecondition *int64
 }
