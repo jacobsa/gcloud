@@ -3625,6 +3625,111 @@ func (t *deleteTest) ParticularGeneration_Successful() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectExists() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Attempt to delete, with a precondition for the wrong meta-generation.
+	precond := o.MetaGeneration + 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// The object should still exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() {
+	const name = "foo"
+	var err error
+
+	// Attempt to delete a non-existent name with a meta-generation precondition.
+	var precond int64 = 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_WrongGeneration() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Attempt to delete, with a precondition for the wrong meta-generation,
+	// addressing the wrong object generation.
+	precond := o.MetaGeneration + 1
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name:                       name,
+			Generation:                 o.Generation + 1,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	ExpectEq(nil, err)
+
+	// The object should still exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectEq(nil, err)
+}
+
+func (t *deleteTest) MetaGenerationPrecondition_Satisfied() {
+	const name = "foo"
+	var err error
+
+	// Create an object.
+	o, err := gcsutil.CreateObject(
+		t.ctx,
+		t.bucket,
+		name,
+		[]byte("taco"))
+
+	AssertEq(nil, err)
+
+	// Delete with a precondition.
+	precond := o.MetaGeneration
+	err = t.bucket.DeleteObject(
+		t.ctx,
+		&gcs.DeleteObjectRequest{
+			Name: name,
+			MetaGenerationPrecondition: &precond,
+		})
+
+	AssertEq(nil, err)
+
+	// The object should no longer exist.
+	_, err = gcsutil.ReadObject(t.ctx, t.bucket, name)
+	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
+}
+
 ////////////////////////////////////////////////////////////////////////
 // List
 ////////////////////////////////////////////////////////////////////////
