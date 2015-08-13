@@ -3254,7 +3254,34 @@ func (t *updateTest) ParticularGeneration_GenerationDoesntExist() {
 }
 
 func (t *updateTest) ParticularGeneration_Successful() {
-	AssertTrue(false, "TODO")
+	// Create an object.
+	createReq := &gcs.CreateObjectRequest{
+		Name:     "foo",
+		Contents: strings.NewReader(""),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, createReq)
+	AssertEq(nil, err)
+
+	// Update it with an explicit generation.
+	req := &gcs.UpdateObjectRequest{
+		Name:            o.Name,
+		Generation:      o.Generation,
+		ContentLanguage: makeStringPtr("fr"),
+	}
+
+	o, err = t.bucket.UpdateObject(t.ctx, req)
+
+	AssertEq(nil, err)
+	ExpectEq("fr", o.ContentLanguage)
+
+	// Stat and make sure it took effect.
+	o, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: o.Name})
+
+	AssertEq(nil, err)
+	ExpectEq("fr", o.ContentLanguage)
 }
 
 ////////////////////////////////////////////////////////////////////////
