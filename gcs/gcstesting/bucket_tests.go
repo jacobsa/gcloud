@@ -3499,6 +3499,40 @@ func (t *updateTest) ParticularGeneration_Successful() {
 	ExpectEq("fr", o.ContentLanguage)
 }
 
+func (t *updateTest) MetaGenerationPrecondition_Unsatisfied() {
+	// Create an object.
+	createReq := &gcs.CreateObjectRequest{
+		Name:     "foo",
+		Contents: strings.NewReader(""),
+	}
+
+	o, err := t.bucket.CreateObject(t.ctx, createReq)
+	AssertEq(nil, err)
+
+	// Attempt to update with a bad precondition.
+	precond := o.MetaGeneration + 1
+	req := &gcs.UpdateObjectRequest{
+		Name: o.Name,
+		MetaGenerationPrecondition: &precond,
+		ContentLanguage:            makeStringPtr("fr"),
+	}
+
+	_, err = t.bucket.UpdateObject(t.ctx, req)
+	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+
+	// The original object should be unaffected.
+	o, err = t.bucket.StatObject(
+		t.ctx,
+		&gcs.StatObjectRequest{Name: o.Name})
+
+	AssertEq(nil, err)
+	ExpectEq("", o.ContentLanguage)
+}
+
+func (t *updateTest) MetaGenerationPrecondition_Satisfied() {
+	AssertTrue(false, "TODO")
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Delete
 ////////////////////////////////////////////////////////////////////////
