@@ -3667,7 +3667,7 @@ func (t *deleteTest) MetaGenerationPrecondition_Unsatisfied_ObjectDoesntExist() 
 			MetaGenerationPrecondition: &precond,
 		})
 
-	ExpectThat(err, HasSameTypeAs(&gcs.PreconditionError{}))
+	ExpectEq(nil, err)
 }
 
 func (t *deleteTest) MetaGenerationPrecondition_Satisfied() {
