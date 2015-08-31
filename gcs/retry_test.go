@@ -15,8 +15,15 @@
 package gcs
 
 import (
+	"io/ioutil"
+	"strings"
 	"testing"
+	"testing/iotest"
+	"time"
 
+	"golang.org/x/net/context"
+
+	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 )
 
@@ -27,11 +34,15 @@ func TestRetry(t *testing.T) { RunTests(t) }
 ////////////////////////////////////////////////////////////////////////
 
 type retryBucketTest struct {
-	bucket Bucket
+	ctx     context.Context
+	wrapped MockBucket
+	bucket  Bucket
 }
 
 func (t *retryBucketTest) SetUp(ti *TestInfo) {
-	AssertTrue(false, "TODO")
+	t.ctx = ti.Ctx
+	t.wrapped = NewMockBucket(ti.MockController, "wrapped")
+	t.bucket = newRetryBucket(time.Second, t.wrapped)
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -40,12 +51,32 @@ func (t *retryBucketTest) SetUp(ti *TestInfo) {
 
 type RetryBucket_CreateObjectTest struct {
 	retryBucketTest
+
+	req CreateObjectRequest
+	obj *Object
 }
 
 func init() { RegisterTestSuite(&RetryBucket_CreateObjectTest{}) }
 
+func (t *RetryBucket_CreateObjectTest) call() (err error) {
+	t.obj, err = t.bucket.CreateObject(t.ctx, &t.req)
+	return
+}
+
 func (t *RetryBucket_CreateObjectTest) ErrorReading() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Pass in a reader that will return an error.
+	t.req.Contents = ioutil.NopCloser(
+		iotest.OneByteReader(
+			iotest.TimeoutReader(
+				strings.NewReader("foobar"))))
+
+	// Call
+	err = t.call()
+
+	ExpectThat(err, Error(HasSubstr("ReadAll")))
+	ExpectThat(err, Error(HasSubstr("timeout")))
 }
 
 func (t *RetryBucket_CreateObjectTest) Successful() {
