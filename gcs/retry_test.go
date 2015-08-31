@@ -15,6 +15,8 @@
 package gcs
 
 import (
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -24,10 +26,43 @@ import (
 	"golang.org/x/net/context"
 
 	. "github.com/jacobsa/oglematchers"
+	. "github.com/jacobsa/oglemock"
 	. "github.com/jacobsa/ogletest"
 )
 
 func TestRetry(t *testing.T) { RunTests(t) }
+
+////////////////////////////////////////////////////////////////////////
+// Helpers
+////////////////////////////////////////////////////////////////////////
+
+func contentsAre(s string) Matcher {
+	pred := func(c interface{}) (err error) {
+		// Convert.
+		req, ok := c.(*CreateObjectRequest)
+		if !ok {
+			err = fmt.Errorf("which has type %T", c)
+			return
+		}
+
+		// Read.
+		contents, err := ioutil.ReadAll(req.Contents)
+		if err != nil {
+			err = fmt.Errorf("whose contents cannot be read: %v", err)
+			return
+		}
+
+		// Compare.
+		if string(contents) != s {
+			err = errors.New("whose contents don't match")
+			return
+		}
+
+		return
+	}
+
+	return NewMatcher(pred, "has the specified contents")
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Boilerplate
@@ -79,11 +114,29 @@ func (t *RetryBucket_CreateObjectTest) ErrorReading() {
 	ExpectThat(err, Error(HasSubstr("timeout")))
 }
 
+func (t *RetryBucket_CreateObjectTest) CallsWrapped() {
+	const expected = "taco"
+
+	// Request
+	t.req.Contents = ioutil.NopCloser(strings.NewReader(expected))
+
+	// Wrapped
+	ExpectCall(t.wrapped, "CreateObject")(Any(), contentsAre(expected)).
+		WillOnce(Return(nil, errors.New("")))
+
+	// Call
+	t.call()
+}
+
 func (t *RetryBucket_CreateObjectTest) Successful() {
 	AssertTrue(false, "TODO")
 }
 
 func (t *RetryBucket_CreateObjectTest) ShouldNotRetry() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *RetryBucket_CreateObjectTest) CallsWrappedForRetry() {
 	AssertTrue(false, "TODO")
 }
 
