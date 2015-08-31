@@ -17,6 +17,7 @@ package gcs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -164,7 +165,20 @@ func (t *RetryBucket_CreateObjectTest) ShouldNotRetry() {
 }
 
 func (t *RetryBucket_CreateObjectTest) CallsWrappedForRetry() {
-	AssertTrue(false, "TODO")
+	const expected = "taco"
+
+	// Request
+	t.req.Contents = ioutil.NopCloser(strings.NewReader(expected))
+
+	// Wrapped
+	retryable := io.ErrUnexpectedEOF
+
+	ExpectCall(t.wrapped, "CreateObject")(Any(), contentsAre(expected)).
+		WillOnce(Return(nil, retryable)).
+		WillOnce(Return(nil, errors.New("")))
+
+	// Call
+	t.call()
 }
 
 func (t *RetryBucket_CreateObjectTest) RetrySuccessful() {
