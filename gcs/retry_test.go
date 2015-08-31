@@ -26,20 +26,36 @@ func TestRetry(t *testing.T) { RunTests(t) }
 // Boilerplate
 ////////////////////////////////////////////////////////////////////////
 
-type RetryBucketTest struct {
+type retryBucketTest struct {
 	bucket Bucket
 }
 
-func init() { RegisterTestSuite(&RetryBucketTest{}) }
-
-func (t *RetryBucketTest) SetUp(ti *TestInfo) {
+func (t *retryBucketTest) SetUp(ti *TestInfo) {
 	AssertTrue(false, "TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////
-// Test functions
+// CreateObject
 ////////////////////////////////////////////////////////////////////////
 
-func (t *RetryBucketTest) DoesFoo() {
+type RetryBucket_CreateObjectTest struct {
+	retryBucketTest
+}
+
+func init() { RegisterTestSuite(&RetryBucket_CreateObjectTest{}) }
+
+func (t *RetryBucket_CreateObjectTest) ErrorReading() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *RetryBucket_CreateObjectTest) Successful() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *RetryBucket_CreateObjectTest) ShouldNotRetry() {
+	AssertTrue(false, "TODO")
+}
+
+func (t *RetryBucket_CreateObjectTest) RetrySuccessful() {
 	AssertTrue(false, "TODO")
 }
