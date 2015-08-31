@@ -22,7 +22,6 @@ import (
 	"github.com/jacobsa/gcloud/gcs"
 	"github.com/jacobsa/gcloud/gcs/gcscaching"
 	"github.com/jacobsa/gcloud/gcs/gcscaching/mock_gcscaching"
-	"github.com/jacobsa/gcloud/gcs/mock_gcs"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/oglemock"
 	. "github.com/jacobsa/ogletest"
@@ -40,7 +39,7 @@ const ttl = time.Second
 type fastStatBucketTest struct {
 	cache   mock_gcscaching.MockStatCache
 	clock   timeutil.SimulatedClock
-	wrapped mock_gcs.MockBucket
+	wrapped gcs.MockBucket
 
 	bucket gcs.Bucket
 }
@@ -51,7 +50,7 @@ func (t *fastStatBucketTest) SetUp(ti *TestInfo) {
 
 	// Set up dependencies.
 	t.cache = mock_gcscaching.NewMockStatCache(ti.MockController, "cache")
-	t.wrapped = mock_gcs.NewMockBucket(ti.MockController, "wrapped")
+	t.wrapped = gcs.NewMockBucket(ti.MockController, "wrapped")
 
 	t.bucket = gcscaching.NewFastStatBucket(
 		ttl,
