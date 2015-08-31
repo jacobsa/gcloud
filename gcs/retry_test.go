@@ -129,7 +129,21 @@ func (t *RetryBucket_CreateObjectTest) CallsWrapped() {
 }
 
 func (t *RetryBucket_CreateObjectTest) Successful() {
-	AssertTrue(false, "TODO")
+	var err error
+
+	// Request
+	t.req.Contents = ioutil.NopCloser(strings.NewReader(""))
+
+	// Wrapped
+	expected := &Object{}
+	ExpectCall(t.wrapped, "CreateObject")(Any(), Any()).
+		WillOnce(Return(expected, nil))
+
+	// Call
+	err = t.call()
+
+	AssertEq(nil, err)
+	ExpectEq(expected, t.obj)
 }
 
 func (t *RetryBucket_CreateObjectTest) ShouldNotRetry() {
