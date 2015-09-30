@@ -3069,13 +3069,19 @@ func (t *statTest) StatAfterUpdating() {
 		ContentType: makeStringPtr("image/png"),
 	}
 
+	updateTime := t.clock.Now()
 	o2, err := t.bucket.UpdateObject(t.ctx, ureq)
 	AssertEq(nil, err)
 	AssertNe(o2.MetaGeneration, orig.MetaGeneration)
 
-	// Despite the name, 'Updated' doesn't reflect object updates, only creation
-	// of new generations. Cf. Google-internal bug 19684518.
-	AssertThat(o2.Updated, timeutil.TimeEq(orig.Updated))
+	// 'Updated' should be the update time, not the creation time.
+	ExpectThat(o2.Updated, t.matchesStartTime(updateTime))
+	ExpectTrue(
+		orig.Updated.Before(o2.Updated),
+		"orig.Updated: %v\n"+
+			"o2.Updated:   %v",
+		orig.Updated,
+		o2.Updated)
 
 	// Ensure the time below doesn't match exactly.
 	t.advanceTime()
@@ -3399,7 +3405,7 @@ func (t *updateTest) MixedModificationsToUserMetadata() {
 	ExpectThat(listing.Objects[0], DeepEquals(o))
 }
 
-func (t *updateTest) DoesntAffectUpdateTime() {
+func (t *updateTest) UpdateTime() {
 	// Create an object.
 	createTime := t.clock.Now()
 	o, err := gcsutil.CreateObject(t.ctx, t.bucket, "foo", []byte{})
@@ -3415,12 +3421,18 @@ func (t *updateTest) DoesntAffectUpdateTime() {
 		ContentType: makeStringPtr("image/jpeg"),
 	}
 
+	updateTime := t.clock.Now()
 	o2, err := t.bucket.UpdateObject(t.ctx, req)
 	AssertEq(nil, err)
 
-	// Despite the name, 'Updated' doesn't reflect object updates, only creation
-	// of new generations. Cf. Google-internal bug 19684518.
-	ExpectThat(o2.Updated, timeutil.TimeEq(o.Updated))
+	// 'Updated' should be the update time, not the creation time.
+	ExpectThat(o2.Updated, t.matchesStartTime(updateTime))
+	ExpectTrue(
+		o.Updated.Before(o2.Updated),
+		"o.Updated:  %v\n"+
+			"o2.Updated: %v",
+		o.Updated,
+		o2.Updated)
 }
 
 func (t *updateTest) ParticularGeneration_NameDoesntExist() {
