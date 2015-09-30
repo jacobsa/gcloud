@@ -809,8 +809,9 @@ func (b *bucket) UpdateObject(
 		}
 	}
 
-	// Bump up the entry generation number.
+	// Bump up the entry generation number and the update time.
 	obj.MetaGeneration++
+	obj.Updated = b.clock.Now()
 
 	// Make a copy to avoid handing back internal state.
 	var objCopy gcs.Object = *obj
