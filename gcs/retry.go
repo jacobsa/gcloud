@@ -113,7 +113,7 @@ func chooseDelay(prevSleepCount uint) (d time.Duration) {
 
 	// Choose a a delay in [0, 2^prevSleepCount * baseDelay).
 	d = (1 << prevSleepCount) * baseDelay
-	d = time.Duration(float64(d) * rand.Float64())
+	d = time.Duration(rand.Int63n(int64(d)))
 
 	return
 }
