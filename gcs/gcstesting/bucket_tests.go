@@ -530,7 +530,7 @@ func (t *createTest) ObjectAttributes_Default() {
 
 	// Check the Object struct.
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
@@ -1703,7 +1703,7 @@ func (t *composeTest) OneSimpleSource() {
 
 	// Check the result.
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
@@ -1760,7 +1760,7 @@ func (t *composeTest) TwoSimpleSources() {
 
 	// Check the result.
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
@@ -1817,7 +1817,7 @@ func (t *composeTest) ManySimpleSources() {
 
 	// Check the result.
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
@@ -1885,7 +1885,7 @@ func (t *composeTest) RepeatedSources() {
 
 	// Check the result.
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
@@ -1964,7 +1964,7 @@ func (t *composeTest) CompositeSources() {
 
 	// Check the result.
 	ExpectEq("foo", o.Name)
-	ExpectEq("application/octet-stream", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
 	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
@@ -3123,29 +3123,6 @@ func (t *updateTest) NonExistentObject() {
 	ExpectThat(err, Error(MatchesRegexp("not found|404")))
 }
 
-func (t *updateTest) RemoveContentType() {
-	// Create an object.
-	createReq := &gcs.CreateObjectRequest{
-		Name:        "foo",
-		ContentType: "image/png",
-		Contents:    strings.NewReader("taco"),
-	}
-
-	_, err := t.bucket.CreateObject(t.ctx, createReq)
-	AssertEq(nil, err)
-
-	// Attempt to remove the content type field.
-	req := &gcs.UpdateObjectRequest{
-		Name:        "foo",
-		ContentType: makeStringPtr(""),
-	}
-
-	_, err = t.bucket.UpdateObject(t.ctx, req)
-
-	AssertNe(nil, err)
-	ExpectThat(err, Error(HasSubstr("required")))
-}
-
 func (t *updateTest) RemoveAllFields() {
 	// Create an object with explicit attributes set.
 	createReq := &gcs.CreateObjectRequest{
@@ -3164,12 +3141,12 @@ func (t *updateTest) RemoveAllFields() {
 	_, err := t.bucket.CreateObject(t.ctx, createReq)
 	AssertEq(nil, err)
 
-	// Remove all of the fields that were set, aside from user metadata and
-	// ContentType (which cannot be removed).
+	// Remove all of the fields that were set, aside from user metadata.
 	req := &gcs.UpdateObjectRequest{
 		Name:            "foo",
 		ContentEncoding: makeStringPtr(""),
 		ContentLanguage: makeStringPtr(""),
+		ContentType:     makeStringPtr(""),
 		CacheControl:    makeStringPtr(""),
 	}
 
@@ -3181,7 +3158,7 @@ func (t *updateTest) RemoveAllFields() {
 	AssertEq(len("taco"), o.Size)
 	AssertEq(2, o.MetaGeneration)
 
-	ExpectEq("image/png", o.ContentType)
+	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)

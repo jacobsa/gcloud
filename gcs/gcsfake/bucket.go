@@ -220,11 +220,6 @@ func (b *bucket) mintObject(
 	// Set up data.
 	o.data = contents
 
-	// Support the same default content type as GCS.
-	if o.metadata.ContentType == "" {
-		o.metadata.ContentType = "application/octet-stream"
-	}
-
 	return
 }
 
@@ -732,12 +727,6 @@ func (b *bucket) UpdateObject(
 	req *gcs.UpdateObjectRequest) (o *gcs.Object, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
-	// Match real GCS in not allowing the removal of ContentType.
-	if req.ContentType != nil && *req.ContentType == "" {
-		err = errors.New("The ContentType field is required and cannot be removed.")
-		return
-	}
 
 	// Does the object exist?
 	index := b.objects.find(req.Name)
