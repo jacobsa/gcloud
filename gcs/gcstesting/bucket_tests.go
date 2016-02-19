@@ -2012,6 +2012,7 @@ func (t *composeTest) Metadata() {
 					Name: sources[1].Name,
 				},
 			},
+			ContentType: "image/jpeg",
 			Metadata: map[string]string{
 				"key0": "val0",
 				"key1": "val1",
@@ -2025,6 +2026,7 @@ func (t *composeTest) Metadata() {
 	AssertEq("foo", o.Name)
 	ExpectEq(1, o.MetaGeneration)
 
+	ExpectEq("image/jpeg", o.ContentType)
 	ExpectEq(2, len(o.Metadata))
 	ExpectEq("val0", o.Metadata["key0"])
 	ExpectEq("val1", o.Metadata["key1"])
