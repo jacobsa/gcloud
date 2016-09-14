@@ -30,6 +30,7 @@ package gcs_test
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -67,34 +68,48 @@ var fDebugHTTP = flag.Bool(
 
 func TestOgletest(t *testing.T) { RunTests(t) }
 
+func createConnForIntegrationTest(
+	ctx context.Context) (conn gcs.Conn, err error) {
+	// Set up the token source.
+	const scope = gcs.Scope_FullControl
+	tokenSrc, err := google.DefaultTokenSource(ctx, scope)
+	if err != nil {
+		err = fmt.Errorf("creating token source: %v", err)
+		return
+	}
+
+	// Use that to create a GCS connection, enabling retry and debugging if
+	// requested.
+	cfg := &gcs.ConnConfig{
+		TokenSource: tokenSrc,
+	}
+
+	if *fUseRetry {
+		cfg.MaxBackoffSleep = 5 * time.Minute
+	}
+
+	if *fDebugGCS {
+		cfg.GCSDebugLogger = log.New(os.Stderr, "gcs: ", 0)
+	}
+
+	if *fDebugHTTP {
+		cfg.HTTPDebugLogger = log.New(os.Stderr, "http: ", 0)
+	}
+
+	conn, err = gcs.NewConn(cfg)
+	return
+}
+
 func init() {
 	makeDeps := func(ctx context.Context) (deps gcstesting.BucketTestDeps) {
 		var err error
 
-		// Set up the token source.
-		const scope = gcs.Scope_FullControl
-		tokenSrc, err := google.DefaultTokenSource(context.Background(), scope)
-		AssertEq(nil, err)
-
-		// Use that to create a GCS connection, enabling retry if requested.
-		cfg := &gcs.ConnConfig{
-			TokenSource: tokenSrc,
-		}
-
 		if *fUseRetry {
-			cfg.MaxBackoffSleep = 5 * time.Minute
 			deps.BuffersEntireContentsForCreate = true
 		}
 
-		if *fDebugGCS {
-			cfg.GCSDebugLogger = log.New(os.Stderr, "gcs: ", 0)
-		}
-
-		if *fDebugHTTP {
-			cfg.HTTPDebugLogger = log.New(os.Stderr, "http: ", 0)
-		}
-
-		conn, err := gcs.NewConn(cfg)
+		// Set up the connection.
+		conn, err := createConnForIntegrationTest(ctx)
 		AssertEq(nil, err)
 
 		// Open the bucket.

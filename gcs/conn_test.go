@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 
 	"github.com/jacobsa/gcloud/gcs"
 	. "github.com/jacobsa/oglematchers"
@@ -48,17 +47,8 @@ func (t *ConnTest) SetUp(ti *TestInfo) {
 
 	t.ctx = ti.Ctx
 
-	// Set up a token source.
-	const scope = gcs.Scope_FullControl
-	tokenSrc, err := google.DefaultTokenSource(context.Background(), scope)
-	AssertEq(nil, err)
-
-	// Use that to create a GCS connection, enabling retry if requested.
-	cfg := &gcs.ConnConfig{
-		TokenSource: tokenSrc,
-	}
-
-	t.conn, err = gcs.NewConn(cfg)
+	// Create a connection.
+	t.conn, err = createConnForIntegrationTest(t.ctx)
 	AssertEq(nil, err)
 }
 
