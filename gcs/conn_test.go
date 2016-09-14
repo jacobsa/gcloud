@@ -69,7 +69,7 @@ func (t *ConnTest) NonExistentBucket() {
 func (t *ConnTest) BadCredentials() {
 	var err error
 
-	const name = "golang"
+	const name = "foobar"
 	_, err = t.conn.OpenBucket(t.ctx, name)
 
 	ExpectThat(err, Error(HasSubstr("Bad credentials")))
