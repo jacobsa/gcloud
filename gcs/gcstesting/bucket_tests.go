@@ -1706,7 +1706,8 @@ func (t *composeTest) OneSimpleSource() {
 	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
-	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	// Disabled due to Google-internal bug 31476941.
+	// ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("taco"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq(1, o.ComponentCount)
@@ -1763,7 +1764,8 @@ func (t *composeTest) TwoSimpleSources() {
 	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
-	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	// Disabled due to Google-internal bug 31476941.
+	// ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("tacoburrito"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq(2, o.ComponentCount)
@@ -1820,7 +1822,8 @@ func (t *composeTest) ManySimpleSources() {
 	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
-	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	// Disabled due to Google-internal bug 31476941.
+	// ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("tacoburritoenchiladaqueso"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq(6, o.ComponentCount)
@@ -1888,7 +1891,8 @@ func (t *composeTest) RepeatedSources() {
 	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
-	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	// Disabled due to Google-internal bug 31476941.
+	// ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("tacoburritotacoburrito"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq(4, o.ComponentCount)
@@ -1967,7 +1971,8 @@ func (t *composeTest) CompositeSources() {
 	ExpectEq("", o.ContentType)
 	ExpectEq("", o.ContentLanguage)
 	ExpectEq("", o.CacheControl)
-	ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
+	// Disabled due to Google-internal bug 31476941.
+	// ExpectThat(o.Owner, MatchesRegexp("^user-.*"))
 	ExpectEq(len("tacoburritotacotacoburrito"), o.Size)
 	ExpectEq("", o.ContentEncoding)
 	ExpectEq(5, o.ComponentCount)
