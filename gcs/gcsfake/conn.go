@@ -83,3 +83,12 @@ func (c *conn) OpenBucket(
 
 	return
 }
+
+// This is defined merely to support interface.
+func (c *conn) OpenRequesterPaysBucket(
+	ctx context.Context,
+	name string,
+	userProject string) (b gcs.Bucket, err error) {
+	b, err = c.OpenBucket(ctx, name)
+	return
+}

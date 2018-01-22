@@ -124,9 +124,10 @@ type Bucket interface {
 }
 
 type bucket struct {
-	client    *http.Client
-	userAgent string
-	name      string
+	client      *http.Client
+	userAgent   string
+	name        string
+	userProject string
 }
 
 func (b *bucket) Name() string {
@@ -158,6 +159,10 @@ func (b *bucket) ListObjects(
 
 	if req.MaxResults != 0 {
 		query.Set("maxResults", fmt.Sprintf("%v", req.MaxResults))
+	}
+
+	if b.userProject != "" {
+		query.Set("userProject", b.userProject)
 	}
 
 	url := &url.URL{
@@ -212,6 +217,10 @@ func (b *bucket) StatObject(
 
 	query := make(url.Values)
 	query.Set("projection", "full")
+
+	if b.userProject != "" {
+		query.Set("userProject", b.userProject)
+	}
 
 	url := &url.URL{
 		Scheme:   "https",
@@ -283,6 +292,10 @@ func (b *bucket) DeleteObject(
 			fmt.Sprintf("%d", *req.MetaGenerationPrecondition))
 	}
 
+	if b.userProject != "" {
+		query.Set("userProject", b.userProject)
+	}
+
 	url := &url.URL{
 		Scheme:   "https",
 		Host:     "www.googleapis.com",
@@ -338,5 +351,18 @@ func newBucket(
 		client:    client,
 		userAgent: userAgent,
 		name:      name,
+	}
+}
+
+func newRequesterPaysBucket(
+	client *http.Client,
+	userAgent string,
+	name string,
+	userProject string) Bucket {
+	return &bucket{
+		client:      client,
+		userAgent:   userAgent,
+		name:        name,
+		userProject: userProject,
 	}
 }

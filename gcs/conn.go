@@ -46,6 +46,14 @@ type Conn interface {
 	OpenBucket(
 		ctx context.Context,
 		name string) (b Bucket, err error)
+
+	// Return a Bucket object representing the GCS requester pays bucket with the given name.
+	// Set the project sepcified by userProject as the project to be billed for requests made.
+	// Attempt to fail early in the case of bad credentials.
+	OpenRequesterPaysBucket(
+		ctx context.Context,
+		name string,
+		userProject string) (b Bucket, err error)
 }
 
 // ConnConfig contains options accepted by NewConn.
@@ -140,7 +148,19 @@ type conn struct {
 func (c *conn) OpenBucket(
 	ctx context.Context,
 	name string) (b Bucket, err error) {
-	b = newBucket(c.client, c.userAgent, name)
+	b, err = c.OpenRequesterPaysBucket(ctx, name, "")
+	return
+}
+
+func (c *conn) OpenRequesterPaysBucket(
+	ctx context.Context,
+	name string,
+	userProject string) (b Bucket, err error) {
+	if userProject != "" {
+		b = newRequesterPaysBucket(c.client, c.userAgent, name, userProject)
+	} else {
+		b = newBucket(c.client, c.userAgent, name)
+	}
 
 	// Enable retry loops if requested.
 	if c.maxBackoffSleep > 0 {
