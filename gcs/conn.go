@@ -49,6 +49,7 @@ type Conn interface {
 
 	// Return a Bucket object representing the GCS requester pays bucket with the given name.
 	// Set the project sepcified by userProject as the project to be billed for requests made.
+	// (https://cloud.google.com/storage/docs/requester-pays)
 	// Attempt to fail early in the case of bad credentials.
 	OpenRequesterPaysBucket(
 		ctx context.Context,
