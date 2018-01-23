@@ -44,7 +44,7 @@ type OpenBucketOptions struct {
 	Name string
 
 	// BillingProject specifies the project to be billed when making requests.
-	// This option is needed for requester pays buckets.
+	// This option is only needed for requester pays buckets and can be left empty otherwise.
 	// (https://cloud.google.com/storage/docs/requester-pays)
 	BillingProject string
 }
