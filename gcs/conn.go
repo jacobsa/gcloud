@@ -38,23 +38,25 @@ const (
 	Scope_ReadWrite   = storagev1.DevstorageReadWriteScope
 )
 
+// OpenBucketOptions contains options accepted by Conn.OpenBucket.
+type OpenBucketOptions struct {
+	// Name is the name of the bucket to be opened.
+	Name string
+
+	// BillingProject specifies the project to be billed when making requests.
+	// This option is needed for requester pays buckets.
+	// (https://cloud.google.com/storage/docs/requester-pays)
+	BillingProject string
+}
+
 // Conn represents a connection to GCS, pre-bound with a project ID and
 // information required for authorization.
 type Conn interface {
-	// Return a Bucket object representing the GCS bucket with the given name.
+	// Return a Bucket object representing the GCS bucket using the given options.
 	// Attempt to fail early in the case of bad credentials.
 	OpenBucket(
 		ctx context.Context,
-		name string) (b Bucket, err error)
-
-	// Return a Bucket object representing the GCS requester pays bucket with the given name.
-	// Set the project sepcified by userProject as the project to be billed for requests made.
-	// (https://cloud.google.com/storage/docs/requester-pays)
-	// Attempt to fail early in the case of bad credentials.
-	OpenRequesterPaysBucket(
-		ctx context.Context,
-		name string,
-		userProject string) (b Bucket, err error)
+		options OpenBucketOptions) (b Bucket, err error)
 }
 
 // ConnConfig contains options accepted by NewConn.
@@ -148,19 +150,11 @@ type conn struct {
 
 func (c *conn) OpenBucket(
 	ctx context.Context,
-	name string) (b Bucket, err error) {
-	b, err = c.OpenRequesterPaysBucket(ctx, name, "")
-	return
-}
-
-func (c *conn) OpenRequesterPaysBucket(
-	ctx context.Context,
-	name string,
-	userProject string) (b Bucket, err error) {
-	if userProject != "" {
-		b = newRequesterPaysBucket(c.client, c.userAgent, name, userProject)
+	options OpenBucketOptions) (b Bucket, err error) {
+	if options.BillingProject != "" {
+		b = newRequesterPaysBucket(c.client, c.userAgent, options.Name, options.BillingProject)
 	} else {
-		b = newBucket(c.client, c.userAgent, name)
+		b = newBucket(c.client, c.userAgent, options.Name)
 	}
 
 	// Enable retry loops if requested.
