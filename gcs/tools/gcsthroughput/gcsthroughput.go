@@ -64,7 +64,7 @@ func createBucket() (bucket gcs.Bucket, err error) {
 		return
 	}
 
-	bucket, err = conn.OpenBucket(context.Background(), gcs.OpenBucketOptions{Name: *fBucket})
+	bucket, err = conn.OpenBucket(context.Background(), &gcs.OpenBucketOptions{Name: *fBucket})
 	if err != nil {
 		err = fmt.Errorf("OpenBucket: %v", err)
 		return
