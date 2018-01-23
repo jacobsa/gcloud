@@ -67,7 +67,7 @@ func (c *conn) checkInvariants() {
 // LOCKS_EXCLUDED(c.mu)
 func (c *conn) OpenBucket(
 	ctx context.Context,
-	options gcs.OpenBucketOptions) (b gcs.Bucket, err error) {
+	options *gcs.OpenBucketOptions) (b gcs.Bucket, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

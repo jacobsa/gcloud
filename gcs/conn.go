@@ -56,7 +56,7 @@ type Conn interface {
 	// Attempt to fail early in the case of bad credentials.
 	OpenBucket(
 		ctx context.Context,
-		options OpenBucketOptions) (b Bucket, err error)
+		options *OpenBucketOptions) (b Bucket, err error)
 }
 
 // ConnConfig contains options accepted by NewConn.
@@ -150,7 +150,7 @@ type conn struct {
 
 func (c *conn) OpenBucket(
 	ctx context.Context,
-	options OpenBucketOptions) (b Bucket, err error) {
+	options *OpenBucketOptions) (b Bucket, err error) {
 	if options.BillingProject != "" {
 		b = newRequesterPaysBucket(c.client, c.userAgent, options.Name, options.BillingProject)
 	} else {
