@@ -113,7 +113,7 @@ func init() {
 		AssertEq(nil, err)
 
 		// Open the bucket.
-		deps.Bucket, err = conn.OpenBucket(ctx, *fBucket)
+		deps.Bucket, err = conn.OpenBucket(ctx, gcs.OpenBucketOptions{Name: *fBucket})
 		AssertEq(nil, err)
 
 		// Clear the bucket.

@@ -196,7 +196,7 @@ func getBucket(ctx context.Context) (b gcs.Bucket, err error) {
 	}
 
 	// Open the bucket.
-	b, err = conn.OpenBucket(ctx, *fBucket)
+	b, err = conn.OpenBucket(ctx, gcs.OpenBucketOptions{Name: *fBucket})
 	if err != nil {
 		err = fmt.Errorf("OpenBucket: %v", err)
 		return

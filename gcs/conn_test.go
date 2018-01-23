@@ -60,7 +60,7 @@ func (t *ConnTest) NonExistentBucket() {
 	var err error
 
 	const name = "jklsdfghiouyhiosufhkdjf"
-	_, err = t.conn.OpenBucket(t.ctx, name)
+	_, err = t.conn.OpenBucket(t.ctx, gcs.OpenBucketOptions{Name: name})
 
 	ExpectThat(err, Error(HasSubstr("Unknown bucket")))
 	ExpectThat(err, Error(HasSubstr(name)))
@@ -70,7 +70,7 @@ func (t *ConnTest) BadCredentials() {
 	var err error
 
 	const name = "foobar"
-	_, err = t.conn.OpenBucket(t.ctx, name)
+	_, err = t.conn.OpenBucket(t.ctx, gcs.OpenBucketOptions{Name: name})
 
 	ExpectThat(err, Error(HasSubstr("Bad credentials")))
 	ExpectThat(err, Error(HasSubstr(name)))
