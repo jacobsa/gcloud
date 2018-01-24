@@ -55,8 +55,8 @@ func (b *bucket) NewReader(
 		query.Set("generation", fmt.Sprintf("%d", req.Generation))
 	}
 
-	if b.userProject != "" {
-		query.Set("userProject", b.userProject)
+	if b.billingProject != "" {
+		query.Set("userProject", b.billingProject)
 	}
 
 	url := &url.URL{
