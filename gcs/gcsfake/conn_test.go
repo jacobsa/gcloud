@@ -60,7 +60,7 @@ func (t *ConnTest) BucketContentsAreStable() {
 	var err error
 
 	// Open the bucket.
-	bucket, err := t.conn.OpenBucket(t.ctx, bucketName)
+	bucket, err := t.conn.OpenBucket(t.ctx, &gcs.OpenBucketOptions{Name: bucketName})
 	AssertEq(nil, err)
 
 	// Add an object to a bucket.
@@ -87,10 +87,10 @@ func (t *ConnTest) BucketsAreSegregatedByName() {
 	var contents []byte
 	var err error
 
-	b0, err := t.conn.OpenBucket(t.ctx, "foo")
+	b0, err := t.conn.OpenBucket(t.ctx, &gcs.OpenBucketOptions{Name: "foo"})
 	AssertEq(nil, err)
 
-	b1, err := t.conn.OpenBucket(t.ctx, "bar")
+	b1, err := t.conn.OpenBucket(t.ctx, &gcs.OpenBucketOptions{Name: "bar"})
 	AssertEq(nil, err)
 
 	// Add an object with the same name but different contents to each of two
