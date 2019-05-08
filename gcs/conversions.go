@@ -124,26 +124,29 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 	}
 
 	// CRC32C
-	crc32cString, err := base64.StdEncoding.DecodeString(in.Crc32c)
-	if err != nil {
-		err = fmt.Errorf("Decoding Crc32c field: %v", err)
-		return
+	// No CRC32C or MD5 values returned for CMEK buckets
+	if in.Crc32c != "" {
+		var crc32cString []byte
+		crc32cString, err = base64.StdEncoding.DecodeString(in.Crc32c)
+		if err != nil {
+			err = fmt.Errorf("Decoding Crc32c field: %v", err)
+			return
+		}
+
+		if len(crc32cString) != 4 {
+			err = fmt.Errorf(
+				"Wrong length for decoded Crc32c field: %d",
+				len(crc32cString))
+
+			return
+		}
+
+		out.CRC32C =
+			uint32(crc32cString[0])<<24 |
+				uint32(crc32cString[1])<<16 |
+				uint32(crc32cString[2])<<8 |
+				uint32(crc32cString[3])<<0
 	}
-
-	if len(crc32cString) != 4 {
-		err = fmt.Errorf(
-			"Wrong length for decoded Crc32c field: %d",
-			len(crc32cString))
-
-		return
-	}
-
-	out.CRC32C =
-		uint32(crc32cString[0])<<24 |
-			uint32(crc32cString[1])<<16 |
-			uint32(crc32cString[2])<<8 |
-			uint32(crc32cString[3])<<0
-
 	return
 }
 
