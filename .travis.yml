@@ -3,5 +3,5 @@
 
 language: go
 
-# Updating to go 1.7.4 as dependencies on context and net/http/trace
-go: 1.7.4
+# Updating go version for dependencies on context and net/http/trace
+go: master
