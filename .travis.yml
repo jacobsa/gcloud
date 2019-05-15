@@ -3,5 +3,4 @@
 
 language: go
 
-# Updating go version for dependencies on context and net/http/trace
 go: master
