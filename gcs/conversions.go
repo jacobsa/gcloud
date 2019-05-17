@@ -123,8 +123,9 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 		copy(out.MD5[:], md5Slice)
 	}
 
-	// CRC32C
-	// No CRC32C or MD5 values returned for CMEK buckets
+	//Populate CRC32 when present in the response.  This may be missing - e.g.
+	// for buckets using customer-managed encryption keys.
+	// See: https://cloud.google.com/storage/docs/gsutil/addlhelp/UsingEncryptionKeys#encryption-behaviour
 	if in.Crc32c != "" {
 		var crc32cString []byte
 		crc32cString, err = base64.StdEncoding.DecodeString(in.Crc32c)
@@ -141,11 +142,12 @@ func toObject(in *storagev1.Object) (out *Object, err error) {
 			return
 		}
 
-		out.CRC32C =
+		crc32cInt :=
 			uint32(crc32cString[0])<<24 |
 				uint32(crc32cString[1])<<16 |
 				uint32(crc32cString[2])<<8 |
 				uint32(crc32cString[3])<<0
+		out.CRC32C = &crc32cInt
 	}
 	return
 }
