@@ -184,7 +184,7 @@ func createObjects(
 				return
 			}
 
-			if o.CRC32C != crc32c {
+			if *o.CRC32C != crc32c {
 				err = fmt.Errorf(
 					"Object %q CRC mismatch: %#08x vs. %#08x",
 					o.Name,
