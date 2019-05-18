@@ -3,6 +3,4 @@
 
 language: go
 
-# We can't build with 1.4.x (apparently the Travis default as of 2015-09-30),
-# because it doesn't have http.Request.Cancel.
-go: 1.5.1
+go: master
