@@ -161,7 +161,7 @@ func (t *RetryBucket_CreateObjectTest) ShouldNotRetry() {
 	// Call
 	err = t.call()
 
-	ExpectEq(expected, err)
+	ExpectTrue(errors.Is(err, expected))
 }
 
 func (t *RetryBucket_CreateObjectTest) CallsWrappedForRetry() {
