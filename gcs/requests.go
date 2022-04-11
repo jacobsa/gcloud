@@ -192,7 +192,7 @@ func (p Projection) String() string {
 	case NoAcl:
 		return "noAcl"
 	}
-	return "noAcl"
+	return "full"
 }
 
 type ListObjectsRequest struct {
