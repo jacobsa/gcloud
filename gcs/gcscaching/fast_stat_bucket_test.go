@@ -356,6 +356,35 @@ func (t *StatObjectTest) CacheHit_Negative() {
 	ExpectThat(err, HasSameTypeAs(&gcs.NotFoundError{}))
 }
 
+func (t *StatObjectTest) IgnoresCacheEntryWhenForceFetchFromGcsIsTrue() {
+	const name = "taco"
+
+	// Lookup
+	ExpectCall(t.cache, "LookUp")(Any(), Any()).Times(0)
+
+	// Request
+	req := &gcs.StatObjectRequest{
+		Name: name,
+		ForceFetchFromGcs: true,
+	}
+
+	// Wrapped
+	objFromGcs := &gcs.Object{
+		Name: name,
+		CacheControl: "testControl",
+	}
+
+	ExpectCall(t.wrapped, "StatObject")(Any(), req).
+		WillOnce(Return(objFromGcs, nil))
+
+	// Insert
+	ExpectCall(t.cache, "Insert")(objFromGcs, timeutil.TimeEq(t.clock.Now().Add(ttl)))
+
+	o, err := t.bucket.StatObject(nil, req)
+	AssertEq(nil, err)
+	ExpectEq(objFromGcs, o)
+}
+
 func (t *StatObjectTest) CallsWrapped() {
 	const name = ""
 	req := &gcs.StatObjectRequest{
