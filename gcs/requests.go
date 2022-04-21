@@ -174,6 +174,10 @@ type ReadObjectRequest struct {
 type StatObjectRequest struct {
 	// The name of the object in question.
 	Name string
+
+	// Relevant only when fast_stat_bucket is used. This field controls whether
+	// to fetch from gcs or from cache.
+	ForceFetchFromGcs bool
 }
 
 type Projection int64
