@@ -46,6 +46,7 @@ func (b *bucket) makeComposeObjectsBody(
 			CustomTime:         req.CustomTime,
 			EventBasedHold:     req.EventBasedHold,
 			StorageClass:       req.StorageClass,
+			Acl:                req.Acl,
 		},
 	}
 
@@ -99,6 +100,10 @@ func (b *bucket) ComposeObjects(
 		query.Set(
 			"ifMetagenerationMatch",
 			fmt.Sprint(*req.DstMetaGenerationPrecondition))
+	}
+
+	if b.billingProject != "" {
+		query.Set("userProject", b.billingProject)
 	}
 
 	url := &url.URL{
