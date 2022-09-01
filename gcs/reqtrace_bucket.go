@@ -29,6 +29,8 @@ type reqtraceBucket struct {
 	Wrapped Bucket
 }
 
+// GetWrappedWithReqtraceBucket wraps any gcs.Bucket under the reqtraceBucket
+// and returns their reference.
 func GetWrappedWithReqtraceBucket(b Bucket) (req *reqtraceBucket) {
 	req = &reqtraceBucket{Wrapped: b}
 	return
