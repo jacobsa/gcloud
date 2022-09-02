@@ -183,8 +183,8 @@ func (c *conn) OpenBucket(
 	// Forbidden". Similarly for bad bucket names that don't collide with another
 	// bucket.
 	_, err = b.ListObjects(ctx, &ListObjectsRequest{MaxResults: 1})
-	unwrapped := errors.Unwrap(err)
-	if typed, ok := unwrapped.(*googleapi.Error); ok {
+	unwrappedErr := errors.Unwrap(err)
+	if typed, ok := unwrappedErr.(*googleapi.Error); ok {
 		switch typed.Code {
 		case http.StatusForbidden:
 			err = fmt.Errorf(
