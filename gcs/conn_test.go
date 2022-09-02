@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // Restrict this test to builds that specify the tag 'integration'.
+//go:build integration
 // +build integration
 
 package gcs_test
@@ -20,9 +21,9 @@ package gcs_test
 import (
 	"testing"
 
+	"github.com/jacobsa/gcloud/gcs"
 	"golang.org/x/net/context"
 
-	"github.com/jacobsa/gcloud/gcs"
 	. "github.com/jacobsa/oglematchers"
 	. "github.com/jacobsa/ogletest"
 )
@@ -48,7 +49,7 @@ func (t *ConnTest) SetUp(ti *TestInfo) {
 	t.ctx = ti.Ctx
 
 	// Create a connection.
-	t.conn, err = createConnForIntegrationTest(t.ctx)
+	t.conn, err = gcs.createConnForIntegrationTest(t.ctx)
 	AssertEq(nil, err)
 }
 
@@ -60,7 +61,7 @@ func (t *ConnTest) NonExistentBucket() {
 	var err error
 
 	const name = "jklsdfghiouyhiosufhkdjf"
-	_, err = t.conn.OpenBucket(t.ctx, &gcs.OpenBucketOptions{Name: name})
+	_, err = t.conn.OpenBucket(t.ctx, &OpenBucketOptions{Name: name})
 
 	ExpectThat(err, Error(HasSubstr("Unknown bucket")))
 	ExpectThat(err, Error(HasSubstr(name)))
@@ -70,8 +71,18 @@ func (t *ConnTest) BadCredentials() {
 	var err error
 
 	const name = "foobar"
-	_, err = t.conn.OpenBucket(t.ctx, &gcs.OpenBucketOptions{Name: name})
+	_, err = t.conn.OpenBucket(t.ctx, &OpenBucketOptions{Name: name})
 
 	ExpectThat(err, Error(HasSubstr("Bad credentials")))
 	ExpectThat(err, Error(HasSubstr(name)))
 }
+
+//func (t *ConnTest) NonExistentBucket2() {
+//	var err error
+//
+//	const name = "tulsi_gcsfuse"
+//	_, err = t.conn.OpenBucket(t.ctx, &gcs.OpenBucketOptions{Name: name})
+//
+//	ExpectThat(err, Error(HasSubstr("Unknown bucket")))
+//	ExpectThat(err, Error(HasSubstr(name)))
+//}

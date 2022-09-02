@@ -183,20 +183,27 @@ func (c *conn) OpenBucket(
 	// Forbidden". Similarly for bad bucket names that don't collide with another
 	// bucket.
 	_, err = b.ListObjects(ctx, &ListObjectsRequest{MaxResults: 1})
+
 	unwrappedErr := errors.Unwrap(err)
-	if typed, ok := unwrappedErr.(*googleapi.Error); ok {
-		switch typed.Code {
-		case http.StatusForbidden:
-			err = fmt.Errorf(
-				"Bad credentials for bucket %q. Check the bucket name and your "+
-					"credentials.",
-				b.Name())
+	var e error
 
-			return
+	if err != nil {
+		if errors.As(unwrappedErr, &e) {
+			if typed, ok := unwrappedErr.(*googleapi.Error); ok {
+				switch typed.Code {
+				case http.StatusForbidden:
+					err = fmt.Errorf(
+						"Bad credentials for bucket %q. Check the bucket name and your "+
+								"credentials.",
+						b.Name())
 
-		case http.StatusNotFound:
-			err = fmt.Errorf("Unknown bucket %q", b.Name())
-			return
+					return
+
+				case http.StatusNotFound:
+					err = fmt.Errorf("Unknown bucket %q", b.Name())
+					return
+				}
+			}
 		}
 	}
 
