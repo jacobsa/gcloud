@@ -184,13 +184,9 @@ func (c *conn) OpenBucket(
 	// bucket.
 	_, err = b.ListObjects(ctx, &ListObjectsRequest{MaxResults: 1})
 
-	unwrappedErr := errors.Unwrap(err)
-	var e error
-
-	if err != nil {
-		if errors.As(unwrappedErr, &e) {
-			if typed, ok := unwrappedErr.(*googleapi.Error); ok {
-				switch typed.Code {
+	var apiError *googleapi.Error
+	if errors.As(err, &apiError) {
+		switch apiError.Code{
 				case http.StatusForbidden:
 					err = fmt.Errorf(
 						"Bad credentials for bucket %q. Check the bucket name and your "+
@@ -204,8 +200,7 @@ func (c *conn) OpenBucket(
 					return
 				}
 			}
-		}
-	}
+		
 
 	// Otherwise, don't interfere.
 	err = nil
