@@ -186,21 +186,20 @@ func (c *conn) OpenBucket(
 
 	var apiError *googleapi.Error
 	if errors.As(err, &apiError) {
-		switch apiError.Code{
-				case http.StatusForbidden:
-					err = fmt.Errorf(
-						"Bad credentials for bucket %q. Check the bucket name and your "+
-								"credentials.",
-						b.Name())
+		switch apiError.Code {
+		case http.StatusForbidden:
+			err = fmt.Errorf(
+				"Bad credentials for bucket %q. Check the bucket name and your "+
+					"credentials.",
+				b.Name())
 
-					return
+			return
 
-				case http.StatusNotFound:
-					err = fmt.Errorf("Unknown bucket %q", b.Name())
-					return
-				}
-			}
-		
+		case http.StatusNotFound:
+			err = fmt.Errorf("Unknown bucket %q", b.Name())
+			return
+		}
+	}
 
 	// Otherwise, don't interfere.
 	err = nil
