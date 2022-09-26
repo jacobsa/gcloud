@@ -25,7 +25,7 @@ import (
 )
 
 // Wrap the supplied bucket in a layer that prints debug messages.
-func newDebugBucket(
+func NewDebugBucket(
 	wrapped Bucket,
 	logger *log.Logger) (b Bucket) {
 	b = &debugBucket{
@@ -41,13 +41,6 @@ type debugBucket struct {
 	wrapped Bucket
 
 	nextRequestID uint64
-}
-
-func GetLoggerAndWrappedWithDebugBucket(b Bucket, logger *log.Logger) *debugBucket {
-	return &debugBucket{
-		logger:  logger,
-		wrapped: b,
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////
