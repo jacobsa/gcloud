@@ -43,6 +43,13 @@ type debugBucket struct {
 	nextRequestID uint64
 }
 
+func GetLoggerAndWrappedWithDebugBucket(b Bucket, logger *log.Logger) *debugBucket {
+	return &debugBucket{
+		logger:  logger,
+		wrapped: b,
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
