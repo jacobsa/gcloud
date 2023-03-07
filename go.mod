@@ -1,6 +1,6 @@
 module github.com/jacobsa/gcloud
 
-go 1.18
+go 1.17
 
 require (
 	github.com/jacobsa/fuse v0.0.0-20211125163655-ffd6c474e806
