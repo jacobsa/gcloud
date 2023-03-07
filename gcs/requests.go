@@ -94,7 +94,7 @@ type CopyObjectRequest struct {
 	// Destination object will be overwritten only if the current
 	// generation is equal to the given value. Zero means the object does not
 	// exist.
-	DstGenerationPrecondition int64
+	DstGenerationPrecondition *int64
 }
 
 // MaxSourcesPerComposeRequest is the maximum number of sources that a
@@ -162,14 +162,13 @@ type ComposeSource struct {
 //
 // Its semantics are as follows:
 //
-//  *  If Limit is less than or equal to Start, the range is treated as empty.
+//   - If Limit is less than or equal to Start, the range is treated as empty.
 //
-//  *  The effective range is [start, limit) intersected with [0, L), where L
+//   - The effective range is [start, limit) intersected with [0, L), where L
 //     is the length of the object.
 //
 //     For example, a read for [L-1, L+10) returns the last byte of the object,
 //     and [L+2, L+10) is legal but returns nothing.
-//
 type ByteRange struct {
 	Start uint64
 	Limit uint64
