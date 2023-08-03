@@ -189,6 +189,10 @@ type ReadObjectRequest struct {
 
 	// If present, limit the contents returned to a range within the object.
 	Range *ByteRange
+
+	// If present, read the contents of the GCS object as it is on GCS.
+	// This might not be honoured by all the implementations.
+	ReadCompressed bool
 }
 
 type StatObjectRequest struct {
