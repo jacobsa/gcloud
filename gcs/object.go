@@ -47,7 +47,7 @@ type Object struct {
 	Updated         time.Time
 
 	// NOTE(jacobsa): As of 2015-06-03, the official GCS documentation for this
-	// property (https://goo.gl/GwD5Dq) says this:
+	// property (https://tinyurl.com/2zjza2cu) says this:
 	//
 	//     Newly uploaded objects have a component count of 1, and composing a
 	//     sequence of objects creates an object whose component count is equal

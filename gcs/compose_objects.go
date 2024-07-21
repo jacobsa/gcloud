@@ -73,8 +73,8 @@ func (b *bucket) ComposeObjects(
 	ctx context.Context,
 	req *ComposeObjectsRequest) (o *Object, err error) {
 	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
+	// invalid UTF-8 (https://tinyurl.com/2tz6wu24). So we can't rely on the
+	// server to detect this for us.
 	if !utf8.ValidString(req.DstName) {
 		err = errors.New("Invalid object name: not valid UTF-8")
 		return

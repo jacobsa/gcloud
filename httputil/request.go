@@ -32,8 +32,8 @@ import (
 //
 //  *  This function doesn't mangle the supplied URL by round tripping it to a
 //     string. For example, the Opaque field will continue to differentiate
-//     between actual slashes in the path and escaped ones (cf.
-//     http://goo.gl/rWX6ps).
+//     between actual slashes in the path and escaped ones
+//     (https://tinyurl.com/3e3kxd6p).
 //
 //  *  This function contains less magic: it insists on an io.ReadCloser as in
 //     http.Request.Body, and doesn't attempt to imperfectly sniff content

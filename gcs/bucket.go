@@ -138,7 +138,7 @@ func (b *bucket) Name() string {
 func (b *bucket) ListObjects(
 	ctx context.Context,
 	req *ListObjectsRequest) (listing *Listing, err error) {
-	// Construct an appropriate URL (cf. http://goo.gl/aVSAhT).
+	// Construct an appropriate URL (https://tinyurl.com/pchht6mx).
 	opaque := fmt.Sprintf(
 		"//%s/storage/v1/b/%s/o",
 		b.url.Host,
@@ -213,7 +213,7 @@ func (b *bucket) ListObjects(
 func (b *bucket) StatObject(
 	ctx context.Context,
 	req *StatObjectRequest) (o *Object, err error) {
-	// Construct an appropriate URL (cf. http://goo.gl/MoITmB).
+	// Construct an appropriate URL (https://tinyurl.com/36s8tsw5).
 	opaque := fmt.Sprintf(
 		"//%s/storage/v1/b/%s/o/%s",
 		b.url.Host,
@@ -279,7 +279,7 @@ func (b *bucket) StatObject(
 func (b *bucket) DeleteObject(
 	ctx context.Context,
 	req *DeleteObjectRequest) (err error) {
-	// Construct an appropriate URL (cf. http://goo.gl/TRQJjZ).
+	// Construct an appropriate URL (https://tinyurl.com/vcyn9ww9).
 	opaque := fmt.Sprintf(
 		"//%s/storage/v1/b/%s/o/%s",
 		b.url.Host,

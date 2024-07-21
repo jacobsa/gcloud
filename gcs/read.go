@@ -33,8 +33,9 @@ func (b *bucket) NewReader(
 	req *ReadObjectRequest) (rc io.ReadCloser, err error) {
 	// Construct an appropriate URL.
 	//
-	// The documentation (https://goo.gl/9zeA98) is vague about how this is
-	// supposed to work. As of 2015-05-14, it has no prose but gives the example:
+	// The documentation (https://tinyurl.com/2xp4vs34) is vague about how this
+	// is supposed to work. As of 2015-05-14, it has no prose but gives the
+	// example:
 	//
 	//     www.googleapis.com/download/storage/v1/b/<bucket>/o/<object>?alt=media
 	//

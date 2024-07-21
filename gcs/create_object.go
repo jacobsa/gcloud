@@ -56,8 +56,9 @@ func (b *bucket) startResumableUpload(
 	req *CreateObjectRequest) (uploadURL *url.URL, err error) {
 	// Construct an appropriate URL.
 	//
-	// The documentation (http://goo.gl/IJSlVK) is extremely vague about how this
-	// is supposed to work. As of 2015-03-26, it simply gives an example:
+	// The documentation (https://tinyurl.com/muc2jn8k) is extremely vague about
+	// how this is supposed to work. As of 2015-03-26, it simply gives an
+	// example:
 	//
 	//     POST https://www.googleapis.com/upload/storage/v1/b/<bucket>/o
 	//
@@ -154,8 +155,8 @@ func (b *bucket) CreateObject(
 	ctx context.Context,
 	req *CreateObjectRequest) (o *Object, err error) {
 	// We encode using json.NewEncoder, which is documented to silently transform
-	// invalid UTF-8 (cf. http://goo.gl/3gIUQB). So we can't rely on the server
-	// to detect this for us.
+	// invalid UTF-8 (https://tinyurl.com/4ur9tr2f). So we can't rely on the
+	// server to detect this for us.
 	if !utf8.ValidString(req.Name) {
 		err = errors.New("Invalid object name: not valid UTF-8")
 		return

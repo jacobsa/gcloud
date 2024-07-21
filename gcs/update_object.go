@@ -84,7 +84,7 @@ func (b *bucket) makeUpdateObjectBody(
 func (b *bucket) UpdateObject(
 	ctx context.Context,
 	req *UpdateObjectRequest) (o *Object, err error) {
-	// Construct an appropriate URL (cf. http://goo.gl/B46IDy).
+	// Construct an appropriate URL (https://tinyurl.com/27y6njk8).
 	opaque := fmt.Sprintf(
 		"//%s/storage/v1/b/%s/o/%s",
 		b.url.Host,
